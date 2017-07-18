@@ -1,0 +1,80 @@
+
+(set-logic LIA)
+(define-fun max2 ((x Int)(y Int)) Int -1)
+(define-fun x () Int 3)
+(define-fun y () Int 1)
+(assert (and (>= (max2 x y) x)
+(>= (max2 x y) y)
+(or (= x (max2 x y)) (= y (max2 x y)))))(check-sat)
+
+
+
+
+(set-logic LIA)
+(define-fun max2 ((x Int)(y Int)) Int -1)
+(define-fun x () Int 3)
+(define-fun y () Int 1)
+(assert (and (>= (max2 x y) x)
+(>= (max2 x y) y)
+(or (= x (max2 x y)) (= y (max2 x y)))))(check-sat)
+
+
+Verif:
+
+
+(set-logic LIA)
+(define-fun max2 ((x Int)(y Int)) Int (+ 1 0))
+(declare-var x Int)
+(declare-var y Int)
+(assert (not (and (>= (max2 x y) x)
+(>= (max2 x y) y)
+(or (= x (max2 x y)) (= y (max2 x y))))))(check-sat)
+
+; partial verification: fixing some of input variables (here: one)
+; may return 'sat', even though the program is incorrect 
+; may return counterexample too
+(set-logic LIA)
+(define-fun max2 ((x Int)(y Int)) Int (+ 1 0))
+(declare-var x Int)
+(declare-var y Int)
+(assert (not (and 
+(>= (max2 x y) x)
+(>= (max2 x y) y)
+(or (= x (max2 x y)) (= y (max2 x y)))
+(= x -3)
+)))
+(check-sat)
+
+
+However, although I find them promising, they are still in the realm of eliciting more information about program's performance or relaxing the problem in order to provide better gradient for search process. And what we really miss is how to translate the feedback from search process into 'directional' moves in the search space - the thing I was pestering you with in my previous emails. 
+
+
+
+
+; transcript
+(set-logic LIA)
+(declare-fun max2 (Int Int) Int)
+(declare-var x Int)
+(declare-var y Int)
+(assert (not (and (>= (max2 x y) x)
+(>= (max2 x y) y)
+(or (= x (max2 x y)) (= y (max2 x y))))))
+
+(push 1)
+(assert (forall ((x Int) (y Int)) (= (max2 x y) (ite (<= x y) y (+ 0 x)))))
+(check-sat)
+unsat
+(pop 1)
+(check-sat)
+sat
+(push 1)
+(assert (forall ((x Int) (y Int)) (= (max2 x y) (ite (< x y) y x))))
+(check-sat)
+unsat
+(assert (= (max2 3 6) 7))
+(check-sat)
+unsat
+(pop 1)
+(check-sat)
+sat 
+
