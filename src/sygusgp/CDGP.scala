@@ -89,8 +89,8 @@ class TestsManager[I,O]() {
       newTests.+=(t)
     }
   }
-  def updateTest(t: (I, Option[O])) {
-    //println("** Updated test: " + t)
+  def addTestWithFoundOutput(t: (I, Option[O])) {
+    //println("** Found output for test: " + t)
     tests.put(t._1, t._2)
   }
   
@@ -101,7 +101,7 @@ class TestsManager[I,O]() {
     // Update the set of tests with the newly found ones:
     for (test <- newTests)
       if (!tests.contains(test._1)) {
-        tests.put(test._1, test._2)
+        tests.put(test._1, None)
       }
     newTests.clear
   }
@@ -127,18 +127,7 @@ object CDGPTestbed extends FApp {
 
   val benchmark = opt('benchmark, "")
   println(benchmark)
-  def loadBenchmark(benchmark: String): Either[String, SyGuS16] = {
-    try {
-      SyGuS16.parseSyGuS16File(new File(benchmark))
-    }
-    catch {
-      case _: java.io.FileNotFoundException =>
-        println(s"File with benchmark not found: $benchmark")
-        System.exit(1)
-        null
-    }
-  }
-  val parseRes = loadBenchmark(benchmark)
+  val parseRes = SyGuS16.parseSyGuS16File(new File(benchmark))
   if (parseRes.isLeft)
     throw new Exception("PARSE ERROR:" + parseRes.left)
   assume(parseRes.isRight)
@@ -230,72 +219,36 @@ object CDGPTestbed extends FApp {
     */
   def evalOnTests(s: Op, tests: Seq[(I, Option[O])]): Seq[Int] = {
     for (test <- tests) yield {
-      val testInputsMap = test._1
-      val testOutput = test._2
       // Solver requires proper renaming of variables
-      val cexampleRenamed = argNames.zip(testInputsMap.unzip._2).toMap
+      val cexampleRenamed = argNames.zip(test._1.unzip._2).toMap
       val output = LIA(s)(cexampleRenamed)
       // If the desired output for this test is already known, simply compare
-      if (testOutput.isDefined) {
-        if (output == testOutput.get) 0 else 1
+      if (test._2.isDefined) {
+        if (output == test._2.get) 0 else 1
       } else {
         // If the desired output is not known yet, use the solver:
-        val checkOnTestCmd = SMTLIBFormatter.checkOnInput(sygusProblem, testInputsMap, output)
-        //println("\ncheckOnTestCmd:\n" + checkOnTestCmd)
-        val checkRes = runSolver(checkOnTestCmd)
+        val checkOnTestCmd = SMTLIBFormatter.checkOnInput(sygusProblem, test._1, output)
+        val checkRes = runSolver(checkOnTestCmd)//solver.solve(checkOnTestCmd)
         // If the program passed the test, we know the desired output and can update
         // the set of tests
-        if (checkRes.nonEmpty) testsManager.updateTest((testInputsMap, Some(output)))
+        if (checkRes.nonEmpty) testsManager.addTestWithFoundOutput((test._1, Some(output)))
         if (checkRes.nonEmpty) 0 else 1
       }
     }
   }
-  
-  def tryToFindOutputForTestCase(test: (I, Option[O])): (I, Option[O]) = {
-    val cmd: String = SMTLIBFormatter.searchForCorrectOutput(sygusProblem, test._1)
-    //println("\nSearch cmd:\n" + cmd)
-    try {
-      val getValueCommand = f"(get-value (CorrectOutput))"
-      val res = runSolver(cmd, getValueCommand)
-      // println("Solver res: " + res)
-      if (res.isDefined) {
-        val values = GetValueParser(res.get)
-        (test._1, Some(values.head._2))
-      }
-      else
-        test
-    }
-    catch {
-      case _: Throwable =>
-        println(s"Exception during executing query or parsing result, returning test with no output! ")
-        test // in case solver returns unknown
-    }
-  }
-  
-  def createTestFromFailedVerification(verOutput: String): (Map[String, Any], Option[Any]) = {
-    val counterExample = GetValueParser(verOutput) // returns the counterexample
-    val testNoOutput = (counterExample.toMap, None) // for this test currently the correct answer is not known
-    tryToFindOutputForTestCase(testNoOutput)
-  }
-  
-  def createRandomTest(verOutput: String): (Map[String, Any], Option[Any]) = {
-    // The only reason to call the parser here is to get the right argument names:
-    val argNames = GetValueParser(verOutput).unzip._1
-    val example = argNames.map(argName => (argName, GPRminInt + rng.nextInt(GPRmaxInt+1-GPRminInt)))
-    val testNoOutput = (example.toMap, None) // for this test currently the correct answer is not known
-    tryToFindOutputForTestCase(testNoOutput)
-  }
 
   /**
     * Tests a program on the available tests; if it passes all tests, verifies it and returns the program if
-    * it passes verification, wrapped in Left(). Otherwise, returns the vector of 0s and 1s like eval(), only wrapped in Right().
+    * it passes verification, wrapped in Left(). Otherwise, returns the vector of 0s and 1s like eval(), only wrapped in Right()
     *
     */
   def fitness(s: Op): Either[Op, Seq[Int]] = {
+    // Disabled: Reject single-instruction programs upfront if (s.size == 1) Right(tests.toList map { _ => 1 }) // worst possible fitness
+    // Calculate the 'regular' fitness:
     val failedTests = evalOnTests(s, testsManager.getTests())
     val cntFailed = failedTests.count(_ == 1)
     // CDGP Conservative variant: If the program fails any tests, then don't apply verification to it, 
-    // as it is very likely that the found counterexample is already among the tests.
+    // as it is very likely that the found counterexample is already among the tests
     if (cntFailed > 0 && (method == MethodCDGPconservative || method == MethodGPR))
       Right(failedTests)
     else {
@@ -307,13 +260,20 @@ object CDGPTestbed extends FApp {
           case MethodCDGP | MethodCDGPconservative =>
             if (!CDGPoneTestPerIter ||
                 (CDGPoneTestPerIter && testsManager.newTests.isEmpty)) {
-              val newTest = createTestFromFailedVerification(r.get)
+              val counterExample = GetValueParser(r.get) // returns the counterexample
+              val newTest = (counterExample.toMap, None) // for this test currently the correct answer is not known
               testsManager.addNewTest(newTest)
             }
           case MethodGPR => // Generate random example
             if (!GPRoneTestPerIter ||
                 (GPRoneTestPerIter && testsManager.newTests.isEmpty)) {
-              val newTest = createRandomTest(r.get)
+              // The only reason to call the parser here is to get the right argument names:
+              val argNames = GetValueParser(r.get).unzip._1
+              val example = argNames.map(argName => (argName, GPRminInt + rng.nextInt(GPRmaxInt+1-GPRminInt)))
+              val newTest = (example.toMap, None) // for this test currently the correct answer is not known
+              // NOTE: we may add to newTests only tests which are not already present in the global set of tests,
+              // because for newTests fitnesses in the population will be updated. Adding redundant new tests will
+              // result in desynchronizing fitness seqs between populations.  (this is handled inside addNewTest method)
               testsManager.addNewTest(newTest)
             }
         }
@@ -331,20 +291,30 @@ object CDGPTestbed extends FApp {
     s
   }
   def updatePopSteadyStateGP(s: StatePop[(Op, Int)]): StatePop[(Op, Int)] = {
+    //println("[update] Updating SteadyState GP")
+    //println("[update] newTests: " + testsManager.newTests.mkString("\n"))
     if (testsManager.newTests.size > 0)
       StatePop(s.map{ case (op, e) =>
+        //println("Updating op: " + (op,e))
         val x = (op, e + evalOnTests(op, testsManager.newTests.toList).sum)
+        //println("Updated: " + x)
         x })
     else
       s
   }
   def updatePopSteadyStateLexicase(s: StatePop[(Op, Seq[Int])]): StatePop[(Op, Seq[Int])] = {
-    if (testsManager.newTests.size > 0)
+    //println("[update] Updating SteadyState GP")
+    //println("[update] newTests: " + testsManager.newTests.mkString("\n"))
+    val upd = if (testsManager.newTests.size > 0)
       StatePop(s.map{ case (op, e) =>
+        //println("Updating op: " + (op,e))
         val x = (op, e ++ evalOnTests(op, testsManager.newTests.toList)) // append evals for new tests
+        //println("Updated: " + x)
         x })
     else
       s
+    //assert(upd.forall{ case (op, e) => e.size == upd.head._2.size }, "Evaluations have differing lengths in the population!")
+    upd
   }
   def reportStats[E](bsf: BestSoFar[Op, E])(s: StatePop[(Op, E)]) = {
     if (bsf.bestSoFar.isDefined) {

@@ -42,7 +42,7 @@ object SMTLIBFormatter {
       f"\n(assert (not (and $constraints)))" // 'and' works also for one argument
   }
 
-  /* Query for checking whether the given output produced by a program for a given input
+  /* Checks whether the given output produced by a program for a given input
    * is correct wrt the specification given by the problem.
    * This is done by copying most of the problem and defining a constant function 
    * that returns the output value. 
@@ -56,24 +56,6 @@ object SMTLIBFormatter {
     } mkString("\n")
     f"(set-logic ${problem.setLogic.get.id})\n" +
       f"(define-fun ${sf.sym} ($args) ${sortToString(sf.se)} $output)\n" +
-      fv.map(v => f"(define-fun ${v.sym} () ${sortToString(v.sortExpr)} ${input(v.sym)})").mkString("\n") +
-      f"\n(assert (and $constraints))" // 'and' works also for one argument
-  }
-  
-  /* Query for searching for the output correct wrt the specification and the
-   * specified inputs.
-   */
-  def searchForCorrectOutput(problem: SyGuS16, input: Map[String, Any]): String = {
-    val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head // synth-fun
-    val args = sf.list.map { case (k, v) => f"($k ${sortToString(v)})" } mkString
-    val fv = problem.cmds.collect { case v: VarDeclCmd => v }
-    val constraints = problem.cmds.collect {
-      case ConstraintCmd(t: Term) => f"${nestedProductToString(t)}"
-    } mkString("\n")
-    val sfSort = sortToString(sf.se)
-    f"(set-logic ${problem.setLogic.get.id})\n" +
-      f"(declare-fun CorrectOutput () ${sfSort})\n" +
-      f"(define-fun ${sf.sym} ($args) ${sfSort} CorrectOutput)\n" +
       fv.map(v => f"(define-fun ${v.sym} () ${sortToString(v.sortExpr)} ${input(v.sym)})").mkString("\n") +
       f"\n(assert (and $constraints))" // 'and' works also for one argument
   }
