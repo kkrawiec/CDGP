@@ -238,19 +238,24 @@ object CDGPTestbed extends FApp {
       val testOutput = test._2
       // Solver requires proper renaming of variables
       val cexampleRenamed = argNames.zip(testInputsMap.unzip._2).toMap
-      val output = LIA(s)(cexampleRenamed)
-      // If the desired output for this test is already known, simply compare
-      if (testOutput.isDefined) {
-        if (output == testOutput.get) 0 else 1
-      } else {
-        // If the desired output is not known yet, use the solver:
-        val checkOnTestCmd = SMTLIBFormatter.checkOnInput(sygusProblem, testInputsMap, output)
-        //println("\ncheckOnTestCmd:\n" + checkOnTestCmd)
-        val checkRes = runSolver(checkOnTestCmd)
-        // If the program passed the test, we know the desired output and can update
-        // the set of tests
-        if (checkRes.nonEmpty) testsManager.updateTest((testInputsMap, Some(output)))
-        if (checkRes.nonEmpty) 0 else 1
+      try {
+        val output = LIA(s)(cexampleRenamed)
+        // If the desired output for this test is already known, simply compare
+        if (testOutput.isDefined) {
+          if (output == testOutput.get) 0 else 1
+        } else {
+          // If the desired output is not known yet, use the solver:
+          val checkOnTestCmd = SMTLIBFormatter.checkOnInput(sygusProblem, testInputsMap, output)
+          //println("\ncheckOnTestCmd:\n" + checkOnTestCmd)
+          val checkRes = runSolver(checkOnTestCmd)
+          // If the program passed the test, we know the desired output and can update
+          // the set of tests
+          if (checkRes.nonEmpty) testsManager.updateTest((testInputsMap, Some(output)))
+          if (checkRes.nonEmpty) 0 else 1
+        }
+      }
+      catch {
+        case e: Throwable => println(f"Error during evalutation of $s and test $test: ${e.getMessage}"); 1
       }
     }
   }
