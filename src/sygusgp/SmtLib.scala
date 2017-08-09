@@ -11,6 +11,7 @@ import sygus.RealSortExpr
 import sygus.BoolSortExpr
 import sygus.VarDeclCmd
 import sygus.IntSortExpr
+import sygus.StringSortExpr
 import sygus16.SyGuS16
 import sygus.SynthFunCmd
 
@@ -20,9 +21,17 @@ import sygus.SynthFunCmd
 object SMTLIBFormatter {
   def sortToString(s: SortExpr): String = s match {
     case IntSortExpr()          => "Int"
-    case BoolSortExpr()         => "Bool" 
-    case RealSortExpr()         => "Real" 
+    case BoolSortExpr()         => "Bool"
+    case RealSortExpr()         => "Real"
+    case StringSortExpr()       => "String"
     case BitVecSortExpr(n: Int) => f"BV$n" // TODO:?
+  }
+
+  def getLogicName(problem: SyGuS16): String = {
+    f"${problem.setLogic.get.id}" match {
+      case "SLIA" => "QF_S"
+      case s => s
+    }
   }
 
   /* Produces the input to the solver for verifying if program p is correct
@@ -35,8 +44,7 @@ object SMTLIBFormatter {
     val constraints = problem.cmds.collect {
       case ConstraintCmd(t: Term) => f"${nestedProductToString(t)}"
     } mkString("\n")
-
-    f"(set-logic ${problem.setLogic.get.id})\n" +
+    f"(set-logic ${getLogicName(problem)})\n" +
       f"(define-fun ${sf.sym} ($args) ${sortToString(sf.se)} ${apply(p)})\n" +
       fv.map(v => f"(declare-var ${v.sym} ${sortToString(v.sortExpr)})").mkString("\n") +
       f"\n(assert (not (and $constraints)))" // 'and' works also for one argument
@@ -54,7 +62,7 @@ object SMTLIBFormatter {
     val constraints = problem.cmds.collect {
       case ConstraintCmd(t: Term) => f"${nestedProductToString(t)}"
     } mkString("\n")
-    f"(set-logic ${problem.setLogic.get.id})\n" +
+    f"(set-logic ${getLogicName(problem)})\n" +
       f"(define-fun ${sf.sym} ($args) ${sortToString(sf.se)} $output)\n" +
       fv.map(v => f"(define-fun ${v.sym} () ${sortToString(v.sortExpr)} ${input(v.sym)})").mkString("\n") +
       f"\n(assert (and $constraints))" // 'and' works also for one argument
@@ -71,9 +79,9 @@ object SMTLIBFormatter {
       case ConstraintCmd(t: Term) => f"${nestedProductToString(t)}"
     } mkString("\n")
     val sfSort = sortToString(sf.se)
-    f"(set-logic ${problem.setLogic.get.id})\n" +
-      f"(declare-fun CorrectOutput () ${sfSort})\n" +
-      f"(define-fun ${sf.sym} ($args) ${sfSort} CorrectOutput)\n" +
+    f"(set-logic ${getLogicName(problem)})\n" +
+      f"(declare-fun CorrectOutput () $sfSort)\n" +
+      f"(define-fun ${sf.sym} ($args) $sfSort CorrectOutput)\n" +
       fv.map(v => f"(define-fun ${v.sym} () ${sortToString(v.sortExpr)} ${input(v.sym)})").mkString("\n") +
       f"\n(assert (and $constraints))" // 'and' works also for one argument
   }

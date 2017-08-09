@@ -16,6 +16,7 @@ import sygus.LiteralGTerm
 import sygus.NTDef
 import sygus.RealConst
 import sygus.SortExpr
+import sygus.StringConst
 import sygus.SymbolGTerm
 import sygus.SynthFunCmd14
 import sygus.SynthFunCmd16
@@ -75,6 +76,7 @@ object ExtractSynthesisTasks {
             case RealConst(value: Double)      => value
             case BoolConst(value: Boolean)     => value
             case BVConst(value: List[Boolean]) => value
+            case StringConst(value: String)    => value
           }
           case SymbolGTerm(symbol: String)                                  => symbol
           case LetGTerm(list: List[(String, SortExpr, GTerm)], term: GTerm) => 0 // TODO: Not implemented yet

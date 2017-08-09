@@ -109,8 +109,12 @@ class TestsManager[I,O]() {
 
 
 /**
-  * The application object to be used in experiments
+  * The application object to be used in experiments.
   *
+  * Obligatory options:
+  * --searchAlgorithm, accepted values: GP, GPSteadyState, Lexicase, LexicaseSteadyState
+  * --benchmark, path to the SyGuS benchmark
+  * --solverPath, path to the SMT solver (e.g. Z3).
   */
 object CDGPTestbed extends FApp {
 
@@ -125,7 +129,7 @@ object CDGPTestbed extends FApp {
   val searchAlg = opt('searchAlgorithm, "")
   assume(searchAlg == "GP" || searchAlg == "GPSteadyState" || searchAlg == "Lexicase" || searchAlg == "LexicaseSteadyState")
 
-  val benchmark = opt('benchmark, "")
+  val benchmark = opt('benchmark)
   println(benchmark)
   def loadBenchmark(benchmark: String): Either[String, SyGuS16] = {
     try {
@@ -172,7 +176,7 @@ object CDGPTestbed extends FApp {
   
 
 
-  val solverPath = opt('solverPath, "")
+  val solverPath = opt('solverPath)
   var maxSolverRetries = opt('maxSolverRetries, 5)
   var doneSolverRetries = 0
   var solver = createSolver()
@@ -378,7 +382,6 @@ object CDGPTestbed extends FApp {
     println()
     s
   }
-
   
   // Construct the search algorithm and run it:
   val res = searchAlg match {
