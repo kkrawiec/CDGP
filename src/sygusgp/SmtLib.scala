@@ -37,7 +37,7 @@ object SMTLIBFormatter {
   /* Produces the input to the solver for verifying if program p is correct
    * wrt the specification given by problem.
    */
-  def verify(problem: SyGuS16, p: Op): String = {
+  def verify(problem: SyGuS16, p: Op, solverTimeout: Int = 0): String = {
     val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head // head!
     val args = sf.list.map { case (k, v) => f"($k ${sortToString(v)})" } mkString
     val fv = problem.cmds.collect { case v: VarDeclCmd => v }
@@ -45,6 +45,8 @@ object SMTLIBFormatter {
       case ConstraintCmd(t: Term) => f"${nestedProductToString(t)}"
     } mkString("\n")
     f"(set-logic ${getLogicName(problem)})\n" +
+      (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
+      "(set-option :produce-models true)\n" +
       f"(define-fun ${sf.sym} ($args) ${sortToString(sf.se)} ${apply(p)})\n" +
       fv.map(v => f"(declare-var ${v.sym} ${sortToString(v.sortExpr)})").mkString("\n") +
       f"\n(assert (not (and $constraints)))" // 'and' works also for one argument
@@ -55,7 +57,7 @@ object SMTLIBFormatter {
    * This is done by copying most of the problem and defining a constant function 
    * that returns the output value. 
    */
-  def checkOnInput(problem: SyGuS16, input: Map[String, Any], output: Any): String = {
+  def checkOnInput(problem: SyGuS16, input: Map[String, Any], output: Any, solverTimeout: Int = 0): String = {
     val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head // head!
     val args = sf.list.map { case (k, v) => f"($k ${sortToString(v)})" } mkString
     val fv = problem.cmds.collect { case v: VarDeclCmd => v }
@@ -63,6 +65,8 @@ object SMTLIBFormatter {
       case ConstraintCmd(t: Term) => f"${nestedProductToString(t)}"
     } mkString("\n")
     f"(set-logic ${getLogicName(problem)})\n" +
+      (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
+      "(set-option :produce-models true)\n" +
       f"(define-fun ${sf.sym} ($args) ${sortToString(sf.se)} $output)\n" +
       fv.map(v => f"(define-fun ${v.sym} () ${sortToString(v.sortExpr)} ${input(v.sym)})").mkString("\n") +
       f"\n(assert (and $constraints))" // 'and' works also for one argument
@@ -71,7 +75,7 @@ object SMTLIBFormatter {
   /* Query for searching for the output correct wrt the specification and the
    * specified inputs.
    */
-  def searchForCorrectOutput(problem: SyGuS16, input: Map[String, Any]): String = {
+  def searchForCorrectOutput(problem: SyGuS16, input: Map[String, Any], solverTimeout: Int = 0): String = {
     val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head // synth-fun
     val args = sf.list.map { case (k, v) => f"($k ${sortToString(v)})" } mkString
     val fv = problem.cmds.collect { case v: VarDeclCmd => v }
@@ -80,6 +84,8 @@ object SMTLIBFormatter {
     } mkString("\n")
     val sfSort = sortToString(sf.se)
     f"(set-logic ${getLogicName(problem)})\n" +
+      (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
+      "(set-option :produce-models true)\n" +
       f"(declare-fun CorrectOutput () $sfSort)\n" +
       f"(define-fun ${sf.sym} ($args) $sfSort CorrectOutput)\n" +
       fv.map(v => f"(define-fun ${v.sym} () ${sortToString(v.sortExpr)} ${input(v.sym)})").mkString("\n") +
