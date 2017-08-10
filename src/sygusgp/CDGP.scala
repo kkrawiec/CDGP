@@ -76,12 +76,12 @@ class TestsManager[I,O]() {
   val tests = scala.collection.mutable.LinkedHashMap[I, Option[O]]()
   // Set of counterexamples collected from the current generation. To be reseted after each iteration.
   val newTests = scala.collection.mutable.Set[(I, Option[O])]()
-  
+
   def getTests(): List[(I, Option[O])] = {
     tests.toList
   }
   def getNumberOfKnownOutputs(): Int = tests.values.count(_.isDefined)
-  
+
   def addNewTest(t: (I, Option[O])) {
     //println("** Trying to add new test: " + t)
     if (!tests.contains(t._1)) {
@@ -93,7 +93,7 @@ class TestsManager[I,O]() {
     //println("** Updated test: " + t)
     tests.put(t._1, t._2)
   }
-  
+
   /**
    * Moves elements from newTests to a global tests pool, and prepares manager for the next iteration.
    */
@@ -116,7 +116,7 @@ class TestsManager[I,O]() {
   * --benchmark, path to the SyGuS benchmark
   * --solverPath, path to the SMT solver (e.g. Z3).
   */
-object CDGPTestbed extends FApp {
+object MainCDGP extends FApp {
 
   assume(opt('parEval, false) == false, "Can't use parallel evaluation because the working collection of tests is not synchronized")
 
@@ -200,7 +200,14 @@ object CDGPTestbed extends FApp {
         }
     }
   }
-  def runSolver(cmd: String, postCommands: String*): Option[String] = {
+
+  /**
+    * Executes provided commands using the SMT solver.
+    * @param cmd Commands to be executed by the solver.
+    * @param postCommands Additional commands to be placed after (check-sat).
+    * @return Solver's decision ('sat', 'unsat', 'unknown') and optional content determined by postCommands.
+    */
+  def runSolver(cmd: String, postCommands: String*): (String, Option[String]) = {
     try {
       solver.solve(cmd, postCommands:_*)
     }
@@ -245,13 +252,13 @@ object CDGPTestbed extends FApp {
           if (output == testOutput.get) 0 else 1
         } else {
           // If the desired output is not known yet, use the solver:
-          val checkOnTestCmd = SMTLIBFormatter.checkOnInput(sygusProblem, testInputsMap, output)
-          //println("\ncheckOnTestCmd:\n" + checkOnTestCmd)
-          val checkRes = runSolver(checkOnTestCmd)
+          val checkOnTestCmd = SMTLIBFormatter.checkOnInput(sygusProblem, testInputsMap, output, solverTimeout=opt('solverTimeout, 0))
+          println("\ncheckOnTestCmd:\n" + checkOnTestCmd)
+          val (decision, outputData) = runSolver(checkOnTestCmd)
           // If the program passed the test, we know the desired output and can update
           // the set of tests
-          if (checkRes.nonEmpty) testsManager.updateTest((testInputsMap, Some(output)))
-          if (checkRes.nonEmpty) 0 else 1
+          if (decision == "sat") testsManager.updateTest((testInputsMap, Some(output)))
+          if (decision == "sat") 0 else 1
         }
       }
       catch {
@@ -261,13 +268,13 @@ object CDGPTestbed extends FApp {
   }
   
   def tryToFindOutputForTestCase(test: (I, Option[O])): (I, Option[O]) = {
-    val cmd: String = SMTLIBFormatter.searchForCorrectOutput(sygusProblem, test._1)
+    val cmd: String = SMTLIBFormatter.searchForCorrectOutput(sygusProblem, test._1, solverTimeout=opt('solverTimeout, 0))
     //println("\nSearch cmd:\n" + cmd)
     try {
       val getValueCommand = f"(get-value (CorrectOutput))"
-      val res = runSolver(cmd, getValueCommand)
+      val (decision, res) = runSolver(cmd, getValueCommand)
       // println("Solver res: " + res)
-      if (res.isDefined) {
+      if (decision == "sat") {
         val values = GetValueParser(res.get)
         (test._1, Some(values.head._2))
       }
@@ -308,9 +315,9 @@ object CDGPTestbed extends FApp {
     if (cntFailed > 0 && (method == MethodCDGPconservative || method == MethodGPR))
       Right(failedTests)
     else {
-      val verificationProblem = SMTLIBFormatter.verify(sygusProblem, s)
-      val r = runSolver(verificationProblem, getValueCommand) //solver.solve(verificationProblem, getValueCommand)
-      if (r.isEmpty) Left(s) // perfect program found; end of run
+      val verificationProblem = SMTLIBFormatter.verify(sygusProblem, s, solverTimeout=opt('solverTimeout, 0))
+      val (decision, r) = runSolver(verificationProblem, getValueCommand) //solver.solve(verificationProblem, getValueCommand)
+      if (decision == "unsat") Left(s) // perfect program found; end of run
       else {
         method match {
           case MethodCDGP | MethodCDGPconservative =>
@@ -465,6 +472,8 @@ object CDGPTestbed extends FApp {
     }
 
   }
+
+
   
   println("\nBest program found: " + coll.getResult("best").getOrElse("None"))
   println("Evaluation: " + coll.getResult("best.eval").getOrElse("None"))

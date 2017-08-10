@@ -35,8 +35,8 @@ case object LIA extends Domain[Map[String, Any], Any, Op] {
        m - divide(m, n) * n
     else
       /*In Scala m % n has the following semantic:
-      * if m is positive, (mod m n) is >= 0 and is equivalent to (mod m (abs n))
-      * if m is negative, (mod m n) is <= 0 and is equivalent to -(mod m (abs n))
+      * if m is positive, (mod m n) is >= 0 and is equivalent to (mod (abs m) (abs n))
+      * if m is negative, (mod m n) is <= 0 and is equivalent to -(mod (abs m) (abs n))
       * Example:
       *  5 %  3 =  2
       *  5 % -3 =  2

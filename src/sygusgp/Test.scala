@@ -84,7 +84,7 @@ object TestLIA extends IApp('maxGenerations -> 300, 'printResults -> true, 'popu
       // Prepare input to the solver
       val verificationProblem = SMTLIBFormatter.verify(sygusProblem, p)
       // Run the solver:
-      val res = solver.solve(verificationProblem, getValueCommand)
+      val (_, res) = solver.solve(verificationProblem, getValueCommand)
       if (res.isDefined) {
         val cexample = GetValueParser(res.get)
         // IMPORTANT: To run a program on the counterexample, need to rename the values of variables

@@ -52,7 +52,7 @@ case class Solver(path: String, verbose: Boolean = false)
     sb.toString
   }
 
-  def solve(input: String, postCommands: String*): Option[String] = {
+  def solve(input: String, postCommands: String*): (String, Option[String]) = {
     this.synchronized {
       numCalls = numCalls + 1
       bis.println("(reset)")
@@ -63,12 +63,14 @@ case class Solver(path: String, verbose: Boolean = false)
       if (verbose) print(f"Solver output:\n$output\n")
       if (es.available() > 0)
         throw new Exception(f"Solver produced this on stderr: " + (new Scanner(es)).nextLine)
-      if (output == "sat")
-        Some(if (postCommands.isEmpty) "" else {
+      if (output == "sat") {
+        val outputData = Some(if (postCommands.isEmpty) "" else {
           apply(postCommands.mkString)
           scanOutputInParentheses
         })
-      else if (output == "unsat") None
+        ("sat", outputData)
+      }
+      else if (output == "unsat" || output == "unknown") (output, None)
       else throw new UnknownSolverOutputException(f"Solver did not return sat nor unsat, but this: $output")
     }
   }
