@@ -500,7 +500,7 @@ object MainCDGP extends FApp {
         val sf = sygusProblem.cmds.collect { case sf: SynthFunCmd => sf }.head
         val args = SMTLIBFormatter.synthFunArgsToString(sf)
         val tpe = SMTLIBFormatter.sortToString(outputType)
-        println(f"(define-fun ($args) $tpe\n\t$bestBody)")
+        println(f"(define-fun ${sf.sym} ($args) $tpe\n\t$bestBody)")
       }
       else
         println("unknown")
@@ -508,7 +508,9 @@ object MainCDGP extends FApp {
     else
       println("unknown")
   }
-  if (sygusOutput)
+  if (sygusOutput) {
+    println("\nOPTIMAL SOLUTION:")
     printInSygusFormat(bestOfRun)
+  }
   solver.close
 }
