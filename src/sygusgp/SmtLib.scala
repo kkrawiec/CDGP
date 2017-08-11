@@ -58,7 +58,7 @@ object SMTLIBFormatter {
       (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
       f"(define-fun ${sf.sym} ($sfArgs) ${sortToString(sf.se)} ${apply(p)})\n" +
-      fv.map(v => f"(declare-var ${v.sym} ${sortToString(v.sortExpr)})").mkString("\n") +
+      fv.map(v => f"(declare-fun ${v.sym} () ${sortToString(v.sortExpr)})").mkString("\n") +
       f"\n(assert (not (and $constraints)))" // 'and' works also for one argument
   }
 
