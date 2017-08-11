@@ -8,15 +8,13 @@ import scala.annotation.elidable
 import scala.annotation.elidable.ASSERTION
 import scala.collection.immutable.Map
 import scala.collection.Seq
-
 import fuel.core.StatePop
 import fuel.func.RunExperiment
-import fuel.util.IApp
 import swim.Grammar
 import swim.tree.GPMoves
 import swim.tree.Op
 import swim.tree.SimpleGP
-import sygus.VarDeclCmd
+import sygus.{SynthFunCmd, VarDeclCmd}
 import sygus16.SyGuS16
 import swim.tree.LexicaseGP
 import fuel.util.FApp
@@ -46,7 +44,7 @@ object TestCDGP extends App {
   }
   Tools.time {
     for (file <- files) try {
-      CDGPTestbed.main(Array(
+      MainCDGP.main(Array(
         "--maxGenerations", "20",
         "--printResults", "false",
         "--populationSize", "100",
@@ -153,7 +151,8 @@ object MainCDGP extends FApp {
   val CDGPoneTestPerIter = opt('CDGPoneTestPerIter, false)
   val GPRoneTestPerIter = opt('GPRoneTestPerIter, true)
   val silent = opt('silent, false)
-  
+  val sygusOutput = opt('sygusOutput, true)
+
   
   val sygusProblem = parseRes match { case Right(t) => t }
   //println("SyGuS problem: " + sygusProblem)
@@ -396,11 +395,11 @@ object MainCDGP extends FApp {
   }
   
   // Construct the search algorithm and run it:
-  val res = searchAlg match {
+  val (res, bestOfRun) = searchAlg match {
 
     case "GP" => {
       // Convention: an ideal program has fitness -1.
-      def evalGP(s: Op) = {
+      def evalGP(s: Op): Int = {
         val r = fitness(s)
         if (r.isLeft) -1 // perfect program found; end of run
         else r.right.get.sum
@@ -413,12 +412,14 @@ object MainCDGP extends FApp {
         override def report = s => s
         override def evaluate = super.evaluate andThen updateTestCollections
       }
-      RunExperiment(alg)
+      val finalPop = RunExperiment(alg)
+      val bestSoFar: Option[(Op, Int)] = alg.bsf.bestSoFar
+      (finalPop, bestSoFar)
     }
     
     case "GPSteadyState" => {
       // Convention: an ideal program has fitness -1.
-      def evalGP(s: Op) = {
+      def evalGP(s: Op): Int = {
         val r = fitness(s)
         if (r.isLeft) -1 // perfect program found; end of run
         else r.right.get.sum
@@ -430,12 +431,14 @@ object MainCDGP extends FApp {
         override def report = s => s
         override def initialize = super.initialize andThen updatePopSteadyStateGP andThen updateTestCollections
       }
-      RunExperiment(alg)
+      val finalPop = RunExperiment(alg)
+      val bestSoFar: Option[(Op, Int)] = alg.bsf.bestSoFar
+      (finalPop, bestSoFar)
     }
 
     case "Lexicase" => {
       // Convention: an ideal program has all test outcomes == -1 (but it's enough to check the first one)
-      def eval(s: Op) = {
+      def eval(s: Op): Seq[Int] = {
         val r = fitness(s)
         if (r.isLeft) 0.until(testsManager.tests.size).map(_ => -1) // perfect program found; end of run
         else r.right.get
@@ -447,7 +450,8 @@ object MainCDGP extends FApp {
         override def report = s => s
         override def evaluate = super.evaluate andThen updateTestCollections
       }
-      RunExperiment(alg)
+      val finalPop = RunExperiment(alg)
+      (finalPop, alg.bsf.bestSoFar)
     }
     
     case "LexicaseSteadyState" => {
@@ -468,11 +472,18 @@ object MainCDGP extends FApp {
         override def report = s => s
         override def initialize = super.initialize andThen updatePopSteadyStateLexicase andThen updateTestCollections
       }
-      RunExperiment(alg)
+      val finalPop = RunExperiment(alg)
+      (finalPop, alg.bsf.bestSoFar)
     }
 
   }
 
+  def isOptimal(bestOfRun: (Op, Any)): Boolean = {
+    bestOfRun._2 match {
+      case a if a.isInstanceOf[Int]      => a.asInstanceOf[Int] == -1
+      case a if a.isInstanceOf[Seq[Int]] => a.asInstanceOf[Seq[Int]].nonEmpty && a.asInstanceOf[Seq[Int]].head == -1
+    }
+  }
 
   
   println("\nBest program found: " + coll.getResult("best").getOrElse("None"))
@@ -481,6 +492,23 @@ object MainCDGP extends FApp {
   println("Total solver calls: " + solver.getNumCalls)
   println("Total time [ms]: " + coll.getResult("totalTimeSystem").getOrElse("Unknown"))
   println("Total tests: " + testsManager.tests.size)
+  def printInSygusFormat(bestOfRun: Option[(Op, Any)]) {
+    if (bestOfRun.isDefined) {
+      val (best, eval) = bestOfRun.get
+      if (isOptimal(bestOfRun.get)) {
+        val bestBody = SMTLIBFormatter.opToString(best)
+        val sf = sygusProblem.cmds.collect { case sf: SynthFunCmd => sf }.head
+        val args = SMTLIBFormatter.synthFunArgsToString(sf)
+        val tpe = SMTLIBFormatter.sortToString(outputType)
+        println(f"(define-fun ($args) $tpe\n\t$bestBody)")
+      }
+      else
+        println("unknown")
+    }
+    else
+      println("unknown")
+  }
+  if (sygusOutput)
+    printInSygusFormat(bestOfRun)
   solver.close
 }
-

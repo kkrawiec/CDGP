@@ -27,6 +27,16 @@ object SMTLIBFormatter {
     case BitVecSortExpr(n: Int) => f"BV$n" // TODO:?
   }
 
+  def opToString(op: Op): String = {
+    val opStr = if (op.op.isInstanceOf[Symbol]) op.op.toString.tail else op.op.toString
+    if (op.args.isEmpty) opStr
+    else f"($opStr ${op.args.map(opToString(_)).mkString(" ")})"
+  }
+
+  def synthFunArgsToString(sfc: SynthFunCmd): String = {
+    sfc.list.map { case (k, v) => f"($k ${sortToString(v)})" }.mkString
+  }
+
   def getLogicName(problem: SyGuS16): String = {
     f"${problem.setLogic.get.id}" match {
       case "SLIA" => "QF_S"
@@ -39,15 +49,15 @@ object SMTLIBFormatter {
    */
   def verify(problem: SyGuS16, p: Op, solverTimeout: Int = 0): String = {
     val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head // head!
-    val args = sf.list.map { case (k, v) => f"($k ${sortToString(v)})" } mkString
+    val sfArgs = synthFunArgsToString(sf)
     val fv = problem.cmds.collect { case v: VarDeclCmd => v }
     val constraints = problem.cmds.collect {
       case ConstraintCmd(t: Term) => f"${nestedProductToString(t)}"
-    } mkString("\n")
+    }.mkString("\n")
     f"(set-logic ${getLogicName(problem)})\n" +
       (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
-      f"(define-fun ${sf.sym} ($args) ${sortToString(sf.se)} ${apply(p)})\n" +
+      f"(define-fun ${sf.sym} ($sfArgs) ${sortToString(sf.se)} ${apply(p)})\n" +
       fv.map(v => f"(declare-var ${v.sym} ${sortToString(v.sortExpr)})").mkString("\n") +
       f"\n(assert (not (and $constraints)))" // 'and' works also for one argument
   }
@@ -59,15 +69,15 @@ object SMTLIBFormatter {
    */
   def checkOnInput(problem: SyGuS16, input: Map[String, Any], output: Any, solverTimeout: Int = 0): String = {
     val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head // head!
-    val args = sf.list.map { case (k, v) => f"($k ${sortToString(v)})" } mkString
+    val sfArgs = synthFunArgsToString(sf)
     val fv = problem.cmds.collect { case v: VarDeclCmd => v }
     val constraints = problem.cmds.collect {
       case ConstraintCmd(t: Term) => f"${nestedProductToString(t)}"
-    } mkString("\n")
+    }.mkString("\n")
     f"(set-logic ${getLogicName(problem)})\n" +
       (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
-      f"(define-fun ${sf.sym} ($args) ${sortToString(sf.se)} $output)\n" +
+      f"(define-fun ${sf.sym} ($sfArgs) ${sortToString(sf.se)} $output)\n" +
       fv.map(v => f"(define-fun ${v.sym} () ${sortToString(v.sortExpr)} ${input(v.sym)})").mkString("\n") +
       f"\n(assert (and $constraints))" // 'and' works also for one argument
   }
@@ -77,17 +87,17 @@ object SMTLIBFormatter {
    */
   def searchForCorrectOutput(problem: SyGuS16, input: Map[String, Any], solverTimeout: Int = 0): String = {
     val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head // synth-fun
-    val args = sf.list.map { case (k, v) => f"($k ${sortToString(v)})" } mkString
+    val sfArgs = synthFunArgsToString(sf)
     val fv = problem.cmds.collect { case v: VarDeclCmd => v }
     val constraints = problem.cmds.collect {
       case ConstraintCmd(t: Term) => f"${nestedProductToString(t)}"
-    } mkString("\n")
+    }.mkString("\n")
     val sfSort = sortToString(sf.se)
     f"(set-logic ${getLogicName(problem)})\n" +
       (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
       f"(declare-fun CorrectOutput () $sfSort)\n" +
-      f"(define-fun ${sf.sym} ($args) $sfSort CorrectOutput)\n" +
+      f"(define-fun ${sf.sym} ($sfArgs) $sfSort CorrectOutput)\n" +
       fv.map(v => f"(define-fun ${v.sym} () ${sortToString(v.sortExpr)} ${input(v.sym)})").mkString("\n") +
       f"\n(assert (and $constraints))" // 'and' works also for one argument
   }
