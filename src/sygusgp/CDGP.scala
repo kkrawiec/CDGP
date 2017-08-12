@@ -128,22 +128,7 @@ object MainCDGP extends FApp {
   assume(searchAlg == "GP" || searchAlg == "GPSteadyState" || searchAlg == "Lexicase" || searchAlg == "LexicaseSteadyState")
 
   val benchmark = opt('benchmark)
-  println(benchmark)
-  def loadBenchmark(benchmark: String): Either[String, SyGuS16] = {
-    try {
-      SyGuS16.parseSyGuS16File(new File(benchmark))
-    }
-    catch {
-      case _: java.io.FileNotFoundException =>
-        println(s"File with benchmark not found: $benchmark")
-        System.exit(1)
-        null
-    }
-  }
-  val parseRes = loadBenchmark(benchmark)
-  if (parseRes.isLeft)
-    throw new Exception("PARSE ERROR:" + parseRes.left)
-  assume(parseRes.isRight)
+  println(s"Benchmark: $benchmark")
 
   // Other parameters
   val GPRminInt = opt('GPRminInt, -100)
@@ -153,8 +138,7 @@ object MainCDGP extends FApp {
   val silent = opt('silent, false)
   val sygusOutput = opt('sygusOutput, true)
 
-  
-  val sygusProblem = parseRes match { case Right(t) => t }
+  val sygusProblem = LoadSygusBenchmark(benchmark)
   //println("SyGuS problem: " + sygusProblem)
 
   // Retrieve the grammar and signature of the function to be synthesized
@@ -301,6 +285,16 @@ object MainCDGP extends FApp {
     tryToFindOutputForTestCase(testNoOutput)
   }
 
+  def passesAllTests(s: Op): Boolean = {
+    val failedTests = evalOnTests(s, testsManager.getTests())
+    failedTests.count(_ == 1) > 0
+  }
+
+  def verify(s: Op): (String, Option[String]) = {
+    val verProblemCmds = SMTLIBFormatter.verify(sygusProblem, s, solverTimeout=opt('solverTimeout, 0))
+    runSolver(verProblemCmds, getValueCommand)
+  }
+
   /**
     * Tests a program on the available tests; if it passes all tests, verifies it and returns the program if
     * it passes verification, wrapped in Left(). Otherwise, returns the vector of 0s and 1s like eval(), only wrapped in Right().
@@ -308,14 +302,13 @@ object MainCDGP extends FApp {
     */
   def fitness(s: Op): Either[Op, Seq[Int]] = {
     val failedTests = evalOnTests(s, testsManager.getTests())
-    val cntFailed = failedTests.count(_ == 1)
+    val numFailed = failedTests.count(_ == 1)
     // CDGP Conservative variant: If the program fails any tests, then don't apply verification to it, 
     // as it is very likely that the found counterexample is already among the tests.
-    if (cntFailed > 0 && (method == MethodCDGPconservative || method == MethodGPR))
+    if (numFailed > 0 && (method == MethodCDGPconservative || method == MethodGPR))
       Right(failedTests)
     else {
-      val verificationProblem = SMTLIBFormatter.verify(sygusProblem, s, solverTimeout=opt('solverTimeout, 0))
-      val (decision, r) = runSolver(verificationProblem, getValueCommand) //solver.solve(verificationProblem, getValueCommand)
+      val (decision, r) = verify(s)
       if (decision == "unsat") Left(s) // perfect program found; end of run
       else {
         method match {

@@ -1,7 +1,8 @@
 package sygusgp
 
-import scala.collection.immutable.Seq
+import java.io.File
 
+import scala.collection.immutable.Seq
 import sygus.BVConst
 import sygus.BoolConst
 import sygus.BoolSortExpr
@@ -21,6 +22,31 @@ import sygus.SymbolGTerm
 import sygus.SynthFunCmd14
 import sygus.SynthFunCmd16
 import sygus16.SyGuS16
+
+
+object LoadSygusBenchmark {
+
+  def apply(path: String): SyGuS16 = {
+    val parseRes = loadBenchmark(path)
+    if (parseRes.isLeft)
+      throw new Exception("PARSE ERROR: " + parseRes.left)
+    assume(parseRes.isRight)
+    parseRes match { case Right(t) => t }
+  }
+
+  private def loadBenchmark(benchmark: String): Either[String, SyGuS16] = {
+    try {
+      SyGuS16.parseSyGuS16File(new File(benchmark))
+    }
+    catch {
+      case _: java.io.FileNotFoundException =>
+        throw new Exception(s"File with benchmark not found: $benchmark")
+      case e: Throwable =>
+        throw e
+    }
+  }
+}
+
 
 object ExtractSynthesisTasks {
   def apply(tree: SyGuS16) = tree.cmds.collect {
