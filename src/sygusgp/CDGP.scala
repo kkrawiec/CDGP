@@ -15,7 +15,6 @@ import swim.tree.GPMoves
 import swim.tree.Op
 import swim.tree.SimpleGP
 import sygus.{SynthFunCmd, VarDeclCmd}
-import sygus16.SyGuS16
 import swim.tree.LexicaseGP
 import fuel.util.FApp
 import fuel.func.SimpleSteadyStateEA
@@ -142,17 +141,11 @@ object MainCDGP extends FApp {
   //println("SyGuS problem: " + sygusProblem)
 
   // Retrieve the grammar and signature of the function to be synthesized
-  val synthTasks = ExtractSynthesisTasks(sygusProblem)
+  val synthTasks: Seq[SygusSynthesisTask] = ExtractSynthesisTasks(sygusProblem)
   if (synthTasks.size > 1)
     throw new Exception("SKIPPING: Multiple synth-fun commands detected. Cannot handle such problems.")
-
-  val (fname, grammar, arguments, outputType) = synthTasks.head
-  val argNames = arguments.unzip._1
-
-  // Create the Swim grammar from it
-  val grammarMap = grammar.toMap
-  val start = if (!grammarMap.contains("Start")) grammar.head._1 else "Start"
-  val gr = Grammar.fromMap(start, grammarMap)
+  val synthTask = synthTasks.head
+  val grammar = ExtractSygusGrammar(synthTask)
 
   val fv = sygusProblem.cmds.collect { case v: VarDeclCmd => v }
   val getValueCommand = f"(get-value (${fv.map(_.sym).mkString(" ")}))"
@@ -184,7 +177,7 @@ object MainCDGP extends FApp {
       val testInputsMap = test._1
       val testOutput = test._2
       // Solver requires proper renaming of variables
-      val cexampleRenamed = argNames.zip(testInputsMap.unzip._2).toMap
+      val cexampleRenamed = synthTask.argNames.zip(testInputsMap.unzip._2).toMap
       try {
         val output = LIA(s)(cexampleRenamed)
         // If the desired output for this test is already known, simply compare
@@ -287,7 +280,7 @@ object MainCDGP extends FApp {
     }
   }
 
-  def updateTestCollections[E](s: StatePop[(Op, E)]) = {
+  def updateTestCollections[S, E](s: StatePop[(S, E)]) = {
     val nNew = testsManager.newTests.size
     testsManager.flushHelpers() // resets newTests
     val nKnown = testsManager.tests.values.count(_.isDefined)
@@ -296,7 +289,7 @@ object MainCDGP extends FApp {
     s
   }
   def updatePopSteadyStateGP(s: StatePop[(Op, Int)]): StatePop[(Op, Int)] = {
-    if (testsManager.newTests.size > 0)
+    if (testsManager.newTests.nonEmpty)
       StatePop(s.map{ case (op, e) =>
         val x = (op, e + evalOnTests(op, testsManager.newTests.toList).sum)
         x })
@@ -304,7 +297,7 @@ object MainCDGP extends FApp {
       s
   }
   def updatePopSteadyStateLexicase(s: StatePop[(Op, Seq[Int])]): StatePop[(Op, Seq[Int])] = {
-    if (testsManager.newTests.size > 0)
+    if (testsManager.newTests.nonEmpty)
       StatePop(s.map{ case (op, e) =>
         val x = (op, e ++ evalOnTests(op, testsManager.newTests.toList)) // append evals for new tests
         x })
@@ -355,7 +348,7 @@ object MainCDGP extends FApp {
         else r.right.get.sum
       }
       def correct = (_: Any, e: Int) => e == -1
-      val alg = new SimpleGP(GPMoves(gr, SimpleGP.defaultFeasible), evalGP, correct) {
+      val alg = new SimpleGP(GPMoves(grammar, SimpleGP.defaultFeasible), evalGP, correct) {
         // In our scenario there is no meaning in comparing past best solutions with the current ones,
         // because the current ones have been most likely evaluated on the different set of tests.
         override def epilogue = super.epilogue andThen bsf andThen reportStats(bsf) andThen epilogueGP(bsf)
@@ -375,7 +368,7 @@ object MainCDGP extends FApp {
         else r.right.get.sum
       }
       def correct = (_: Any, e: Int) => e == -1
-      val alg = new SimpleSteadyStateEA(GPMoves(gr, SimpleGP.defaultFeasible), evalGP, correct) {
+      val alg = new SimpleSteadyStateEA(GPMoves(grammar, SimpleGP.defaultFeasible), evalGP, correct) {
         override def iter = super.iter andThen updatePopSteadyStateGP andThen updateTestCollections
         override def epilogue = super.epilogue andThen bsf andThen reportStats(bsf) andThen epilogueGP(bsf)
         override def report = s => s
@@ -394,7 +387,7 @@ object MainCDGP extends FApp {
         else r.right.get
       }
       def correct = (_: Any, e: Seq[Int]) => e.nonEmpty && e.head == -1
-      val alg = new LexicaseGP(GPMoves(gr, SimpleGP.defaultFeasible), eval, correct) {
+      val alg = new LexicaseGP(GPMoves(grammar, SimpleGP.defaultFeasible), eval, correct) {
         override def iter = super.iter //andThen updateTestCollections
         override def epilogue = super.epilogue andThen bsf andThen reportStats(bsf) andThen epilogueLexicase(bsf)
         override def report = s => s
@@ -416,7 +409,7 @@ object MainCDGP extends FApp {
       val deselection = if (opt('lexicaseDeselection, false)) new LexicaseSelection[Op, Int](Ordering[Int].reverse)
                         else new TournamentSelection[Op, Seq[Int]](LongerOrMaxPassedOrdering.reverse)
       implicit val ordering = LongerOrMaxPassedOrdering
-      val alg = new SteadyStateEA[Op, Seq[Int]](GPMoves(gr, SimpleGP.defaultFeasible), eval, correct, selection, deselection) {
+      val alg = new SteadyStateEA[Op, Seq[Int]](GPMoves(grammar, SimpleGP.defaultFeasible), eval, correct, selection, deselection) {
         override def iter = super.iter andThen updatePopSteadyStateLexicase andThen updateTestCollections
         override def epilogue = super.epilogue andThen bsf andThen reportStats(bsf) andThen epilogueLexicase(bsf)
         override def report = s => s
@@ -449,7 +442,7 @@ object MainCDGP extends FApp {
         val bestBody = SMTLIBFormatter.opToString(best)
         val sf = sygusProblem.cmds.collect { case sf: SynthFunCmd => sf }.head
         val args = SMTLIBFormatter.synthFunArgsToString(sf)
-        val tpe = SMTLIBFormatter.sortToString(outputType)
+        val tpe = SMTLIBFormatter.sortToString(synthTask.outputType)
         println(f"(define-fun ${sf.sym} ($args) $tpe\n\t$bestBody)")
       }
       else

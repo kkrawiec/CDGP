@@ -2,6 +2,8 @@ package sygusgp
 
 import java.io.File
 
+import swim.Grammar
+
 import scala.collection.immutable.Seq
 import sygus.BVConst
 import sygus.BoolConst
@@ -24,8 +26,23 @@ import sygus.SynthFunCmd16
 import sygus16.SyGuS16
 
 
-object LoadSygusBenchmark {
+/**
+  * Class collecting the most important information about the synthesis task
+  * read from the SyGuS file.
+  * @param fname Name of the function being synthesized.
+  * @param grammar Grammar specifying the form of allowed programs.
+  * @param arguments Arguments of the function.
+  * @param outputType Output type of the function.
+  */
+case class SygusSynthesisTask(fname: String,
+                              grammar:List[(Any, Seq[Any])],
+                              arguments: List[(String, SortExpr)],
+                              outputType: SortExpr) {
+  val argNames: List[String] = arguments.unzip._1
+}
 
+
+object LoadSygusBenchmark {
   def apply(path: String): SyGuS16 = {
     val parseRes = loadBenchmark(path)
     if (parseRes.isLeft)
@@ -48,11 +65,21 @@ object LoadSygusBenchmark {
 }
 
 
+object ExtractSygusGrammar {
+  def apply(synthTask: SygusSynthesisTask): Grammar = {
+    val argNames = synthTask.argNames
+    val grammarMap = synthTask.grammar.toMap
+    val start = if (!grammarMap.contains("Start")) synthTask.grammar.head._1 else "Start"
+    Grammar.fromMap(start, grammarMap)
+  }
+}
+
+
 object ExtractSynthesisTasks {
   def apply(tree: SyGuS16) = tree.cmds.collect {
     case SynthFunCmd14(sym: String, args: List[(String, SortExpr)], se: SortExpr, ntDefs: List[NTDef]) => {
       val grammar = retrieveGrammar(ntDefs)
-      (sym, grammar, args, se) // name, function syntax, args list, output type
+      SygusSynthesisTask(sym, grammar, args, se) // name, function syntax, args list, output type
     }
     case SynthFunCmd16(sym: String, args: List[(String, SortExpr)], se: SortExpr) => {
       // Add the variables 
@@ -64,7 +91,7 @@ object ExtractSynthesisTasks {
         case BoolSortExpr() => List(bp, ip)
         case IntSortExpr()  => List(ip, bp)
       }
-      (sym, grammar, args, se)
+      SygusSynthesisTask(sym, grammar, args, se)
     }
   } 
 

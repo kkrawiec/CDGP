@@ -57,9 +57,10 @@ object SMTLIBFormatter {
     f"(set-logic ${getLogicName(problem)})\n" +
       (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
+      //"(set-option :incremental true)\n" +  // for compatibility with CVC4
       f"(define-fun ${sf.sym} ($sfArgs) ${sortToString(sf.se)} ${apply(p)})\n" +
       fv.map(v => f"(declare-fun ${v.sym} () ${sortToString(v.sortExpr)})").mkString("\n") +
-      f"\n(assert (not (and $constraints)))" // 'and' works also for one argument
+      f"\n(assert (not (and $constraints)))\n" // 'and' works also for one argument
   }
 
   /* Query for checking whether the given output produced by a program for a given input
@@ -79,7 +80,7 @@ object SMTLIBFormatter {
       "(set-option :produce-models true)\n" +
       f"(define-fun ${sf.sym} ($sfArgs) ${sortToString(sf.se)} $output)\n" +
       fv.map(v => f"(define-fun ${v.sym} () ${sortToString(v.sortExpr)} ${input(v.sym)})").mkString("\n") +
-      f"\n(assert (and $constraints))" // 'and' works also for one argument
+      f"\n(assert (and $constraints))\n" // 'and' works also for one argument
   }
   
   /* Query for searching for the output correct wrt the specification and the
@@ -99,7 +100,7 @@ object SMTLIBFormatter {
       f"(declare-fun CorrectOutput () $sfSort)\n" +
       f"(define-fun ${sf.sym} ($sfArgs) $sfSort CorrectOutput)\n" +
       fv.map(v => f"(define-fun ${v.sym} () ${sortToString(v.sortExpr)} ${input(v.sym)})").mkString("\n") +
-      f"\n(assert (and $constraints))" // 'and' works also for one argument
+      f"\n(assert (and $constraints))\n" // 'and' works also for one argument
   }
 
   def apply(op: Op): String = op.args.size match {

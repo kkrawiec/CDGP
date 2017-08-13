@@ -1,8 +1,7 @@
 package sygusgp
 
 import fuel.core.StatePop
-import fuel.func.EACore
-import fuel.func.Evaluation
+import fuel.func.{EACore, Evaluation, ParallelEval, SequentialEval}
 import fuel.util.{Collector, Options, TRandom}
 import swim.tree.Op
 import sygus.VarDeclCmd
@@ -84,8 +83,9 @@ class CGDPFitness(sygusProblem: SyGuS16)(implicit opt: Options, coll: Collector,
   val synthTasks = ExtractSynthesisTasks(sygusProblem)
   if (synthTasks.size > 1)
     throw new Exception("SKIPPING: Multiple synth-fun commands detected. Cannot handle such problems.")
-  val (fname, grammar, arguments, outputType) = synthTasks.head
-  val argNames = arguments.unzip._1
+  val synthTask = synthTasks.head
+  val grammar = ExtractSygusGrammar(synthTask)
+
   val fv = sygusProblem.cmds.collect { case v: VarDeclCmd => v }
   val getValueCommand = f"(get-value (${fv.map(_.sym).mkString(" ")}))"
 
@@ -94,6 +94,10 @@ class CGDPFitness(sygusProblem: SyGuS16)(implicit opt: Options, coll: Collector,
   val solverPath = opt('solverPath)
   val solverArgs = opt('solverArgs, "-in")
   val solver = new SolverManager(solverPath, solverArgs, verbose=false)
+
+  val searchAlg = opt('searchAlgorithm, "")
+  assume(searchAlg == "GP" || searchAlg == "GPSteadyState" ||
+         searchAlg == "Lexicase" || searchAlg == "LexicaseSteadyState")
 
 
   /**
@@ -107,7 +111,7 @@ class CGDPFitness(sygusProblem: SyGuS16)(implicit opt: Options, coll: Collector,
       val testInputsMap = test._1
       val testOutput = test._2
       // Solver requires proper renaming of variables
-      val cexampleRenamed = argNames.zip(testInputsMap.unzip._2).toMap
+      val cexampleRenamed = synthTask.argNames.zip(testInputsMap.unzip._2).toMap
       try {
         val output = LIA(s)(cexampleRenamed)
         // If the desired output for this test is already known, simply compare
@@ -178,38 +182,44 @@ class CGDPFitness(sygusProblem: SyGuS16)(implicit opt: Options, coll: Collector,
     tryToFindOutputForTestCase(testNoOutput)
   }
 
-  def fitnessCDGP(s: Op): Either[Op, Seq[Int]] = {
-    val (decision, r) = verify(s)
-    if (decision == "unsat") Left(s) // perfect program found; end of run
-    else {
-      if (!CDGPoneTestPerIter || testsManager.newTests.isEmpty) {
-        val newTest = createTestFromFailedVerification(r.get)
-        testsManager.addNewTest(newTest)
-      }
-      val failedTests = evalOnTests(s, testsManager.getTests())
-      Right(failedTests)
-    }
-  }
-
-  def fitnessCDGPConservative(s: Op): Either[Op, Seq[Int]] = {
-    val failedTests = evalOnTests(s, testsManager.getTests())
-    val numFailed = failedTests.count(_ == 1)
-    // CDGP Conservative variant: If the program fails any tests, then don't apply verification to it,
-    // as it is very likely that the found counterexample is already among the tests.
-    if (numFailed > 0)
-      Right(failedTests)
-    else {
-      val (decision, r) = verify(s)
-      if (decision == "unsat") Left(s) // perfect program found; end of run
-      else {
-        if (!CDGPoneTestPerIter || testsManager.newTests.isEmpty) {
-          val newTest = createTestFromFailedVerification(r.get)
-          testsManager.addNewTest(newTest)
+  def fitnessCDGP: Op => Either[Op, Seq[Int]] =
+    new Function1[Op, Either[Op, Seq[Int]]] {
+      def apply(s: Op) = {
+        val (decision, r) = verify(s)
+        if (decision == "unsat") Left(s) // perfect program found; end of run
+        else {
+          if (!CDGPoneTestPerIter || testsManager.newTests.isEmpty) {
+            val newTest = createTestFromFailedVerification(r.get)
+            testsManager.addNewTest(newTest)
+          }
+          val failedTests = evalOnTests(s, testsManager.getTests())
+          Right(failedTests)
         }
-        Right(failedTests)
       }
     }
-  }
+
+  def fitnessCDGPConservative: Op => Either[Op, Seq[Int]] =
+    new Function1[Op, Either[Op, Seq[Int]]] {
+      def apply(s: Op) = {
+        val failedTests = evalOnTests(s, testsManager.getTests())
+        val numFailed = failedTests.count(_ == 1)
+        // CDGP Conservative variant: If the program fails any tests, then don't apply verification to it,
+        // as it is very likely that the found counterexample is already among the tests.
+        if (numFailed > 0)
+          Right(failedTests)
+        else {
+          val (decision, r) = verify(s)
+          if (decision == "unsat") Left(s) // perfect program found; end of run
+          else {
+            if (!CDGPoneTestPerIter || testsManager.newTests.isEmpty) {
+              val newTest = createTestFromFailedVerification(r.get)
+              testsManager.addNewTest(newTest)
+            }
+            Right(failedTests)
+          }
+        }
+      }
+    }
 
   def fitnessGPR(s: Op): Either[Op, Seq[Int]] = {
     val failedTests = evalOnTests(s, testsManager.getTests())
@@ -228,12 +238,56 @@ class CGDPFitness(sygusProblem: SyGuS16)(implicit opt: Options, coll: Collector,
       }
     }
   }
+
+  def evalInt[S](fitness: S=>Either[S, Seq[Int]]): S => Int = {
+    (s: S) => {
+      val r = fitness(s)
+      if (r.isLeft) -1 // perfect program found; end of run
+      else r.right.get.sum
+    }
+  }
+
+  def evalSeqInt[S](fitness: S=>Either[S, Seq[Int]]): S => Seq[Int] = {
+    (s: S) => {
+      val r = fitness(s)
+      if (r.isLeft) 0.until(testsManager.tests.size).map(_ => -1) // perfect program found; end of run
+      else r.right.get
+    }
+  }
+
+//  def eval[S]: S => E = searchAlg match {
+//    case "GP" | "GPSteadyState" => evalInt
+//    case "Lexicase" | "LexicaseSteadyState" => evalSeqInt
+//  }
 }
 
 
-class CDGPEvaluation[S, E]() extends Evaluation[S, E]() {
-  override def apply(s: StatePop[S]): StatePop[(S, E)] = {
-    null
+class CDGPEvaluation[S, E](testsManager: TestsManagerCDGP[Map[String, Any], Any],
+                           fitness: Op => Either[Op, Seq[Int]],
+                           eval: S => E)
+                          (implicit opt: Options, coll: Collector, rng: TRandom)
+      extends Evaluation[S, E]() {
+  val silent = opt('silent, true)
+
+  def evaluate: Evaluation[S, E] = if (opt('parEval, true)) ParallelEval(eval) else SequentialEval(eval)
+
+  def cdgpEvaluate: StatePop[S] => StatePop[(S, E)] =
+    evaluate.andThen(updateTestsManager)
+
+  override def apply(s: StatePop[S]): StatePop[(S, E)] = cdgpEvaluate(s)
+
+  def updateTestsManager(s: StatePop[(S, E)]): StatePop[(S, E)] = {
+    val numNew = testsManager.newTests.size
+    testsManager.flushHelpers()  // resets newTests
+    if (!silent) {
+      val numKnown = testsManager.tests.values.count(_.isDefined)
+      println(f"Tests: found: ${numNew}  total: ${testsManager.tests.size}  known outputs: $numKnown")
+    }
+    s
   }
 }
 
+
+class CDGPEvaluationLexicase[S, E]() {
+
+}

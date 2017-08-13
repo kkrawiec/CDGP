@@ -43,10 +43,10 @@ object TestLIA extends IApp('maxGenerations -> 300, 'printResults -> true, 'popu
     //println( pretty(tree).replace("$colon$colon", "List") )
 
     // Retrieve the grammar and signature of the function to be synthesized
-    val (fname, grammar, arguments, outputType) = ExtractSynthesisTasks(sygusProblem).head  // head
+    val synthTask = ExtractSynthesisTasks(sygusProblem).head  // head
 
     // Create the Swim grammar from it
-    val gr = Grammar.fromMap("Start", grammar.toMap)
+    val gr = Grammar.fromMap("Start", synthTask.grammar.toMap)
 
     // Generate a bunch of random programs using the grammar
     val cf = new CodeFactory(gr, stoppingDepth = 4, maxDepth = 8)
@@ -54,7 +54,7 @@ object TestLIA extends IApp('maxGenerations -> 300, 'printResults -> true, 'popu
 
     ////////////////////////////////////////////////////////////////
     // Apply the programs to a random input
-    val input = arguments.map {
+    val input = synthTask.arguments.map {
       case (name, IntSortExpr())  => name -> (rng.nextInt(21) - 10)
       case (name, BoolSortExpr()) => name -> rng.nextBoolean
     }

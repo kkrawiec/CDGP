@@ -10,12 +10,12 @@ import scala.sys.process.Process
 import scala.sys.process.ProcessIO
 
 
-case class UnknownSolverOutputException(message: String = "", cause: Throwable = null)
-           extends Exception(message, cause)
+class UnknownSolverOutputException(message: String = "", cause: Throwable = null)
+      extends Exception(message, cause)
 
 
 case class Solver(path: String, args: String = "-in", verbose: Boolean = false)
-           extends Closeable {
+      extends Closeable {
 
   private[this] var is: OutputStream = null
   private[this] var os: InputStream = null
