@@ -156,57 +156,14 @@ object MainCDGP extends FApp {
 
   val fv = sygusProblem.cmds.collect { case v: VarDeclCmd => v }
   val getValueCommand = f"(get-value (${fv.map(_.sym).mkString(" ")}))"
-  
 
 
+  // Creating solver manager
   val solverPath = opt('solverPath)
-  var maxSolverRetries = opt('maxSolverRetries, 5)
-  var doneSolverRetries = 0
-  var solver = createSolver()
-  def createSolver(): Solver = {
-    // Sometimes during opening connection with a solver unidentified error occurs.
-    // This function retries opening connection if this happens.
-    coll.set("doneSolverRetries", doneSolverRetries)
-    try {
-      Solver(solverPath, verbose = false)
-    }
-    catch {
-      case error: Throwable => if (doneSolverRetries < maxSolverRetries) {
-          doneSolverRetries += 1
-          println(s"Restarting solver ($doneSolverRetries)")
-          createSolver()
-        }
-        else {
-          coll.set("solverError", error.getMessage)
-          coll.saveSnapshot("error_solver")
-          throw error
-        }
-    }
-  }
+  val solverArgs = opt('solverArgs, "-in")
+  val solver = new SolverManager(solverPath, solverArgs, verbose=false)
 
-  /**
-    * Executes provided commands using the SMT solver.
-    * @param cmd Commands to be executed by the solver.
-    * @param postCommands Additional commands to be placed after (check-sat).
-    * @return Solver's decision ('sat', 'unsat', 'unknown') and optional content determined by postCommands.
-    */
-  def runSolver(cmd: String, postCommands: String*): (String, Option[String]) = {
-    try {
-      solver.solve(cmd, postCommands:_*)
-    }
-    catch {
-      case e : UnknownSolverOutputException => throw e  // we want to fail if any UNKNOWN happens
-      case _: Throwable => { // Restarting solver, because most likely it crashed.
-        val numCalls = solver.getNumCalls
-        solver = createSolver()
-        solver.setNumCalls(numCalls) // not losing the current number of solver calls.
-        runSolver(cmd, postCommands:_*)
-      }
-    }
-  }
-  
-  
-  
+
   // The types for input and output
   type I = Map[String, Any]
   type O = Any
@@ -237,7 +194,7 @@ object MainCDGP extends FApp {
           // If the desired output is not known yet, use the solver:
           val checkOnTestCmd = SMTLIBFormatter.checkOnInput(sygusProblem, testInputsMap, output, solverTimeout=opt('solverTimeout, 0))
           println("\ncheckOnTestCmd:\n" + checkOnTestCmd)
-          val (decision, outputData) = runSolver(checkOnTestCmd)
+          val (decision, outputData) = solver.runSolver(checkOnTestCmd)
           // If the program passed the test, we know the desired output and can update
           // the set of tests
           if (decision == "sat") testsManager.updateTest((testInputsMap, Some(output)))
@@ -255,7 +212,7 @@ object MainCDGP extends FApp {
     //println("\nSearch cmd:\n" + cmd)
     try {
       val getValueCommand = f"(get-value (CorrectOutput))"
-      val (decision, res) = runSolver(cmd, getValueCommand)
+      val (decision, res) = solver.runSolver(cmd, getValueCommand)
       // println("Solver res: " + res)
       if (decision == "sat") {
         val values = GetValueParser(res.get)
@@ -292,7 +249,7 @@ object MainCDGP extends FApp {
 
   def verify(s: Op): (String, Option[String]) = {
     val verProblemCmds = SMTLIBFormatter.verify(sygusProblem, s, solverTimeout=opt('solverTimeout, 0))
-    runSolver(verProblemCmds, getValueCommand)
+    solver.runSolver(verProblemCmds, getValueCommand)
   }
 
   /**
@@ -380,7 +337,7 @@ object MainCDGP extends FApp {
     s
   }
   def printPop[E](s: StatePop[(Op, E)]) = {
-    println("\nPopulation:")
+    println(f"\nPopulation (size=${s.size}):")
     for (x <- s)
       println(x)
     println()
@@ -505,5 +462,5 @@ object MainCDGP extends FApp {
     println("\nOPTIMAL SOLUTION:")
     printInSygusFormat(bestOfRun)
   }
-  solver.close
+  solver.close()
 }
