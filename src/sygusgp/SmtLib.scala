@@ -33,8 +33,15 @@ object SMTLIBFormatter {
     else f"($opStr ${op.args.map(opToString(_)).mkString(" ")})"
   }
 
-  def synthFunArgsToString(synthTast: SygusSynthesisTask): String = {
-    synthTast.arguments.map { case (k, v) => f"($k ${sortToString(v)})" }.mkString
+  def synthTaskSolutionToString(sst: SygusSynthesisTask, solution: Op): String = {
+    val bestBody = SMTLIBFormatter.opToString(solution)
+    val args = SMTLIBFormatter.synthFunArgsToString(sst)
+    val tpe = SMTLIBFormatter.sortToString(sst.outputType)
+    f"(define-fun ${sst.fname} ($args) $tpe\n\t$bestBody)"
+  }
+
+  def synthFunArgsToString(sst: SygusSynthesisTask): String = {
+    sst.arguments.map { case (k, v) => f"($k ${sortToString(v)})" }.mkString
   }
 
   def synthFunArgsToString(sfc: SynthFunCmd): String = {

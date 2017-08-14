@@ -438,25 +438,17 @@ object MainCDGP extends FApp {
   println("Total solver calls: " + solver.getNumCalls)
   println("Total time [ms]: " + coll.getResult("totalTimeSystem").getOrElse("Unknown"))
   println("Total tests: " + testsManager.tests.size)
-  def printInSygusFormat(bestOfRun: Option[(Op, Any)]) {
-    if (bestOfRun.isDefined) {
-      val (best, _) = bestOfRun.get
-      if (isOptimal(bestOfRun.get)) {
-        val bestBody = SMTLIBFormatter.opToString(best)
-        val sf = sygusProblem.cmds.collect { case sf: SynthFunCmd => sf }.head
-        val args = SMTLIBFormatter.synthFunArgsToString(sf)
-        val tpe = SMTLIBFormatter.sortToString(synthTask.outputType)
-        println(f"(define-fun ${sf.sym} ($args) $tpe\n\t$bestBody)")
-      }
-      else
-        println("unknown")
-    }
-    else
-      println("unknown")
-  }
-  if (sygusOutput) {
-    println("\nOPTIMAL SOLUTION:")
-    printInSygusFormat(bestOfRun)
+
+
+  assume(bestOfRun.isDefined, "No solution (optimal or approximate) to the problem was found.")
+  val solutionCode = SMTLIBFormatter.synthTaskSolutionToString(synthTask, bestOfRun.get._1)
+
+  println("\nOPTIMAL SOLUTION:")
+  if (isOptimal(bestOfRun.get)) println(solutionCode) else println("unknown")
+
+  if (!isOptimal(bestOfRun.get)) {
+    println(f"\nAPPROXIMATED SOLUTION:")
+    println(solutionCode)
   }
   solver.close()
 }

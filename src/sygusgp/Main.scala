@@ -109,22 +109,16 @@ object Main extends FApp {
   println("Total solver calls: " + solver.getNumCalls)
   println("Total time [ms]: " + coll.getResult("totalTimeSystem").getOrElse("Unknown"))
   //println("Total tests: " + testsManager.tests.size)
-  def printInSygusFormat(bestOfRun: Option[(Op, Any)]) {
-    if (bestOfRun.isDefined) {
-      val (best, _) = bestOfRun.get
-      if (isOptimal(bestOfRun.get)) {
-        val bestBody = SMTLIBFormatter.opToString(best)
-        val args = SMTLIBFormatter.synthFunArgsToString(synthTask)
-        val tpe = SMTLIBFormatter.sortToString(synthTask.outputType)
-        println(f"(define-fun ${synthTask.fname} ($args) $tpe\n\t$bestBody)")
-      }
-      else
-        println("unknown")
-    }
-    else
-      println("unknown")
-  }
+
+
+  assume(bestOfRun.isDefined, "No solution (optimal or approximate) to the problem was found.")
+  val solutionCode = SMTLIBFormatter.synthTaskSolutionToString(synthTask, bestOfRun.get._1)
 
   println("\nOPTIMAL SOLUTION:")
-  printInSygusFormat(bestOfRun)
+  if (isOptimal(bestOfRun.get)) println(solutionCode) else println("unknown")
+
+  if (!isOptimal(bestOfRun.get)) {
+    println(f"\nAPPROXIMATED SOLUTION:")
+    println(solutionCode)
+  }
 }

@@ -120,7 +120,7 @@ class CGDPFitness(sygusProblem: SyGuS16)(implicit opt: Options, coll: Collector,
         } else {
           // If the desired output is not known yet, use the solver:
           val checkOnTestCmd = SMTLIBFormatter.checkOnInput(sygusProblem, testInputsMap, output, solverTimeout=opt('solverTimeout, 0))
-          println("\ncheckOnTestCmd:\n" + checkOnTestCmd)
+          //println("\ncheckOnTestCmd:\n" + checkOnTestCmd)
           val (decision, outputData) = solver.runSolver(checkOnTestCmd)
           // If the program passed the test, we know the desired output and can update
           // the set of tests
@@ -167,8 +167,8 @@ class CGDPFitness(sygusProblem: SyGuS16)(implicit opt: Options, coll: Collector,
   }
 
   def createTestFromFailedVerification(verOutput: String): (Map[String, Any], Option[Any]) = {
-    println("verOutput:")
-    println(verOutput)
+    //println("verOutput:")
+    //println(verOutput)
     val counterExample = GetValueParser(verOutput) // returns the counterexample
     val testNoOutput = (counterExample.toMap, None) // for this test currently the correct answer is not known
     tryToFindOutputForTestCase(testNoOutput)
