@@ -2,15 +2,10 @@ package sygusgp
 
 import java.io.File
 
-import scala.Left
-import scala.Right
-import scala.annotation.elidable
-import scala.annotation.elidable.ASSERTION
 import scala.collection.immutable.Map
 import scala.collection.Seq
 import fuel.core.StatePop
 import fuel.func.RunExperiment
-import swim.Grammar
 import swim.tree.GPMoves
 import swim.tree.Op
 import swim.tree.SimpleGP
@@ -47,8 +42,8 @@ object TestCDGP extends App {
         "--maxGenerations", "20",
         "--printResults", "false",
         "--populationSize", "100",
-        "--initMaxTreeDepth", "7", 
-        "--maxSubtreeDepth", "5", 
+        "--initMaxTreeDepth", "7",
+        "--maxSubtreeDepth", "5",
         "--parEval", "false",
         "--solverPath", "/Users/krawiec/bs/z3/build/z3",
         "--method", "0", 
@@ -56,9 +51,7 @@ object TestCDGP extends App {
         "--benchmark", file.getAbsolutePath
         ))
     } catch {
-      case e: Exception => {
-        e.printStackTrace()
-      }
+      case e: Exception => e.printStackTrace()
     }
   }
 }
@@ -288,21 +281,31 @@ object MainCDGP extends FApp {
       println(f"Tests: found: ${nNew}  total: ${testsManager.tests.size}  known outputs: $nKnown")
     s
   }
-  def updatePopSteadyStateGP(s: StatePop[(Op, Int)]): StatePop[(Op, Int)] = {
+
+  def updateEvalInt(s: (Op, Int)): (Op, Int) =
+    (s._1, s._2 + evalOnTests(s._1, testsManager.newTests.toList).sum)
+
+  def updateEvalSeqInt(s: (Op, Seq[Int])): (Op, Seq[Int]) =
+    (s._1, s._2 ++ evalOnTests(s._1, testsManager.newTests.toList)) // append evals for new tests
+
+  def updatePopSteadyStateGP(update: ((Op, Int))=>(Op, Int) = updateEvalInt)
+                            (s: StatePop[(Op, Int)]):
+                            StatePop[(Op, Int)] = {
     if (testsManager.newTests.nonEmpty)
       StatePop(s.map{ case (op, e) =>
-        val x = (op, e + evalOnTests(op, testsManager.newTests.toList).sum)
+        val x = update((op, e))
         x })
-    else
-      s
+    else s
   }
-  def updatePopSteadyStateLexicase(s: StatePop[(Op, Seq[Int])]): StatePop[(Op, Seq[Int])] = {
+  def updatePopSteadyStateLexicase(update: ((Op, Seq[Int]))=>(Op, Seq[Int]) = updateEvalSeqInt)
+                                  (s: StatePop[(Op, Seq[Int])]):
+                                  StatePop[(Op, Seq[Int])] = {
     if (testsManager.newTests.nonEmpty)
-      StatePop(s.map{ case (op, e) =>
-        val x = (op, e ++ evalOnTests(op, testsManager.newTests.toList)) // append evals for new tests
-        x })
-    else
-      s
+      /*StatePop(s.map{ case (op, e) =>
+        val x = update(op, e)
+        x })*/
+      StatePop(s.map{ case (op, e) => update(op, e) })
+    else s
   }
   def reportStats[E](bsf: BestSoFar[Op, E])(s: StatePop[(Op, E)]) = {
     if (bsf.bestSoFar.isDefined) {
@@ -369,10 +372,10 @@ object MainCDGP extends FApp {
       }
       def correct = (_: Any, e: Int) => e == -1
       val alg = new SimpleSteadyStateEA(GPMoves(grammar, SimpleGP.defaultFeasible), evalGP, correct) {
-        override def iter = super.iter andThen updatePopSteadyStateGP andThen updateTestCollections
+        override def iter = super.iter andThen updatePopSteadyStateGP() andThen updateTestCollections
         override def epilogue = super.epilogue andThen bsf andThen reportStats(bsf) andThen epilogueGP(bsf)
         override def report = s => s
-        override def initialize = super.initialize andThen updatePopSteadyStateGP andThen updateTestCollections
+        override def initialize = super.initialize andThen updatePopSteadyStateGP() andThen updateTestCollections
       }
       val finalPop = RunExperiment(alg)
       val bestSoFar: Option[(Op, Int)] = alg.bsf.bestSoFar
@@ -383,12 +386,12 @@ object MainCDGP extends FApp {
       // Convention: an ideal program has all test outcomes == -1 (but it's enough to check the first one)
       def eval(s: Op): Seq[Int] = {
         val r = fitness(s)
-        if (r.isLeft) 0.until(testsManager.tests.size).map(_ => -1) // perfect program found; end of run
+        if (r.isLeft) testsManager.getTests().map(_ => -1) // perfect program found; end of run
         else r.right.get
       }
       def correct = (_: Any, e: Seq[Int]) => e.nonEmpty && e.head == -1
       val alg = new LexicaseGP(GPMoves(grammar, SimpleGP.defaultFeasible), eval, correct) {
-        override def iter = super.iter //andThen updateTestCollections
+        override def iter = super.iter
         override def epilogue = super.epilogue andThen bsf andThen reportStats(bsf) andThen epilogueLexicase(bsf)
         override def report = s => s
         override def evaluate = super.evaluate andThen updateTestCollections
@@ -401,7 +404,7 @@ object MainCDGP extends FApp {
       // Convention: an ideal program has all test outcomes == -1 (but it's enough to check the first one)
       def eval(s: Op): Seq[Int] = {
         val r = fitness(s)
-        if (r.isLeft) 0.until(testsManager.tests.size).map(_ => -1) // perfect program found; end of run
+        if (r.isLeft) testsManager.getTests().map(_ => -1) // perfect program found; end of run
         else r.right.get
       }
       def correct = (_: Any, e: Seq[Int]) => e.nonEmpty && e.head == -1
@@ -410,10 +413,10 @@ object MainCDGP extends FApp {
                         else new TournamentSelection[Op, Seq[Int]](LongerOrMaxPassedOrdering.reverse)
       implicit val ordering = LongerOrMaxPassedOrdering
       val alg = new SteadyStateEA[Op, Seq[Int]](GPMoves(grammar, SimpleGP.defaultFeasible), eval, correct, selection, deselection) {
-        override def iter = super.iter andThen updatePopSteadyStateLexicase andThen updateTestCollections
+        override def iter = super.iter andThen updatePopSteadyStateLexicase() andThen updateTestCollections
         override def epilogue = super.epilogue andThen bsf andThen reportStats(bsf) andThen epilogueLexicase(bsf)
         override def report = s => s
-        override def initialize = super.initialize andThen updatePopSteadyStateLexicase andThen updateTestCollections
+        override def initialize = super.initialize andThen updatePopSteadyStateLexicase() andThen updateTestCollections
       }
       val finalPop = RunExperiment(alg)
       (finalPop, alg.bsf.bestSoFar)
@@ -437,7 +440,7 @@ object MainCDGP extends FApp {
   println("Total tests: " + testsManager.tests.size)
   def printInSygusFormat(bestOfRun: Option[(Op, Any)]) {
     if (bestOfRun.isDefined) {
-      val (best, eval) = bestOfRun.get
+      val (best, _) = bestOfRun.get
       if (isOptimal(bestOfRun.get)) {
         val bestBody = SMTLIBFormatter.opToString(best)
         val sf = sygusProblem.cmds.collect { case sf: SynthFunCmd => sf }.head

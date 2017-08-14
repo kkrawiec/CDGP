@@ -35,10 +35,10 @@ import sygus16.SyGuS16
   * @param outputType Output type of the function.
   */
 case class SygusSynthesisTask(fname: String,
-                              grammar:List[(Any, Seq[Any])],
-                              arguments: List[(String, SortExpr)],
+                              grammar: Seq[(Any, Seq[Any])],
+                              arguments: Seq[(String, SortExpr)],
                               outputType: SortExpr) {
-  val argNames: List[String] = arguments.unzip._1
+  val argNames: Seq[String] = arguments.unzip._1
 }
 
 

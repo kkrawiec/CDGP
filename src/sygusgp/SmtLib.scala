@@ -33,6 +33,10 @@ object SMTLIBFormatter {
     else f"($opStr ${op.args.map(opToString(_)).mkString(" ")})"
   }
 
+  def synthFunArgsToString(synthTast: SygusSynthesisTask): String = {
+    synthTast.arguments.map { case (k, v) => f"($k ${sortToString(v)})" }.mkString
+  }
+
   def synthFunArgsToString(sfc: SynthFunCmd): String = {
     sfc.list.map { case (k, v) => f"($k ${sortToString(v)})" }.mkString
   }
