@@ -277,28 +277,29 @@ class CGDPFitness(sygusProblem: SyGuS16)(implicit opt: Options, coll: Collector,
 
 class CDGPEvaluation[S, E](testsManager: TestsManagerCDGP[Map[String, Any], Any],
                            fitness: S => (Boolean, Seq[Int]),
-                           eval: S => E,
-                           updateEval: ((S,E)) => (S,E))
+                           eval: S => E)
                           (implicit opt: Options, coll: Collector, rng: TRandom)
-     extends Evaluation[S, E]() {
+      extends Evaluation[S, E] {
   val silent = opt('silent, false)
-
   def evaluate: Evaluation[S, E] = if (opt('parEval, true)) ParallelEval(eval) else SequentialEval(eval)
-
-  def cdgpEvaluate: StatePop[S] => StatePop[(S, E)] =
-    evaluate andThen updateTestsManager
 
   override def apply(s: StatePop[S]): StatePop[(S, E)] = cdgpEvaluate(s)
 
+  def cdgpEvaluate: StatePop[S] => StatePop[(S, E)] =
+    evaluate andThen updatePopulationEvalsAndTests
 
-  def updateTestsManager(s: StatePop[(S, E)]): StatePop[(S, E)] = { //previous updateTestCollections
+  def updatePopulationEvalsAndTests(s: StatePop[(S, E)]): StatePop[(S, E)] = {
+    updateTestsManager()
+    s  // in the case of generational GP there is no need to update evals
+  }
+
+  def updateTestsManager() {
     val numNew = testsManager.newTests.size
-    testsManager.flushHelpers()  // resets newTests
+    testsManager.flushHelpers()  // adds newTests to all tests; resets newTests
     if (!silent) {
       val numKnown = testsManager.tests.values.count(_.isDefined)
       println(f"Tests: found: ${numNew}  total: ${testsManager.tests.size}  known outputs: $numKnown")
     }
-    s
   }
 }
 
@@ -308,15 +309,14 @@ class CDGPEvaluationSteadyState[S, E](testsManager: TestsManagerCDGP[Map[String,
                                       eval: S => E,
                                       updateEval: ((S, E)) => (S, E))
                                      (implicit opt: Options, coll: Collector, rng: TRandom)
-      extends CDGPEvaluation[S, E](testsManager, fitness, eval, updateEval) {
-  override def cdgpEvaluate: StatePop[S] => StatePop[(S, E)] =
-    super.evaluate andThen super.updateTestsManager andThen updatePopSteadyState(updateEval)
+      extends CDGPEvaluation[S, E](testsManager, fitness, eval) {
 
-  def updatePopSteadyState(update: ((S, E))=>(S, E))
-                          (s: StatePop[(S, E)]):
-                           StatePop[(S, E)] = {
-    if (testsManager.newTests.nonEmpty)
-      StatePop(s.map{ case (op, e) => update(op, e) })
-    else s
+  override def updatePopulationEvalsAndTests(s: StatePop[(S, E)]): StatePop[(S, E)] = {
+    val s2 =
+      if (testsManager.newTests.nonEmpty)
+        StatePop(s.map{ case (op, e) => updateEval(op, e) })
+      else s
+    updateTestsManager()
+    s2
   }
 }

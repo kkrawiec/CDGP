@@ -1,9 +1,10 @@
 package sygusgp
 
 import fuel.core.StatePop
-import fuel.func.{Evaluation, RunExperiment}
+import fuel.func._
 import fuel.util.FApp
-import swim.tree.{GPMoves, LexicaseGP, Op, SimpleGP}
+import swim.eval.LexicaseSelection
+import swim.tree._
 
 
 object Main extends FApp {
@@ -46,7 +47,7 @@ object Main extends FApp {
 
   val (res, bestOfRun) = searchAlg match {
     case "GP" => {
-      // Convention: an ideal program has fitness -1.
+      // Convention: an ideal program has fitness -1
       def evalGP(s: Op): Int = {
         val (isPerfect, r) = fitness(s)
         if (isPerfect) -1 // perfect program found; end of run
@@ -65,15 +66,38 @@ object Main extends FApp {
         override def iter = super.iter andThen printPop
 
         override def evaluate: Evaluation[Op, Int] =
-          new CDGPEvaluation(cdgpFactory.testsManager, fitness, evalGP, cdgpFactory.updateEvalInt)
+          new CDGPEvaluation(cdgpFactory.testsManager, fitness, evalGP)
       }
       val finalPop = RunExperiment(alg)
       (finalPop, alg.bsf.bestSoFar)
     }
 
 
+    case "GPSteadyState" => {
+      // Convention: an ideal program has fitness -1
+      def evalGP(s: Op): Int = {
+        val (isPerfect, r) = fitness(s)
+        if (isPerfect) -1 // perfect program found; end of run
+        else r.sum
+      }
+      def correct = (_: Any, e: Int) => e == -1
+      val alg = new SimpleSteadyStateEA[Op, Int](GPMoves(grammar, SimpleGP.defaultFeasible), evalGP, correct) {
+        val cdgpEval = new CDGPEvaluationSteadyState[Op, Int](cdgpFactory.testsManager,
+          fitness, evalGP, cdgpFactory.updateEvalInt)
+
+        override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests
+        override def epilogue = super.epilogue andThen bsf// andThen reportStats(bsf) andThen epilogueGP(bsf)
+        override def report = s => s
+        override def evaluate: Evaluation[Op, Int] = cdgpEval
+      }
+      val finalPop = RunExperiment(alg)
+      val bestSoFar: Option[(Op, Int)] = alg.bsf.bestSoFar
+      (finalPop, bestSoFar)
+    }
+
+
     case "Lexicase" => {
-      // Convention: an ideal program has all test outcomes == -1 (but it's enough to check the first one)
+      // Convention: an ideal program has all test outcomes == -1
       def eval(s: Op): Seq[Int] = {
         val (isPerfect, r) = fitness(s)
         if (isPerfect) r.map(_ => -1) // perfect program found; end of run
@@ -85,7 +109,33 @@ object Main extends FApp {
         override def epilogue = super.epilogue andThen bsf// andThen reportStats(bsf) andThen epilogueLexicase(bsf)
         override def report = s => s
         override def evaluate: Evaluation[Op, Seq[Int]] =
-          new CDGPEvaluation(cdgpFactory.testsManager, fitness, eval, cdgpFactory.updateEvalSeqInt)
+          new CDGPEvaluation(cdgpFactory.testsManager, fitness, eval)
+      }
+      val finalPop = RunExperiment(alg)
+      (finalPop, alg.bsf.bestSoFar)
+    }
+
+
+    case "LexicaseSteadyState" => {
+      // Convention: an ideal program has all test outcomes == -1
+      def eval(s: Op): Seq[Int] = {
+        val (isPerfect, r) = fitness(s)
+        if (isPerfect) r.map(_ => -1) // perfect program found; end of run
+        else r
+      }
+      def correct = (_: Any, e: Seq[Int]) => e.nonEmpty && e.head == -1
+      val selection = new LexicaseSelection[Op, Int](Ordering[Int])
+      val deselection = if (opt('lexicaseDeselection, false)) new LexicaseSelection[Op, Int](Ordering[Int].reverse)
+      else new TournamentSelection[Op, Seq[Int]](LongerOrMaxPassedOrdering.reverse)
+      implicit val ordering = LongerOrMaxPassedOrdering
+      val alg = new SteadyStateEA[Op, Seq[Int]](GPMoves(grammar, SimpleGP.defaultFeasible), eval, correct, selection, deselection) {
+        val cdgpEval = new CDGPEvaluationSteadyState[Op, Seq[Int]](cdgpFactory.testsManager,
+          fitness, eval, cdgpFactory.updateEvalSeqInt)
+
+        override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests
+        override def epilogue = super.epilogue andThen bsf// andThen reportStats(bsf) andThen epilogueLexicase(bsf)
+        override def report = s => s
+        override def evaluate: Evaluation[Op, Seq[Int]] = cdgpEval
       }
       val finalPop = RunExperiment(alg)
       (finalPop, alg.bsf.bestSoFar)
@@ -102,6 +152,7 @@ object Main extends FApp {
       case a if a.isInstanceOf[Seq[Int]] => a.asInstanceOf[Seq[Int]].nonEmpty && a.asInstanceOf[Seq[Int]].head == -1
     }
   }
+
 
   val passedTestsRatio = coll.getResult("best.passedTestsRatio").getOrElse("n/a")
   println("\nBest program found: " + coll.getResult("best").getOrElse("n/a"))
