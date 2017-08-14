@@ -103,9 +103,10 @@ object Main extends FApp {
     }
   }
 
-  println("\nBest program found: " + coll.getResult("best").getOrElse("None"))
-  println("Evaluation: " + coll.getResult("best.eval").getOrElse("None"))
-  println("Ratio of passed tests: " + coll.getResult("best.passedTestsRatio").getOrElse("None"))
+  val passedTestsRatio = coll.getResult("best.passedTestsRatio").getOrElse("n/a")
+  println("\nBest program found: " + coll.getResult("best").getOrElse("n/a"))
+  println("Evaluation: " + coll.getResult("best.eval").getOrElse("n/a"))
+  println("Ratio of passed tests: " + passedTestsRatio)
   println("Total solver calls: " + solver.getNumCalls)
   println("Total time [ms]: " + coll.getResult("totalTimeSystem").getOrElse("Unknown"))
   //println("Total tests: " + testsManager.tests.size)
@@ -118,7 +119,7 @@ object Main extends FApp {
   if (isOptimal(bestOfRun.get)) println(solutionCode) else println("unknown")
 
   if (!isOptimal(bestOfRun.get)) {
-    println(f"\nAPPROXIMATED SOLUTION:")
+    println(f"\nAPPROXIMATED SOLUTION:\n(passedTestsRatio $passedTestsRatio)")
     println(solutionCode)
   }
 }

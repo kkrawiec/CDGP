@@ -322,14 +322,16 @@ object MainCDGP extends FApp {
     val (op, e) = bsf.bestSoFar.get
     val totalTests = testsManager.tests.size.toDouble
     val ratio = if (e <= 0) 1.0 else (totalTests - e).toDouble / totalTests
-    coll.setResult("best.passedTestsRatio", ratio)
+    val roundedRatio = BigDecimal(ratio).setScale(3, BigDecimal.RoundingMode.HALF_UP).toDouble
+    coll.setResult("best.passedTestsRatio", roundedRatio)
     s
   }
   def epilogueLexicase(bsf: BestSoFar[Op, Seq[Int]])(s: StatePop[(Op, Seq[Int])]) = {
     // Computes ratio of passed tests for a best of run.
     val (op, e) = bsf.bestSoFar.get
     val ratio = if (e.head == -1) 1.0 else e.count(_ == 0) / e.size.toDouble
-    coll.setResult("best.passedTestsRatio", ratio)
+    val roundedRatio = BigDecimal(ratio).setScale(3, BigDecimal.RoundingMode.HALF_UP).toDouble
+    coll.setResult("best.passedTestsRatio", roundedRatio)
     s
   }
   def printPop[E](s: StatePop[(Op, E)]) = {
@@ -431,10 +433,10 @@ object MainCDGP extends FApp {
     }
   }
 
-  
-  println("\nBest program found: " + coll.getResult("best").getOrElse("None"))
-  println("Evaluation: " + coll.getResult("best.eval").getOrElse("None"))
-  println("Ratio of passed tests: " + coll.getResult("best.passedTestsRatio").getOrElse("None"))
+  val passedTestsRatio = coll.getResult("best.passedTestsRatio").getOrElse("n/a")
+  println("\nBest program found: " + coll.getResult("best").getOrElse("n/a"))
+  println("Evaluation: " + coll.getResult("best.eval").getOrElse("n/a"))
+  println("Ratio of passed tests: " + passedTestsRatio)
   println("Total solver calls: " + solver.getNumCalls)
   println("Total time [ms]: " + coll.getResult("totalTimeSystem").getOrElse("Unknown"))
   println("Total tests: " + testsManager.tests.size)
@@ -447,7 +449,7 @@ object MainCDGP extends FApp {
   if (isOptimal(bestOfRun.get)) println(solutionCode) else println("unknown")
 
   if (!isOptimal(bestOfRun.get)) {
-    println(f"\nAPPROXIMATED SOLUTION:")
+    println(f"\nAPPROXIMATED SOLUTION:\n(passedTestsRatio $passedTestsRatio)")
     println(solutionCode)
   }
   solver.close()
