@@ -1,27 +1,15 @@
 package sygusgp
 
 import fuel.core.StatePop
-import fuel.func.{EACore, Evaluation, ParallelEval, SequentialEval}
+import fuel.func.{Evaluation, ParallelEval, SequentialEval}
 import fuel.util.{Collector, Options, TRandom}
 import swim.tree.Op
 import sygus.VarDeclCmd
 import sygus16.SyGuS16
 
 import scala.collection.immutable.Map
-import scala.collection.Seq
+import scala.collection.{Seq, mutable}
 
-/**
-  * Wrapper on any evolutionary algorithm which will apply counterexample
-  * guided methods using the provided solver.
-  * @param alg
-  * @tparam S Type of solution representation object (e.g. String, Seq[Int]).
-  * @tparam E Type of evaluation object (e.g. Int, Seq[Int]).
-  */
-//class CDGP[S, E](alg: EACore[S, E])(implicit opt: Options) {
-//  val newAlg = new EACore[S, E](alg.moves, alg.evaluation, alg.stop){
-//      override def iter = alg.iter
-//    }
-//}
 
 
 /**
@@ -30,9 +18,9 @@ import scala.collection.Seq
 class TestsManagerCDGP[I,O]() {
   // Set of counterexamples collected along the run.
   // The Option is None if the desired output for a given input is not known yet.
-  val tests = scala.collection.mutable.LinkedHashMap[I, Option[O]]()
+  val tests: mutable.LinkedHashMap[I, Option[O]] = mutable.LinkedHashMap[I, Option[O]]()
   // Set of counterexamples collected from the current generation. To be reseted after each iteration.
-  val newTests = scala.collection.mutable.Set[(I, Option[O])]()
+  val newTests: mutable.Set[(I, Option[O])] = mutable.Set[(I, Option[O])]()
 
   def getTests(): List[(I, Option[O])] = {
     tests.toList
@@ -52,10 +40,10 @@ class TestsManagerCDGP[I,O]() {
   }
 
   /**
-    * Moves elements from newTests to a global tests pool, and prepares manager for the next iteration.
+    * Moves elements from newTests to a global tests pool, and prepares manager for the next iteration
+    * by clearing newTests.
     */
   def flushHelpers() {
-    // Update the set of tests with the newly found ones:
     for (test <- newTests)
       if (!tests.contains(test._1)) {
         tests.put(test._1, test._2)
@@ -65,11 +53,18 @@ class TestsManagerCDGP[I,O]() {
 }
 
 
-class CGDPFitness(sygusProblem: SyGuS16)(implicit opt: Options, coll: Collector, rng: TRandom) {
+class CDGPState(sygusProblem: SyGuS16)
+               (implicit opt: Options, coll: Collector, rng: TRandom) {
   // The types for input and output
   type I = Map[String, Any]
   type O = Any
   val testsManager = new TestsManagerCDGP[I, O]()
+
+  val searchAlg = opt('searchAlgorithm)
+  val method = opt('method, "CDGP")
+  assume(searchAlg == "GP" || searchAlg == "GPSteadyState" ||
+    searchAlg == "Lexicase" || searchAlg == "LexicaseSteadyState")
+  assume(method == "CDGP" || method == "CDGPcons" || method == "GPR")
 
   // Other parameters
   val GPRminInt = opt('GPRminInt, -100)
@@ -86,18 +81,15 @@ class CGDPFitness(sygusProblem: SyGuS16)(implicit opt: Options, coll: Collector,
   val synthTask = synthTasks.head
   val grammar = ExtractSygusGrammar(synthTask)
 
-  val fv = sygusProblem.cmds.collect { case v: VarDeclCmd => v }
-  val getValueCommand = f"(get-value (${fv.map(_.sym).mkString(" ")}))"
+  private def fv = sygusProblem.cmds.collect { case v: VarDeclCmd => v }
+  private val getValueCommand = f"(get-value (${fv.map(_.sym).mkString(" ")}))"
 
 
   // Creating solver manager
-  val solverPath = opt('solverPath)
-  val solverArgs = opt('solverArgs, "-in")
+  private def solverPath = opt('solverPath)
+  private def solverArgs = opt('solverArgs, "-in")
   val solver = new SolverManager(solverPath, solverArgs, verbose=false)
 
-  val searchAlg = opt('searchAlgorithm, "")
-  assume(searchAlg == "GP" || searchAlg == "GPSteadyState" ||
-         searchAlg == "Lexicase" || searchAlg == "LexicaseSteadyState")
 
 
   /**
@@ -182,6 +174,14 @@ class CGDPFitness(sygusProblem: SyGuS16)(implicit opt: Options, coll: Collector,
     tryToFindOutputForTestCase(testNoOutput)
   }
 
+
+  val fitness: (Op) => (Boolean, Seq[Int]) =
+    method match {
+      case "CDGP"     => fitnessCDGP
+      case "CDGPcons" => fitnessCDGPConservative
+      case "GPR"      => fitnessGPR
+    }
+
   def fitnessCDGP: Op => (Boolean, Seq[Int]) =
     new Function1[Op, (Boolean, Seq[Int])] {
       def apply(s: Op) = {
@@ -221,20 +221,24 @@ class CGDPFitness(sygusProblem: SyGuS16)(implicit opt: Options, coll: Collector,
       }
     }
 
-  def fitnessGPR(s: Op): Either[Op, Seq[Int]] = {
-    val failedTests = evalOnTests(s, testsManager.getTests())
-    val numFailed = failedTests.count(_ == 1)
-    if (numFailed > 0)
-      Right(failedTests)
-    else {
-      val (decision, r) = verify(s)
-      if (decision == "unsat") Left(s) // perfect program found; end of run
-      else {
-        if (!GPRoneTestPerIter || testsManager.newTests.isEmpty) {
-          val newTest = createRandomTest(r.get)
-          testsManager.addNewTest(newTest)
+  def fitnessGPR: Op => (Boolean, Seq[Int]) = {
+    new Function1[Op, (Boolean, Seq[Int])] {
+      def apply(s: Op) = {
+        val failedTests = evalOnTests(s, testsManager.getTests())
+        val numFailed = failedTests.count(_ == 1)
+        if (numFailed > 0)
+          (false, failedTests)
+        else {
+          val (decision, r) = verify(s)
+          if (decision == "unsat") (true, testsManager.getTests().map(_ => -1)) // perfect program found; end of run
+          else {
+            if (!GPRoneTestPerIter || testsManager.newTests.isEmpty) {
+              val newTest = createRandomTest(r.get)
+              testsManager.addNewTest(newTest)
+            }
+            (false, failedTests)
+          }
         }
-        Right(failedTests)
       }
     }
   }
@@ -263,7 +267,7 @@ class CGDPFitness(sygusProblem: SyGuS16)(implicit opt: Options, coll: Collector,
   /**
     * Creates CDGPEvaluation based on provided settings in the options.
     */
-  def getEvaluationFromOpts[S, T](): CDGPEvaluation[S, T] = {
+  def getCDGPEvaluation[S, T](): CDGPEvaluation[S, T] = {
     null
   }
 
@@ -271,16 +275,46 @@ class CGDPFitness(sygusProblem: SyGuS16)(implicit opt: Options, coll: Collector,
     (s._1, s._2 + evalOnTests(s._1, testsManager.newTests.toList).sum)
 
   def updateEvalSeqInt(s: (Op, Seq[Int])): (Op, Seq[Int]) =
-    (s._1, s._2 ++ evalOnTests(s._1, testsManager.newTests.toList)) // append evals for new tests
+    (s._1, s._2 ++ evalOnTests(s._1, testsManager.newTests.toList))
 }
 
 
-class CDGPEvaluation[S, E](testsManager: TestsManagerCDGP[Map[String, Any], Any],
-                           fitness: S => (Boolean, Seq[Int]),
-                           eval: S => E)
+object CDGPState {
+  def apply(benchmark: String)
+           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPState =
+    new CDGPState(LoadSygusBenchmark(benchmark))
+
+  def apply(sygusProblem: SyGuS16)
+           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPState =
+    new CDGPState(sygusProblem)
+}
+
+
+
+
+/**
+  * CDGPEvaluation performs evaluation in the spirit of Counterexample-Driven Genetic Programming
+  * (see the paper: I.Błądek, K.Krawiec, J.Swan, "Counterexample-Driven Genetic Programming", GECCO'17).
+  *
+  * GP starts with an empty test set and a formal specification of the correct program. In the most
+  * conservative variant only individual passing all test cases is verified for consistency with
+  * the specification by the SMT solver. If such a verification fails, solver returns a counterexample.
+  * This counterexample is then added to the test set and the process continues.
+  *
+  * @param cdgpState Object handling the state of the CDGP.
+  * @param eval Function from a solution to its evaluation. It is also dependent on the cdgpState,
+  *             but because of many possible variants it should be created outside.
+  * @param opt Options.
+  * @param coll Collector for saving results and stats.
+  * @param rng Pseudorandom generator.
+  * @tparam S Type of solution representation object (e.g. String, Seq[Int]).
+  * @tparam E Type of evaluation object (e.g. Int, Seq[Int]).
+  */
+class CDGPEvaluation[S, E](val cdgpState: CDGPState,
+                           val eval: (S) => E)
                           (implicit opt: Options, coll: Collector, rng: TRandom)
       extends Evaluation[S, E] {
-  val silent = opt('silent, false)
+  private val silent = opt('silent, false)
   def evaluate: Evaluation[S, E] = if (opt('parEval, true)) ParallelEval(eval) else SequentialEval(eval)
 
   override def apply(s: StatePop[S]): StatePop[(S, E)] = cdgpEvaluate(s)
@@ -289,31 +323,49 @@ class CDGPEvaluation[S, E](testsManager: TestsManagerCDGP[Map[String, Any], Any]
     evaluate andThen updatePopulationEvalsAndTests
 
   def updatePopulationEvalsAndTests(s: StatePop[(S, E)]): StatePop[(S, E)] = {
+    // For generational GP there is no need to update evals, because all individuals are being replaced.
     updateTestsManager()
-    s  // in the case of generational GP there is no need to update evals
+    s
   }
 
   def updateTestsManager() {
-    val numNew = testsManager.newTests.size
-    testsManager.flushHelpers()  // adds newTests to all tests; resets newTests
+    val numNew = cdgpState.testsManager.newTests.size
+    cdgpState.testsManager.flushHelpers()  // adds newTests to all tests; resets newTests
     if (!silent) {
-      val numKnown = testsManager.tests.values.count(_.isDefined)
-      println(f"Tests: found: ${numNew}  total: ${testsManager.tests.size}  known outputs: $numKnown")
+      val numKnown = cdgpState.testsManager.tests.values.count(_.isDefined)
+      println(f"Tests: found: ${numNew}  total: ${cdgpState.testsManager.tests.size}  known outputs: $numKnown")
     }
   }
 }
 
 
-class CDGPEvaluationSteadyState[S, E](testsManager: TestsManagerCDGP[Map[String, Any], Any],
-                                      fitness: S => (Boolean, Seq[Int]),
+/**
+  * A modified version of CDGPEvaluation which is specilized in accomodating steady state GP.
+  * In steady state evaluated are, beside initial population, only single solutions (selected in the
+  * given iteration). After such evaluation the number of test cases can increase. Thus,
+  * updatePopulationEvalsAndTests must be invoked for example at the end of the iter function.
+  *
+  * @param cdgpState Object handling the state of the CDGP.
+  * @param eval Function from a solution to its evaluation. It is also dependent on the cdgpState,
+  *             but because of many possible variants it should be created outside.
+  * @param updateEval CDGP may add a new test after evaluation of a selected individual.
+  *                   This means that evaluations of all individuals in the population need
+  *                   to be updated. This is handled by this function.
+  * @param opt Options.
+  * @param coll Collector for saving results and stats.
+  * @param rng Pseudorandom generator.
+  * @tparam S Type of solution representation object (e.g. String, Seq[Int]).
+  * @tparam E Type of evaluation object (e.g. Int, Seq[Int]).
+  */
+class CDGPEvaluationSteadyState[S, E](cdgpState: CDGPState,
                                       eval: S => E,
                                       updateEval: ((S, E)) => (S, E))
                                      (implicit opt: Options, coll: Collector, rng: TRandom)
-      extends CDGPEvaluation[S, E](testsManager, fitness, eval) {
+      extends CDGPEvaluation[S, E](cdgpState, eval) {
 
   override def updatePopulationEvalsAndTests(s: StatePop[(S, E)]): StatePop[(S, E)] = {
     val s2 =
-      if (testsManager.newTests.nonEmpty)
+      if (cdgpState.testsManager.newTests.nonEmpty)
         StatePop(s.map{ case (op, e) => updateEval(op, e) })
       else s
     updateTestsManager()
