@@ -1,0 +1,12 @@
+.cache-main
+.cache-tests
+.settings
+.idea
+
+res*.txt
+res*.txt.error_solver
+
+/bin
+/lib_managed
+/project
+/target
