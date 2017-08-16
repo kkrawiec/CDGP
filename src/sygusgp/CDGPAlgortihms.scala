@@ -1,9 +1,10 @@
 package sygusgp
 
 import fuel.core.StatePop
-import fuel.func.{Evaluation, SimpleSteadyStateEA}
+import fuel.func._
 import fuel.util.{Collector, Options, TRandom}
-import swim.tree.{GPMoves, Op, SimpleGP}
+import swim.eval.LexicaseSelection
+import swim.tree._
 
 
 /**
@@ -29,23 +30,22 @@ import swim.tree.{GPMoves, Op, SimpleGP}
   * @param rng Pseudorandom numbers generator.
   * @param ordering Generates order on the fitness values.
   */
-class CDGPGenerationalGP(moves: GPMoves,
-                         cdgpEval: CDGPEvaluation[Op, Int])
-                        (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[Int])
-      extends SimpleGP(moves, (s:Op) => 0, Common.correctInt) {
-
+class CDGPGenerational(moves: GPMoves,
+                       cdgpEval: CDGPEvaluation[Op, Int])
+                      (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[Int])
+      extends SimpleGP(moves, cdgpEval.eval, Common.correctInt) {
   override def epilogue = super.epilogue andThen bsf// andThen reportStats(bsf) andThen epilogueGP(bsf)
-  override def iter = super.iter andThen super.report// andThen Common.printPop
-  override def evaluate: Evaluation[Op, Int] = cdgpEval
+  override def iter = super.iter// andThen super.report // uncomment report to change the result (FUEL issue #6)
+  override def evaluate = cdgpEval
 }
 
-object CDGPGenerationalGP {
+object CDGPGenerational {
   def apply(benchmark: String)
-           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalGP = {
+           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerational = {
     val cdgpState = Common.getCDGPFactory(benchmark)
     val moves = GPMoves(cdgpState.grammar, SimpleGP.defaultFeasible)
     val cdgpEval = new CDGPEvaluation(cdgpState, Common.evalInt(cdgpState.fitness))
-    new CDGPGenerationalGP(moves, cdgpEval)
+    new CDGPGenerational(moves, cdgpEval)
   }
 }
 
@@ -67,24 +67,111 @@ object CDGPGenerationalGP {
   * @param rng Pseudorandom numbers generator.
   * @param ordering Generates order on the fitness values.
   */
-class CDGPSteadyStateGP(moves: GPMoves,
-                        cdgpEval: CDGPEvaluation[Op, Int])
-                       (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[Int])
-      extends SimpleSteadyStateEA[Op, Int](moves, (s:Op) => 0, Common.correctInt) {
-
-  override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests
+class CDGPSteadyState(moves: GPMoves,
+                      cdgpEval: CDGPEvaluationSteadyState[Op, Int])
+                     (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[Int])
+      extends SimpleSteadyStateEA[Op, Int](moves, cdgpEval.eval, Common.correctInt) {
+  override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests andThen Common.printPop
   override def epilogue = super.epilogue andThen bsf// andThen reportStats(bsf) andThen epilogueGP(bsf)
-  override def evaluate: Evaluation[Op, Int] = cdgpEval
+  override def evaluate = cdgpEval
+  override def report = s => s
 }
 
-object CDGPSteadyStateGP {
+object CDGPSteadyState {
   def apply(benchmark: String)
-           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyStateGP = {
+           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyState = {
     val cdgpState = Common.getCDGPFactory(benchmark)
     val moves = GPMoves(cdgpState.grammar, SimpleGP.defaultFeasible)
     val cdgpEval = new CDGPEvaluationSteadyState(cdgpState, Common.evalInt(cdgpState.fitness),
       cdgpState.updateEvalInt)
-    new CDGPSteadyStateGP(moves, cdgpEval)
+    new CDGPSteadyState(moves, cdgpEval)
+  }
+}
+
+
+
+
+/**
+  * This is standard generational GP in which evolved are program trees.
+  * All solutions from the current generation are used to create offsprings (guided by the
+  * selection process), and the new population is then populated by those offsprings.
+  *
+  * This version of CDGP utilizes lexicase selection, which proves very effective in practice.
+  *
+  * CDGP evaluation component is used to generate new counterexamples, and the test set
+  * generally grows with the number of iterations.
+  *
+  * @param moves Definition of solution transformations, e.g. mutation, crossover.
+  * @param cdgpEval CDGP evaluation component.
+  * @param opt Options.
+  * @param coll Collector for storing results and stats.
+  * @param rng Pseudorandom numbers generator.
+  * @param ordering Generates order on the fitness values.
+  */
+class CDGPGenerationalLexicase(moves: GPMoves,
+                               cdgpEval: CDGPEvaluation[Op, Seq[Int]])
+                              (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[Int])
+      extends LexicaseGP(moves, cdgpEval.eval, Common.correctSeqInt) {
+  override def epilogue = super.epilogue andThen bsf// andThen reportStats(bsf) andThen epilogueGP(bsf)
+  override def iter = super.iter andThen super.report// andThen Common.printPop
+  override def evaluate = cdgpEval
+}
+
+object CDGPGenerationalLexicase {
+  def apply(benchmark: String)
+           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalLexicase = {
+    val cdgpState = Common.getCDGPFactory(benchmark)
+    val moves = GPMoves(cdgpState.grammar, SimpleGP.defaultFeasible)
+    val cdgpEval = new CDGPEvaluation(cdgpState, Common.evalSeqInt(cdgpState.fitness))
+    new CDGPGenerationalLexicase(moves, cdgpEval)
+  }
+}
+
+
+
+
+
+/**
+  * This is implementation of the steady state GP.
+  * In a single iteration only one individual is selected, recombined and then it replaces
+  * certain other individual (deselection process).
+  *
+  * CDGP evaluation component is used to generate new counterexamples, and the test set
+  * generally grows with the number of iterations.
+  *
+  * @param moves Definition of solution transformations, e.g. mutation, crossover.
+  * @param cdgpEval CDGP evaluation component.
+  * @param opt Options.
+  * @param coll Collector for storing results and stats.
+  * @param rng Pseudorandom numbers generator.
+  * @param ordering Generates order on the fitness values.
+  */
+class CDGPSteadyStateLexicase(moves: GPMoves,
+                      cdgpEval: CDGPEvaluationSteadyState[Op, Seq[Int]])
+                     (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[Seq[Int]] = LongerOrMaxPassedOrdering)
+      extends SteadyStateEA[Op, Seq[Int]](moves, cdgpEval.eval,
+                                          Common.correctSeqInt,
+                                          CDGPSteadyStateLexicase.getSelection(),
+                                          CDGPSteadyStateLexicase.getDeselection()) {
+  override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests
+  override def epilogue = super.epilogue andThen bsf// andThen reportStats(bsf) andThen epilogueGP(bsf)
+  override def evaluate = cdgpEval
+}
+
+object CDGPSteadyStateLexicase {
+  def getSelection()(implicit rng: TRandom): Selection[Op, Seq[Int]] = new LexicaseSelection[Op, Int](Ordering[Int])
+
+  def getDeselection()(implicit opt: Options, rng: TRandom): Selection[Op, Seq[Int]] =
+    if (opt('lexicaseDeselection, false)) new LexicaseSelection[Op, Int](Ordering[Int].reverse)
+    else new TournamentSelection[Op, Seq[Int]](LongerOrMaxPassedOrdering.reverse)
+
+  def apply(benchmark: String)
+           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyStateLexicase = {
+    val cdgpState = Common.getCDGPFactory(benchmark)
+    val moves = GPMoves(cdgpState.grammar, SimpleGP.defaultFeasible)
+    val cdgpEval = new CDGPEvaluationSteadyState(cdgpState, Common.evalSeqInt(cdgpState.fitness),
+      cdgpState.updateEvalSeqInt)
+    new CDGPSteadyStateLexicase(moves, cdgpEval)
   }
 }
 
@@ -109,7 +196,7 @@ object Common {
     else r
   }
 
-  def printPop[E](s: StatePop[(Op, E)]): StatePop[(Op, E)] = {
+  def printPop[S, E](s: StatePop[(S, E)]): StatePop[(S, E)] = {
     println(f"\nPopulation (size=${s.size}):")
     for (x <- s)
       println(x)

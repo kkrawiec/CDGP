@@ -63,11 +63,12 @@ class CDGPState(sygusProblem: SyGuS16)
   type O = Any
   val testsManager = new TestsManagerCDGP[I, O]()
 
-  val searchAlg = opt('searchAlgorithm)
   val method = opt('method, "CDGP")
-  assume(searchAlg == "GP" || searchAlg == "GPSteadyState" ||
-    searchAlg == "Lexicase" || searchAlg == "LexicaseSteadyState")
+  val searchAlg = opt('searchAlgorithm)
   assume(method == "CDGP" || method == "CDGPcons" || method == "GPR")
+  assume(searchAlg == "GP" || searchAlg == "GPSteadyState" ||
+         searchAlg == "Lexicase" || searchAlg == "LexicaseSteadyState")
+
 
   // Other parameters
   val GPRminInt = opt('GPRminInt, -100)
