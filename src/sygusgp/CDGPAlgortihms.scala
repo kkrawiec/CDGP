@@ -147,8 +147,9 @@ object CDGPGenerationalLexicase {
   * @param ordering Generates order on the fitness values.
   */
 class CDGPSteadyStateLexicase(moves: GPMoves,
-                      cdgpEval: CDGPEvaluationSteadyState[Op, Seq[Int]])
-                     (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[Seq[Int]] = LongerOrMaxPassedOrdering)
+                              cdgpEval: CDGPEvaluationSteadyState[Op, Seq[Int]])
+                             (implicit opt: Options, coll: Collector, rng: TRandom,
+                              ordering: Ordering[Seq[Int]] = LongerOrMaxPassedOrdering)
       extends SteadyStateEA[Op, Seq[Int]](moves, cdgpEval.eval,
                                           Common.correctSeqInt,
                                           CDGPSteadyStateLexicase.getSelection(),
