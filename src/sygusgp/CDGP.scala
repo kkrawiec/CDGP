@@ -46,7 +46,7 @@ object TestCDGP extends App {
         "--maxSubtreeDepth", "5",
         "--parEval", "false",
         "--solverPath", "/Users/krawiec/bs/z3/build/z3",
-        "--method", "0", 
+        "--method", "CDGP",
         "--searchAlgorithm", "GP",
         "--benchmark", file.getAbsolutePath
         ))
@@ -56,46 +56,6 @@ object TestCDGP extends App {
   }
 }
 
-
-/**
- * Manages the set of test cases during evolution run.
- */
-class TestsManager[I,O]() {
-  // Set of counterexamples collected along the run.
-  // The Option is None if the desired output for a given input is not known yet.
-  val tests = scala.collection.mutable.LinkedHashMap[I, Option[O]]()
-  // Set of counterexamples collected from the current generation. To be reseted after each iteration.
-  val newTests = scala.collection.mutable.Set[(I, Option[O])]()
-
-  def getTests(): List[(I, Option[O])] = {
-    tests.toList
-  }
-  def getNumberOfKnownOutputs(): Int = tests.values.count(_.isDefined)
-
-  def addNewTest(t: (I, Option[O])) {
-    //println("** Trying to add new test: " + t)
-    if (!tests.contains(t._1)) {
-      //println("** ADDED")
-      newTests.+=(t)
-    }
-  }
-  def updateTest(t: (I, Option[O])) {
-    //println("** Updated test: " + t)
-    tests.put(t._1, t._2)
-  }
-
-  /**
-   * Moves elements from newTests to a global tests pool, and prepares manager for the next iteration.
-   */
-  def flushHelpers() {
-    // Update the set of tests with the newly found ones:
-    for (test <- newTests)
-      if (!tests.contains(test._1)) {
-        tests.put(test._1, test._2)
-      }
-    newTests.clear
-  }
-}
 
 
 /**
@@ -107,17 +67,17 @@ class TestsManager[I,O]() {
   * --solverPath, path to the SMT solver (e.g. Z3).
   */
 object MainCDGP extends FApp {
-
   assume(opt('parEval, false) == false, "Can't use parallel evaluation because the working collection of tests is not synchronized")
 
-  val MethodCDGP = 0
-  val MethodCDGPconservative = 1
-  val MethodGPR = 2
-  val method = opt('method, 0)
-  assume(method == MethodCDGP || method == MethodCDGPconservative || method == MethodGPR)
-
   val searchAlg = opt('searchAlgorithm, "")
-  assume(searchAlg == "GP" || searchAlg == "GPSteadyState" || searchAlg == "Lexicase" || searchAlg == "LexicaseSteadyState")
+  val method = opt('method, "CDGP")
+  val MethodCDGP = "CDGP"
+  val MethodCDGPconservative = "CDGPcons"
+  val MethodGPR = "GPR"
+  assume(method == MethodCDGP || method == MethodCDGPconservative || method == MethodGPR)
+  assume(searchAlg == "GP" || searchAlg == "GPSteadyState" ||
+         searchAlg == "Lexicase" || searchAlg == "LexicaseSteadyState")
+
 
   val benchmark = opt('benchmark)
   println(s"Benchmark: $benchmark")
@@ -154,11 +114,10 @@ object MainCDGP extends FApp {
   type I = Map[String, Any]
   type O = Any
   // testsManager contains all test-related data and encapsulates operations on them.
-  val testsManager = new TestsManager[I, O]()
+  val testsManager = new TestsManagerCDGP[I, O]()
 
-  
-  
-  
+
+
   /**
     * Tests a program on the available tests and returns the vector of 0s (passed test) and 1s (failed test)
     * If the desired output is not known for a test, uses a solver to determine it, and adds the obtained
@@ -334,13 +293,6 @@ object MainCDGP extends FApp {
     coll.setResult("best.passedTestsRatio", roundedRatio)
     s
   }
-  def printPop[E](s: StatePop[(Op, E)]) = {
-    println(f"\nPopulation (size=${s.size}):")
-    for (x <- s)
-      println(x)
-    println()
-    s
-  }
   
   // Construct the search algorithm and run it:
   val (res, bestOfRun) = searchAlg match {
@@ -353,7 +305,7 @@ object MainCDGP extends FApp {
         else r.right.get.sum
       }
       def correct = (_: Any, e: Int) => e == -1
-      val alg = new SimpleGP(GPMoves(grammar, SimpleGP.defaultFeasible), evalGP, correct) {
+      val alg = new SimpleGP[Int](GPMoves(grammar, SimpleGP.defaultFeasible), evalGP, correct) {
         // In our scenario there is no meaning in comparing past best solutions with the current ones,
         // because the current ones have been most likely evaluated on the different set of tests.
         override def epilogue = super.epilogue andThen bsf andThen reportStats(bsf) andThen epilogueGP(bsf)
@@ -373,7 +325,7 @@ object MainCDGP extends FApp {
         else r.right.get.sum
       }
       def correct = (_: Any, e: Int) => e == -1
-      val alg = new SimpleSteadyStateEA(GPMoves(grammar, SimpleGP.defaultFeasible), evalGP, correct) {
+      val alg = new SimpleSteadyStateEA[Op, Int](GPMoves(grammar, SimpleGP.defaultFeasible), evalGP, correct) {
         override def iter = super.iter andThen updatePopSteadyStateGP() andThen updateTestCollections
         override def epilogue = super.epilogue andThen bsf andThen reportStats(bsf) andThen epilogueGP(bsf)
         override def report = s => s
