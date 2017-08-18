@@ -16,7 +16,7 @@ import swim.tree._
 
 
 /**
-  * This is standard generational GP in which evolved are program trees.
+  * This is a standard generational GP in which evolved are program trees.
   * All solutions from the current generation are used to create offsprings (guided by the
   * selection process), and the new population is then populated by those offsprings.
   *
@@ -53,7 +53,7 @@ object CDGPGenerational {
 
 
 /**
-  * This is implementation of the steady state GP.
+  * This is an implementation of the steady state GP.
   * In a single iteration only one individual is selected, recombined and then it replaces
   * certain other individual (deselection process).
   *
@@ -92,7 +92,7 @@ object CDGPSteadyState {
 
 
 /**
-  * This is standard generational GP in which evolved are program trees.
+  * This is a standard generational GP in which evolved are program trees.
   * All solutions from the current generation are used to create offsprings (guided by the
   * selection process), and the new population is then populated by those offsprings.
   *
@@ -130,11 +130,12 @@ object CDGPGenerationalLexicase {
 
 
 
-
 /**
-  * This is implementation of the steady state GP.
+  * This is an implementation of the steady state GP.
   * In a single iteration only one individual is selected, recombined and then it replaces
   * certain other individual (deselection process).
+  *
+  * This version of CDGP utilizes lexicase selection, which proves very effective in practice.
   *
   * CDGP evaluation component is used to generate new counterexamples, and the test set
   * generally grows with the number of iterations.
@@ -175,6 +176,7 @@ object CDGPSteadyStateLexicase {
     new CDGPSteadyStateLexicase(moves, cdgpEval)
   }
 }
+
 
 
 

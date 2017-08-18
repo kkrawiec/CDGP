@@ -5,9 +5,9 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.io.PrintWriter
 import java.util.Scanner
-import fuel.util.{Collector, Options}
-import scala.sys.process.Process
-import scala.sys.process.ProcessIO
+import scala.sys.process.{Process, ProcessIO}
+import fuel.util.{Collector, FApp, Options}
+
 
 
 class UnknownSolverOutputException(message: String = "", cause: Throwable = null)
@@ -17,16 +17,21 @@ class UnknownSolverOutputException(message: String = "", cause: Throwable = null
 case class Solver(path: String, args: String = "-in", verbose: Boolean = false)
       extends Closeable {
 
-  private[this] var is: OutputStream = null
-  private[this] var os: InputStream = null
-  private[this] var es: InputStream = null
+  private[this] var is: OutputStream = _
+  private[this] var os: InputStream = _
+  private[this] var es: InputStream = _
 
-  // Use z3's standard input
-  private[this] val pb = Process(f"$path $args")
-  private[this] val pio = new ProcessIO(this.is = _,
-    this.os = _,
-    this.es = _)
-  private[this] val process = pb.run(pio) // don't wait
+  private def startProcess: Process = {
+    val pb = Process(f"$path $args")
+    val pio = new ProcessIO(this.is = _, this.os = _, this.es = _)
+    val process = pb.run(pio) // don't wait
+
+    // This sleep magically solves problems with 'is or 'os being randomly
+    // null shortly after the creation of the process.
+    Thread.sleep(10)
+    process
+  }
+  private[this] val process = startProcess
   private[this] val bis = new PrintWriter(is)
   private[this] val scanner = new Scanner(os)
 
@@ -68,7 +73,7 @@ case class Solver(path: String, args: String = "-in", verbose: Boolean = false)
         ("sat", outputData)
       }
       else if (output == "unsat" || output == "unknown") (output, None)
-      else throw new UnknownSolverOutputException(f"Solver did not return sat nor unsat, but this: $output")
+      else throw new UnknownSolverOutputException(f"Solver did not return sat, unsat, nor unknown, but this: $output")
     }
   }
 
@@ -81,12 +86,29 @@ case class Solver(path: String, args: String = "-in", verbose: Boolean = false)
 }
 
 
+object TestSolverOpenConnection extends FApp {
+  val n = opt('n, 100)
+  val solverPath = opt('solverPath)
+  var sum = 0
+  0.until(n).foreach { _=>
+    try {
+      val s = new SolverManager(solverPath)
+      sum += s.getNumRestarts
+      s.close()
+    }
+    catch { case e: Throwable => println(f"Exception catched! Msg: ${e.getMessage()}"); sum += 5 }
+  }
+  println(s"Overall restarts: $sum")
+}
+
+
 
 class SolverManager(path: String, args: String = "-in", verbose: Boolean = false)
                    (implicit opt: Options, coll: Collector) {
   private val maxSolverRestarts: Int = opt('maxSolverRestarts, 5)
   private var doneRestarts: Int = 0
   private var numCalls: Int = 0
+  def getNumRestarts: Int = doneRestarts
   def getNumCalls: Int = numCalls
   def setNumCalls(nc: Int) { numCalls = nc}
 

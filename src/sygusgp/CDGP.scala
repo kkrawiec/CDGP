@@ -9,7 +9,7 @@ import fuel.func.RunExperiment
 import swim.tree.GPMoves
 import swim.tree.Op
 import swim.tree.SimpleGP
-import sygus.{SynthFunCmd, VarDeclCmd}
+import sygus.VarDeclCmd
 import swim.tree.LexicaseGP
 import fuel.util.FApp
 import fuel.func.SimpleSteadyStateEA
