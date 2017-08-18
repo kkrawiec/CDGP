@@ -61,7 +61,6 @@ object Main extends FApp {
 
   println("\nOPTIMAL SOLUTION:")
   if (isOptimal(bestOfRun.get)) println(solutionCode) else println("unknown")
-
   if (!isOptimal(bestOfRun.get)) {
     println(f"\nAPPROXIMATED SOLUTION:\n(passedTestsRatio $passedTestsRatio)")
     println(solutionCode)

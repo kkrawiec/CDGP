@@ -23,7 +23,9 @@ class TestsManagerCDGP[I,O]() {
   def getTests(): List[(I, Option[O])] = {
     tests.toList
   }
-  def getNumberOfKnownOutputs(): Int = tests.values.count(_.isDefined)
+  def getNumberOfTests: Int = tests.size
+  def getNumberOfKnownOutputs: Int = tests.values.count(_.isDefined)
+  def getNumberOfUnknownOutputs: Int = tests.size - getNumberOfKnownOutputs
 
   def addNewTest(t: (I, Option[O])) {
     //println("** Trying to add new test: " + t)
@@ -163,8 +165,6 @@ class CDGPState(sygusProblem: SyGuS16)
   }
 
   def createTestFromFailedVerification(verOutput: String): (Map[String, Any], Option[Any]) = {
-    //println("verOutput:")
-    //println(verOutput)
     val counterExample = GetValueParser(verOutput) // returns the counterexample
     val testNoOutput = (counterExample.toMap, None) // for this test currently the correct answer is not known
     tryToFindOutputForTestCase(testNoOutput)
@@ -244,22 +244,6 @@ class CDGPState(sygusProblem: SyGuS16)
           }
         }
       }
-    }
-  }
-
-  def evalInt[S](fitness: S=>Either[S, Seq[Int]]): S => Int = {
-    (s: S) => {
-      val r = fitness(s)
-      if (r.isLeft) -1 // perfect program found; end of run
-      else r.right.get.sum
-    }
-  }
-
-  def evalSeqInt[S](fitness: S=>Either[S, Seq[Int]]): S => Seq[Int] = {
-    (s: S) => {
-      val r = fitness(s)
-      if (r.isLeft) 0.until(testsManager.tests.size).map(_ => -1) // perfect program found; end of run
-      else r.right.get
     }
   }
 

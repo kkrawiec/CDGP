@@ -251,43 +251,43 @@ object MainCDGP extends FApp {
                             (s: StatePop[(Op, Int)]):
                             StatePop[(Op, Int)] = {
     if (testsManager.newTests.nonEmpty)
-      StatePop(s.map{ case (op, e) =>
-        val x = update((op, e))
-        x })
+      StatePop(s.map{ case (op, e) => update((op, e)) })
     else s
   }
   def updatePopSteadyStateLexicase(update: ((Op, Seq[Int]))=>(Op, Seq[Int]) = updateEvalSeqInt)
                                   (s: StatePop[(Op, Seq[Int])]):
                                   StatePop[(Op, Seq[Int])] = {
     if (testsManager.newTests.nonEmpty)
-      /*StatePop(s.map{ case (op, e) =>
-        val x = update(op, e)
-        x })*/
       StatePop(s.map{ case (op, e) => update(op, e) })
     else s
   }
   def reportStats[E](bsf: BestSoFar[Op, E])(s: StatePop[(Op, E)]) = {
     if (bsf.bestSoFar.isDefined) {
+      val (bestOfRun, _) = bsf.bestSoFar.get
+      coll.set("result.best.code", bestOfRun)
+      coll.set("result.best.smtlib", SMTLIBFormatter.opToString(bestOfRun))
       coll.set("result.best.size", bsf.bestSoFar.get._1.size)
       coll.set("result.best.height", bsf.bestSoFar.get._1.height)
     }
     coll.set("totalTests", testsManager.tests.size)
-    coll.set("totalKnownTestsOutputs", testsManager.getNumberOfKnownOutputs())
+    coll.set("totalTestsKnownOutputs", testsManager.getNumberOfKnownOutputs)
+    coll.set("totalTestsUnknownOutputs", testsManager.getNumberOfUnknownOutputs)
     coll.set("totalSolverCalls", solver.getNumCalls)
+    coll.set("totalSolverRestarts", solver.getNumRestarts)
     s
   }
   def epilogueGP(bsf: BestSoFar[Op, Int])(s: StatePop[(Op, Int)]) = {
     // Computes ratio of passed tests for a best of run.
-    val (op, e) = bsf.bestSoFar.get
+    val (_, e) = bsf.bestSoFar.get
     val totalTests = testsManager.tests.size.toDouble
-    val ratio = if (e <= 0) 1.0 else (totalTests - e).toDouble / totalTests
+    val ratio = if (e <= 0) 1.0 else (totalTests - e) / totalTests
     val roundedRatio = BigDecimal(ratio).setScale(3, BigDecimal.RoundingMode.HALF_UP).toDouble
     coll.setResult("best.passedTestsRatio", roundedRatio)
     s
   }
   def epilogueLexicase(bsf: BestSoFar[Op, Seq[Int]])(s: StatePop[(Op, Seq[Int])]) = {
     // Computes ratio of passed tests for a best of run.
-    val (op, e) = bsf.bestSoFar.get
+    val (_, e) = bsf.bestSoFar.get
     val ratio = if (e.head == -1) 1.0 else e.count(_ == 0) / e.size.toDouble
     val roundedRatio = BigDecimal(ratio).setScale(3, BigDecimal.RoundingMode.HALF_UP).toDouble
     coll.setResult("best.passedTestsRatio", roundedRatio)
