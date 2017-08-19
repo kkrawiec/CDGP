@@ -113,7 +113,7 @@ object CDGPSteadyState {
 class CDGPGenerationalLexicase(moves: GPMoves,
                                cdgpEval: CDGPEvaluation[Op, FSeqInt])
                               (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[Int])
-      extends LexicaseGP2[Int, FSeqInt](moves, cdgpEval.eval, Common.correctSeqInt, FSeqIntOrdering) {
+      extends LexicaseGPMain[Int, FSeqInt](moves, cdgpEval.eval, Common.correctSeqInt, FSeqIntOrdering) {
   override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalSeqInt(cdgpEval.state, bsf)
   override def iter = super.iter andThen super.report// andThen Common.printPop
   override def evaluate = cdgpEval
