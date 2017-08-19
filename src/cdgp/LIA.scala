@@ -1,4 +1,4 @@
-package sygusgp
+package cdgp
 
 import swim.Domain
 import swim.tree.Op

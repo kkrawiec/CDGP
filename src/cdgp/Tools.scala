@@ -1,4 +1,4 @@
-package sygusgp
+package cdgp
 
 import java.io.File
 

@@ -1,23 +1,17 @@
-package sygusgp
+package app
 
 import java.io.File
 
-import scala.collection.immutable.Map
-import scala.collection.Seq
 import fuel.core.StatePop
-import fuel.func.RunExperiment
-import swim.tree.GPMoves
-import swim.tree.Op
-import swim.tree.SimpleGP
-import sygus.VarDeclCmd
-import swim.tree.LexicaseGP
+import fuel.func._
 import fuel.util.FApp
-import fuel.func.SimpleSteadyStateEA
 import swim.eval.LexicaseSelection
-import fuel.func.SteadyStateEA
-import swim.tree.LongerOrMaxPassedOrdering
-import fuel.func.BestSoFar
-import fuel.func.TournamentSelection
+import swim.tree._
+import sygus.VarDeclCmd
+import cdgp._
+
+import scala.collection.Seq
+import scala.collection.immutable.Map
 
 /**
   * Helper object that calls the testbed for individual benchmarks
@@ -38,7 +32,7 @@ object TestCDGP extends App {
   }
   Tools.time {
     for (file <- files) try {
-      MainCDGP.main(Array(
+      MainGecco2017.main(Array(
         "--maxGenerations", "20",
         "--printResults", "false",
         "--populationSize", "100",
@@ -66,7 +60,7 @@ object TestCDGP extends App {
   * --benchmark, path to the SyGuS benchmark
   * --solverPath, path to the SMT solver (e.g. Z3).
   */
-object MainCDGP extends FApp {
+object MainGecco2017 extends FApp {
   assume(opt('parEval, false) == false, "Can't use parallel evaluation because the working collection of tests is not synchronized")
 
   val searchAlg = opt('searchAlgorithm, "")
@@ -347,7 +341,7 @@ object MainCDGP extends FApp {
       val alg = new LexicaseGP(GPMoves(grammar, SimpleGP.defaultFeasible), eval, correct) {
         override def iter = super.iter
         override def epilogue = super.epilogue andThen bsf andThen reportStats(bsf) andThen epilogueLexicase(bsf)
-        override def report = s => s
+        override def report = bsf //s => s
         override def evaluate = super.evaluate andThen updateTestCollections
       }
       val finalPop = RunExperiment(alg)

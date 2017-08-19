@@ -1,4 +1,4 @@
-package sygusgp
+package cdgp
 
 import fuel.core.StatePop
 import fuel.func.{Evaluation, ParallelEval, SequentialEval}

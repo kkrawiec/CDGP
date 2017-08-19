@@ -1,9 +1,9 @@
-package sygusgp
+package cdgp
 
 import fuel.core.StatePop
 import fuel.func._
 import fuel.util.{Collector, Options, TRandom}
-import swim.eval.{LexicaseSelection, LexicaseSelectionMain}
+import swim.eval.LexicaseSelectionMain
 import swim.tree._
 
 
@@ -72,7 +72,7 @@ class CDGPSteadyState(moves: GPMoves,
                       cdgpEval: CDGPEvaluationSteadyState[Op, FInt])
                      (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[FInt])
       extends SimpleSteadyStateEA[Op, FInt](moves, cdgpEval.eval, Common.correctInt) {
-  override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests andThen Common.printPop
+  override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests
   override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalInt(cdgpEval.state, bsf)
   override def evaluate = cdgpEval // used only for the initial population
   override def report = s => s
@@ -115,7 +115,7 @@ class CDGPGenerationalLexicase(moves: GPMoves,
                               (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[Int])
       extends LexicaseGPMain[Int, FSeqInt](moves, cdgpEval.eval, Common.correctSeqInt, FSeqIntOrdering) {
   override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalSeqInt(cdgpEval.state, bsf)
-  override def iter = super.iter andThen super.report// andThen Common.printPop
+  override def iter = super.iter andThen super.report
   override def evaluate = cdgpEval
 }
 
@@ -158,7 +158,7 @@ class CDGPSteadyStateLexicase(moves: GPMoves,
                                           CDGPSteadyStateLexicase.getSelection(),
                                           CDGPSteadyStateLexicase.getDeselection()) {
   override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests
-  override def epilogue = super.epilogue andThen bsf andThen Common.printPop andThen Common.epilogueEvalSeqInt(cdgpEval.state, bsf)
+  override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalSeqInt(cdgpEval.state, bsf)
   override def evaluate = cdgpEval // used only for the initial population
 }
 

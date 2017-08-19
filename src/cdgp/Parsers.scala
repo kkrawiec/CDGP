@@ -1,4 +1,4 @@
-package sygusgp
+package cdgp
 
 import scala.util.parsing.combinator.RegexParsers
 

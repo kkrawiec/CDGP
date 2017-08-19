@@ -1,4 +1,4 @@
-package sygusgp
+package cdgp
 
 import sygus14.SyGuS14
 import sygus14.SyGuS14._

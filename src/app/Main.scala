@@ -1,8 +1,9 @@
-package sygusgp
+package app
 
 import fuel.func.RunExperiment
 import fuel.util.FApp
 import swim.tree.Op
+import cdgp._
 
 
 

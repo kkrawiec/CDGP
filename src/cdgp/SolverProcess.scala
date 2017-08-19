@@ -1,4 +1,4 @@
-package sygusgp
+package cdgp
 
 import java.io.Closeable
 import java.io.InputStream

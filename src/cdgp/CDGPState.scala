@@ -1,4 +1,4 @@
-package sygusgp
+package cdgp
 
 import fuel.util.{Collector, Options, TRandom}
 import swim.tree.Op
