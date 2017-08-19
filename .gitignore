@@ -3,6 +3,7 @@
 .settings
 .idea
 
+res*.txt.cdgp
 res*.txt
 res*.txt.error_solver
 
