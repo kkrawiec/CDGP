@@ -3,7 +3,7 @@ package sygusgp
 import fuel.core.StatePop
 import fuel.func._
 import fuel.util.{Collector, Options, TRandom}
-import swim.eval.LexicaseSelection
+import swim.eval.{LexicaseSelection, LexicaseSelectionMain}
 import swim.tree._
 
 
@@ -31,8 +31,8 @@ import swim.tree._
   * @param ordering Generates order on the fitness values.
   */
 class CDGPGenerational(moves: GPMoves,
-                       cdgpEval: CDGPEvaluation[Op, Int])
-                      (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[Int])
+                       cdgpEval: CDGPEvaluation[Op, FInt])
+                      (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[FInt])
       extends SimpleGP(moves, cdgpEval.eval, Common.correctInt) {
   override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalInt(cdgpEval.state, bsf)
   override def iter = super.iter// andThen super.report // uncomment report to change the result (FUEL issue #6)
@@ -42,6 +42,7 @@ class CDGPGenerational(moves: GPMoves,
 object CDGPGenerational {
   def apply(benchmark: String)
            (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerational = {
+    implicit val ordering = FIntOrdering
     val cdgpState = Common.getCDGPState(benchmark)
     val moves = GPMoves(cdgpState.grammar, SimpleGP.defaultFeasible)
     val cdgpEval = new CDGPEvaluation(cdgpState, Common.evalInt(cdgpState.fitness))
@@ -68,18 +69,19 @@ object CDGPGenerational {
   * @param ordering Generates order on the fitness values.
   */
 class CDGPSteadyState(moves: GPMoves,
-                      cdgpEval: CDGPEvaluationSteadyState[Op, Int])
-                     (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[Int])
-      extends SimpleSteadyStateEA[Op, Int](moves, cdgpEval.eval, Common.correctInt) {
+                      cdgpEval: CDGPEvaluationSteadyState[Op, FInt])
+                     (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[FInt])
+      extends SimpleSteadyStateEA[Op, FInt](moves, cdgpEval.eval, Common.correctInt) {
   override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests andThen Common.printPop
   override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalInt(cdgpEval.state, bsf)
-  override def evaluate = cdgpEval
+  override def evaluate = cdgpEval // used only for the initial population
   override def report = s => s
 }
 
 object CDGPSteadyState {
   def apply(benchmark: String)
            (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyState = {
+    implicit val ordering = FIntOrdering
     val cdgpState = Common.getCDGPState(benchmark)
     val moves = GPMoves(cdgpState.grammar, SimpleGP.defaultFeasible)
     val cdgpEval = new CDGPEvaluationSteadyState(cdgpState, Common.evalInt(cdgpState.fitness),
@@ -109,9 +111,9 @@ object CDGPSteadyState {
   * @param ordering Generates order on the fitness values.
   */
 class CDGPGenerationalLexicase(moves: GPMoves,
-                               cdgpEval: CDGPEvaluation[Op, Seq[Int]])
+                               cdgpEval: CDGPEvaluation[Op, FSeqInt])
                               (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[Int])
-      extends LexicaseGP(moves, cdgpEval.eval, Common.correctSeqInt) {
+      extends LexicaseGP2[Int, FSeqInt](moves, cdgpEval.eval, Common.correctSeqInt, FSeqIntOrdering) {
   override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalSeqInt(cdgpEval.state, bsf)
   override def iter = super.iter andThen super.report// andThen Common.printPop
   override def evaluate = cdgpEval
@@ -148,27 +150,29 @@ object CDGPGenerationalLexicase {
   * @param ordering Generates order on the fitness values.
   */
 class CDGPSteadyStateLexicase(moves: GPMoves,
-                              cdgpEval: CDGPEvaluationSteadyState[Op, Seq[Int]])
+                              cdgpEval: CDGPEvaluationSteadyState[Op, FSeqInt])
                              (implicit opt: Options, coll: Collector, rng: TRandom,
-                              ordering: Ordering[Seq[Int]] = LongerOrMaxPassedOrdering)
-      extends SteadyStateEA[Op, Seq[Int]](moves, cdgpEval.eval,
+                              ordering: Ordering[FSeqInt])
+      extends SteadyStateEA[Op, FSeqInt](moves, cdgpEval.eval,
                                           Common.correctSeqInt,
                                           CDGPSteadyStateLexicase.getSelection(),
                                           CDGPSteadyStateLexicase.getDeselection()) {
   override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests
-  override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalSeqInt(cdgpEval.state, bsf)
-  override def evaluate = cdgpEval
+  override def epilogue = super.epilogue andThen bsf andThen Common.printPop andThen Common.epilogueEvalSeqInt(cdgpEval.state, bsf)
+  override def evaluate = cdgpEval // used only for the initial population
 }
 
 object CDGPSteadyStateLexicase {
-  def getSelection()(implicit rng: TRandom): Selection[Op, Seq[Int]] = new LexicaseSelection[Op, Int](Ordering[Int])
+  def getSelection()(implicit rng: TRandom): Selection[Op, FSeqInt] =
+    new LexicaseSelectionMain[Op, Int, FSeqInt](Ordering[Int])
 
-  def getDeselection()(implicit opt: Options, rng: TRandom): Selection[Op, Seq[Int]] =
-    if (opt('lexicaseDeselection, false)) new LexicaseSelection[Op, Int](Ordering[Int].reverse)
-    else new TournamentSelection[Op, Seq[Int]](LongerOrMaxPassedOrdering.reverse)
+  def getDeselection()(implicit opt: Options, rng: TRandom): Selection[Op, FSeqInt] =
+    if (opt('lexicaseDeselection, false)) new LexicaseSelectionMain[Op, Int, FSeqInt](Ordering[Int].reverse)
+    else new TournamentSelection[Op, FSeqInt](FSeqIntOrdering.reverse)
 
   def apply(benchmark: String)
            (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyStateLexicase = {
+    implicit val ordering = FSeqIntOrdering
     val cdgpState = Common.getCDGPState(benchmark)
     val moves = GPMoves(cdgpState.grammar, SimpleGP.defaultFeasible)
     val cdgpEval = new CDGPEvaluationSteadyState(cdgpState, Common.evalSeqInt(cdgpState.fitness),
@@ -180,23 +184,19 @@ object CDGPSteadyStateLexicase {
 
 
 
-
 object Common {
-  def correctInt: (Any, Int) => Boolean = (_: Any, e: Int) => e == -1
-  def correctSeqInt: (Any, Seq[Int]) => Boolean = (_: Any, e: Seq[Int]) => e.nonEmpty && e.head == -1
+  def correctInt: (Any, FInt) => Boolean =
+    (_: Any, e: FInt) => e.correct
+  def correctSeqInt: (Any, FSeqInt) => Boolean =
+    (_: Any, e: FSeqInt) => e.correct
 
-  def evalInt(fitness: (Op) => (Boolean, Seq[Int]))
-             (s: Op): Int = {
+  def evalInt(fitness: (Op) => (Boolean, Seq[Int]))(s: Op): FInt = {
     val (isPerfect, r) = fitness(s)
-    if (isPerfect) -1 // perfect program found; end of run
-    else r.sum
+    FInt(isPerfect, r.sum)
   }
-
-  def evalSeqInt(fitness: (Op) => (Boolean, Seq[Int]))
-                (s: Op): Seq[Int] = {
+  def evalSeqInt(fitness: (Op) => (Boolean, Seq[Int]))(s: Op): FSeqInt = {
     val (isPerfect, r) = fitness(s)
-    if (isPerfect) r.map(_ => -1) // perfect program found; end of run
-    else r
+    FSeqInt(isPerfect, r)
   }
 
   def printPop[S, E](s: StatePop[(S, E)]): StatePop[(S, E)] = {
@@ -212,34 +212,34 @@ object Common {
     new CDGPState(LoadSygusBenchmark(benchmark))
   }
 
-  def epilogueEvalInt(cdgpState: CDGPState, bsf: BestSoFar[Op, Int])
-                     (s: StatePop[(Op, Int)])
-                     (implicit opt: Options, coll: Collector): StatePop[(Op, Int)] = {
+  def epilogueEvalInt(cdgpState: CDGPState, bsf: BestSoFar[Op, FInt])
+                     (s: StatePop[(Op, FInt)])
+                     (implicit opt: Options, coll: Collector): StatePop[(Op, FInt)] = {
     val (_, e) = bsf.bestSoFar.get
-    val totalTests = cdgpState.testsManager.getNumberOfTests.toDouble
-    val passedTests = if (e <= 0) totalTests else totalTests - e
-    val ratio = passedTests / totalTests
+    val totalTests = cdgpState.testsManager.getNumberOfTests
+    val passedTests = if (e.correct) totalTests else totalTests - e.value
+    val ratio = if (totalTests == 0) 1.0 else passedTests / totalTests
     val roundedRatio = BigDecimal(ratio).setScale(3, BigDecimal.RoundingMode.HALF_UP).toDouble
-    val isOptimal = e == -1
     coll.setResult("best.passedTests", passedTests)
+    coll.setResult("best.numTests", totalTests)
     coll.setResult("best.passedTestsRatio", roundedRatio)
-    coll.setResult("best.isOptimal", isOptimal)
-    coll.setResult("best.isApproximate", !isOptimal)
+    coll.setResult("best.isOptimal", e.correct)
+    coll.setResult("best.isApproximate", !e.correct)
     reportStats(cdgpState, bsf)(s)
   }
 
-  def epilogueEvalSeqInt(cdgpState: CDGPState, bsf: BestSoFar[Op, Seq[Int]])
-                        (s: StatePop[(Op, Seq[Int])])
-                        (implicit opt: Options, coll: Collector): StatePop[(Op, Seq[Int])] = {
+  def epilogueEvalSeqInt(cdgpState: CDGPState, bsf: BestSoFar[Op, FSeqInt])
+                        (s: StatePop[(Op, FSeqInt)])
+                        (implicit opt: Options, coll: Collector): StatePop[(Op, FSeqInt)] = {
     val (_, e) = bsf.bestSoFar.get
-    val passedTests = if (e.head == -1) cdgpState.testsManager.tests.size else e.count(_ == 0)
-    val ratio = if (e.isEmpty || e.head == -1) 1.0 else passedTests / e.size.toDouble
+    val passedTests = if (e.correct) e.size else e.count(_ == 0)
+    val ratio = if (e.isEmpty) 1.0 else passedTests / e.size.toDouble
     val roundedRatio = BigDecimal(ratio).setScale(3, BigDecimal.RoundingMode.HALF_UP).toDouble
-    val isOptimal = e.head == -1
     coll.setResult("best.passedTests", passedTests)
+    coll.setResult("best.numTests", e.size)
     coll.setResult("best.passedTestsRatio", roundedRatio)
-    coll.setResult("best.isOptimal", isOptimal)
-    coll.setResult("best.isApproximate", !isOptimal)
+    coll.setResult("best.isOptimal", e.correct)
+    coll.setResult("best.isApproximate", !e.correct)
     reportStats(cdgpState, bsf)(s)
   }
 
@@ -253,14 +253,40 @@ object Common {
       coll.set("result.best.size", bsf.bestSoFar.get._1.size)
       coll.set("result.best.height", bsf.bestSoFar.get._1.height)
     }
-    // cdgp.totalTests can be higher then best.passedTests for optimal solution,
-    // because newly created tests are added before checking correctness of the solution.
     coll.set("cdgp.totalTests", cdgpState.testsManager.tests.size)
+    coll.set("cdgp.testsHistory", cdgpState.testsManager.history.mkString(","))
     coll.set("cdgp.totalTestsKnownOutputs", cdgpState.testsManager.getNumberOfKnownOutputs)
     coll.set("cdgp.totalTestsUnknownOutputs", cdgpState.testsManager.getNumberOfUnknownOutputs)
     coll.set("cdgp.totalSolverCalls", cdgpState.solver.getNumCalls)
     coll.set("cdgp.totalSolverRestarts", cdgpState.solver.getNumRestarts)
     coll.saveSnapshot("cdgp")
     s
+  }
+}
+
+
+
+case class FSeqInt(correct: Boolean, value: Seq[Int]) extends Seq[Int] {
+  override def length = value.length
+  override def apply(idx: Int) = value(idx)
+  override def iterator = value.iterator
+  override def toString: String = f"Fit($correct, $value)"
+}
+case class FInt(correct: Boolean, value: Int) {
+  override def toString: String = f"Fit($correct, $value)"
+}
+
+object FSeqIntOrdering extends Ordering[FSeqInt] {
+  def compare(a: FSeqInt, b: FSeqInt): Int = {
+    if (a.correct && !b.correct) -1
+    else if (!a.correct && b.correct) 1
+    else LongerOrMaxPassedOrdering.compare(a.value, b.value)
+  }
+}
+object FIntOrdering extends Ordering[FInt] {
+  def compare(a: FInt, b: FInt): Int = {
+    if (a.correct && !b.correct) -1
+    else if (!a.correct && b.correct) 1
+    else a.value compare b.value
   }
 }

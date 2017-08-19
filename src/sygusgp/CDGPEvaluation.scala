@@ -25,40 +25,36 @@ import fuel.util.{Collector, Options, TRandom}
   * @tparam E Type of evaluation object (e.g. Int, Seq[Int]).
   */
 class CDGPEvaluation[S, E](val state: CDGPState,
-                           val eval: (S) => E)
+                           val eval: S => E)
                           (implicit opt: Options, coll: Collector, rng: TRandom)
   extends Evaluation[S, E] {
   private val silent = opt('silent, false)
-  def evaluate: Evaluation[S, E] = if (opt('parEval, true)) ParallelEval(eval) else SequentialEval(eval)
+  def evaluate: Evaluation[S, E] = if (opt('parEval, false)) ParallelEval(eval) else SequentialEval(eval)
 
   override def apply(s: StatePop[S]): StatePop[(S, E)] = cdgpEvaluate(s)
 
   def cdgpEvaluate: StatePop[S] => StatePop[(S, E)] =
-    evaluate andThen updatePopulationEvalsAndTests
+    updateTestsManager andThen evaluate
 
-  def updatePopulationEvalsAndTests(s: StatePop[(S, E)]): StatePop[(S, E)] = {
-    // For generational GP there is no need to update evals, because all individuals are being replaced.
-    updateTestsManager()
-    s
-  }
-
-  def updateTestsManager() {
-    val numNew = state.testsManager.newTests.size
-    state.testsManager.flushHelpers()  // adds newTests to all tests; resets newTests
-    if (!silent) {
-      val numKnown = state.testsManager.tests.values.count(_.isDefined)
-      println(f"Tests: found: ${numNew}  total: ${state.testsManager.tests.size}  known outputs: $numKnown")
+  def updateTestsManager[T]: StatePop[T] => StatePop[T] =
+    (s: StatePop[T]) => {
+      val numNew = state.testsManager.newTests.size
+      state.testsManager.flushHelpers()  // adds newTests to all tests; resets newTests
+      if (!silent) {
+        val numKnown = state.testsManager.tests.values.count(_.isDefined)
+        println(f"Tests: found: ${numNew}  total: ${state.testsManager.tests.size}  known outputs: $numKnown")
+      }
+      s
     }
-  }
 }
 
 
 
 /**
-  * A modified version of CDGPEvaluation which is specilized in accomodating steady state GP.
-  * In steady state evaluated are, beside initial population, only single solutions (selected in the
-  * given iteration). After such evaluation the number of test cases can increase. Thus,
-  * updatePopulationEvalsAndTests must be invoked for example at the end of the iter function.
+  * A modified version of CDGPEvaluation which is specialized in accommodating steady state GP.
+  * In steady state evaluated are, beside initial population, only single solutions selected in the
+  * given iteration. In CDGP the number of test cases can increase, so updatePopulationEvalsAndTests
+  * must be invoked every after creation of a new individual.
   *
   * @param state Object handling the state of the CDGP.
   * @param eval Function from a solution to its evaluation. It is also dependent on the cdgpState,
@@ -78,12 +74,13 @@ class CDGPEvaluationSteadyState[S, E](state: CDGPState,
                                      (implicit opt: Options, coll: Collector, rng: TRandom)
   extends CDGPEvaluation[S, E](state, eval) {
 
-  override def updatePopulationEvalsAndTests(s: StatePop[(S, E)]): StatePop[(S, E)] = {
+  override def cdgpEvaluate = super.cdgpEvaluate andThen updatePopulationEvalsAndTests
+
+  def updatePopulationEvalsAndTests(s: StatePop[(S, E)]): StatePop[(S, E)] = {
     val s2 =
       if (state.testsManager.newTests.nonEmpty)
         StatePop(s.map{ case (op, e) => updateEval(op, e) })
       else s
-    updateTestsManager()
-    s2
+    updateTestsManager(s2)
   }
 }

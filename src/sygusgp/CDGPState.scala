@@ -13,12 +13,15 @@ import scala.collection.{Seq, mutable}
 /**
   * Manages the set of test cases during evolution run.
   */
-class TestsManagerCDGP[I,O]() {
+class TestsManagerCDGP[I,O](testsHistory: Boolean = true) {
   // Set of counterexamples collected along the run.
   // The Option is None if the desired output for a given input is not known yet.
   val tests: mutable.LinkedHashMap[I, Option[O]] = mutable.LinkedHashMap[I, Option[O]]()
   // Set of counterexamples collected from the current generation. To be reseted after each iteration.
   val newTests: mutable.Set[(I, Option[O])] = mutable.Set[(I, Option[O])]()
+
+  // Stores the number of tests after each use of flushHelpers.
+  val history: mutable.MutableList[Int] = mutable.MutableList[Int]()
 
   def getTests(): List[(I, Option[O])] = {
     tests.toList
@@ -48,6 +51,7 @@ class TestsManagerCDGP[I,O]() {
       if (!tests.contains(test._1)) {
         tests.put(test._1, test._2)
       }
+    if (testsHistory) history += tests.size
     newTests.clear
   }
 }
@@ -254,11 +258,13 @@ class CDGPState(sygusProblem: SyGuS16)
     null
   }
 
-  def updateEvalInt(s: (Op, Int)): (Op, Int) =
-    (s._1, s._2 + evalOnTests(s._1, testsManager.newTests.toList).sum)
+  def updateEvalInt(s: (Op, FInt)): (Op, FInt) = {
+    val newFit = FInt(s._2.correct, s._2.value + evalOnTests(s._1, testsManager.newTests.toList).sum)
+    (s._1, newFit)
+  }
 
-  def updateEvalSeqInt(s: (Op, Seq[Int])): (Op, Seq[Int]) =
-    (s._1, s._2 ++ evalOnTests(s._1, testsManager.newTests.toList))
+  def updateEvalSeqInt(s: (Op, FSeqInt)): (Op, FSeqInt) =
+    (s._1, FSeqInt(s._2.correct, s._2.value ++ evalOnTests(s._1, testsManager.newTests.toList)))
 }
 
 
