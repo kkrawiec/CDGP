@@ -59,7 +59,6 @@ case object LIA extends Domain[Map[String, Any], Any, Op] {
           case Seq("div", x: Int, y: Int)             => divide(x, y)
           case Seq("mod", x: Int, y: Int)             => modulo(x, y)
           case Seq("abs", x: Int)                     => if (x >= 0) x else -x
-          case Seq("=", x: Int, y: Int)               => x == y
           case Seq("<", x: Int, y: Int)               => x < y
           case Seq("<=", x: Int, y: Int)              => x <= y
           case Seq(">", x: Int, y: Int)               => x > y
@@ -67,11 +66,14 @@ case object LIA extends Domain[Map[String, Any], Any, Op] {
           case Seq("ite", b: Boolean, x: Int, y: Int) => if (b) x else y
           case Seq("and", a: Boolean, b: Boolean)     => a && b
           case Seq("or", a: Boolean, b: Boolean)      => a || b
+          case Seq("xor", a: Boolean, b: Boolean)     => a ^ b
           case Seq("=>", a: Boolean, b: Boolean)      => !a || b
           case Seq("not", b: Boolean)                 => !b
           case Seq(s: String)                         => input(s)
           case Seq(v: Int)                            => v
           case Seq(v: Boolean)                        => v //?
+          case Seq("=", x: Any, y: Any)               => x == y
+          case Seq("distinct", a: Any, b: Any)        => a != b
           case instr @ _                              => throw new Exception("Invalid instruction: " + instr)
         }
       }

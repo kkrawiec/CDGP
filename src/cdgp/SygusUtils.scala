@@ -5,24 +5,7 @@ import java.io.File
 import swim.Grammar
 
 import scala.collection.immutable.Seq
-import sygus.BVConst
-import sygus.BoolConst
-import sygus.BoolSortExpr
-import sygus.CompositeGTerm
-import sygus.GTerm
-import sygus.GenericGTerm
-import sygus.IntConst
-import sygus.IntSortExpr
-import sygus.LetGTerm
-import sygus.Literal
-import sygus.LiteralGTerm
-import sygus.NTDef
-import sygus.RealConst
-import sygus.SortExpr
-import sygus.StringConst
-import sygus.SymbolGTerm
-import sygus.SynthFunCmd14
-import sygus.SynthFunCmd16
+import sygus._
 import sygus16.SyGuS16
 
 
