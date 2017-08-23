@@ -182,6 +182,18 @@ class CDGPState(sygusProblem: SyGuS16)
     tryToFindOutputForTestCase(testNoOutput)
   }
 
+  /**
+    * Creates CDGPEvaluation based on options.
+    */
+  def getCDGPEvaluation[S, E](eval: S => E): CDGPEvaluation[S, E] =
+    new CDGPEvaluation(this, eval)
+  /**
+    * Creates CDGPEvaluationSteadyState based on options.
+    */
+  def getCDGPEvaluationSteadyState[S, E](eval: S => E,
+                                         updateEval: ((S, E)) => (S, E)): CDGPEvaluation[S, E] =
+    new CDGPEvaluationSteadyState(this, eval, updateEval)
+
 
   val fitness: (Op) => (Boolean, Seq[Int]) =
     method match {
@@ -251,18 +263,10 @@ class CDGPState(sygusProblem: SyGuS16)
     }
   }
 
-  /**
-    * Creates CDGPEvaluation based on provided settings in the options.
-    */
-  def getCDGPEvaluation[S, T](): CDGPEvaluation[S, T] = {
-    null
-  }
-
   def updateEvalInt(s: (Op, FInt)): (Op, FInt) = {
     val newFit = FInt(s._2.correct, s._2.value + evalOnTests(s._1, testsManager.newTests.toList).sum)
     (s._1, newFit)
   }
-
   def updateEvalSeqInt(s: (Op, FSeqInt)): (Op, FSeqInt) =
     (s._1, FSeqInt(s._2.correct, s._2.value ++ evalOnTests(s._1, testsManager.newTests.toList)))
 }

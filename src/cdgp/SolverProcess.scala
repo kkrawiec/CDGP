@@ -103,6 +103,7 @@ object TestSolverOpenConnection extends FApp {
 
 
 
+
 class SolverManager(path: String, args: String = "-in", verbose: Boolean = false)
                    (implicit opt: Options, coll: Collector) {
   private val maxSolverRestarts: Int = opt('maxSolverRestarts, 5)
