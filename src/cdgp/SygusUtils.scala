@@ -99,7 +99,7 @@ object LoadSygusBenchmark {
     def searchExpr(term: Term): List[(String, List[String])] = term match {
       case c: CompositeTerm if setNames.contains(c.symbol) =>
         val tup = (c.symbol, c.terms.map{
-          case LiteralTerm(v) => v.asInstanceOf[Literal].toString
+          case LiteralTerm(v) => v.toString
           case SymbolTerm(s) => s
           case x @ CompositeTerm(_, _) => x.toString
         })

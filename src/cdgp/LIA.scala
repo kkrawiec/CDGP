@@ -74,6 +74,7 @@ case object LIA extends Domain[Map[String, Any], Any, Op] {
           case Seq(v: Boolean)                        => v //?
           case Seq("=", x: Any, y: Any)               => x == y
           case Seq("distinct", a: Any, b: Any)        => a != b
+          case Seq(s: Symbol)                         => throw new Exception("In evaluation Symbols for op names are not supported. Use Strings instead. ")
           case instr @ _                              => throw new Exception("Invalid instruction: " + instr)
         }
       }
