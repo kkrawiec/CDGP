@@ -58,9 +58,10 @@ class TestsManagerCDGP[I,O](testsHistory: Boolean = true) {
 
 
 /**
-  * Manages everything needed for the CDGP to run. Among other, handles interaction with the solver, and
-  * contains test manager. As argument given is the definition of the SYGUS problem to be solved, and from
-  * it extracted are all important information such as grammar and logic to be used.
+  * Manages everything needed for the CDGP to run. Among other things, handles interaction
+  * with the solver, and contains test manager. As argument given is the definition of the
+  * SYGUS problem to be solved, and from it extracted are all important information such
+  * as grammar and logic to be used.
   */
 class CDGPState(sygusProblem: SyGuS16)
                (implicit opt: Options, coll: Collector, rng: TRandom) {
@@ -121,7 +122,8 @@ class CDGPState(sygusProblem: SyGuS16)
           if (output == testOutput.get) 0 else 1
         } else {
           // If the desired output is not known yet, use the solver:
-          val checkOnTestCmd = SMTLIBFormatter.checkOnInput(sygusProblem, testInputsMap, output, solverTimeout=opt('solverTimeout, 0))
+          val checkOnTestCmd = SMTLIBFormatter.checkOnInput(sygusProblem, testInputsMap, output,
+            solverTimeout=opt('solverTimeout, 0))
           //println("\ncheckOnTestCmd:\n" + checkOnTestCmd)
           val (decision, outputData) = solver.runSolver(checkOnTestCmd)
           // If the program passed the test, we know the desired output and can update
@@ -131,7 +133,11 @@ class CDGPState(sygusProblem: SyGuS16)
         }
       }
       catch {
-        case e: Throwable => println(f"Error during evalutation of $s and test $test: ${e.getMessage}"); 1
+        case e: Throwable =>
+          val msg = f"Error during evalutation of $s and test $test: ${e.getMessage}"
+          coll.set("error_evalOnTests", msg)
+          println(msg)
+          1
       }
     }
   }

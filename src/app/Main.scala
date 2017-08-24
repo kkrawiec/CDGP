@@ -16,7 +16,10 @@ import cdgp._
   * --solverPath, path to the SMT solver (e.g. Z3).
   */
 object Main extends FApp {
-  val cdgpState = CDGPState(opt('benchmark))
+  val benchmark = opt('benchmark)
+  println(s"Benchmark: $benchmark")
+
+  val cdgpState = CDGPState(benchmark)
 
   val (res, bestOfRun) = opt('searchAlgorithm) match {
     case "GP" => {

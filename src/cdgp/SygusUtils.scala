@@ -9,6 +9,12 @@ import sygus._
 import sygus16.SyGuS16
 
 
+
+class UnsupportedFeatureException(message: String = "", cause: Throwable = null)
+  extends Exception(message, cause)
+
+
+
 /**
   * Class collecting the most important information about the synthesis task
   * read from the SyGuS file.
@@ -27,16 +33,89 @@ case class SygusSynthesisTask(fname: String,
 
 object LoadSygusBenchmark {
   def apply(path: String): SyGuS16 = {
-    val parseRes = loadBenchmark(path)
+    parseText(loadBenchmarkContent(path))
+  }
+
+  def parseText(code: String): SyGuS16 = {
+    val parseRes = SyGuS16.parseSyGuS16Text(code)
     if (parseRes.isLeft)
       throw new Exception("PARSE ERROR: " + parseRes.left)
     assume(parseRes.isRight)
     parseRes match { case Right(t) => t }
   }
 
-  private def loadBenchmark(benchmark: String): Either[String, SyGuS16] = {
+  /**
+    * Checks, if the loaded problem can be solved by CDGP and if not throws
+    * UnsupportedFeatureException with appropriate message.
+    */
+  def checkSupported(problem: SyGuS16) {
+    if (!hasSingleInvocationProperty(problem))
+      throw new UnsupportedFeatureException("Problem does not have single invocation property.")
+    checkUnsupportedTerms(problem)
+  }
+
+  def checkUnsupportedTerms(problem: SyGuS16) {
+    val synthFunNames = ExtractSynthesisTasks(problem).map(_.fname).toSet
+    def checkExpr(term: Term): Unit = term match {
+      case LetTerm(_, _) => throw new UnsupportedFeatureException("Let terms are not supported.")
+      case CompositeTerm(symbol, terms) if synthFunNames.contains(symbol) =>
+        terms.foreach {
+          case CompositeTerm(_, _) => throw new UnsupportedFeatureException("Invocation of a synthesized function must take as an argument a literal or a variable.")
+          case _ => terms.foreach{ x: Term => checkExpr(x) }
+        }
+      case c: CompositeTerm =>
+        c.terms.foreach{ x: Term => checkExpr(x) }
+      case _ => ()
+    }
+    problem.cmds.foreach{ case ConstraintCmd(term) => checkExpr(term) case _ => () }
+  }
+
+  /**
+    * Checks, if a set of constraints has single invocation property. This property
+    * states that if there is a function f, then every invocation of this function
+    * in the constraints takes exactly the same arguments.
+    *
+    * Consider function f(x,y). The following constraint has the property:
+    * f(x,y) >= x && f(x,y) >= y
+    * while this one does not:
+    * f(x,y) == f(y,x)
+    */
+  def hasSingleInvocationProperty(problem: SyGuS16): Boolean = {
+    val sfs = ExtractSynthesisTasks(problem)
+    val setNames = sfs.map(_.fname).toSet
+    val invInfo = getSynthFunsInvocationsInfo(problem, setNames)
+    invInfo.forall{ case (n, lst) => lst.toSet.size == 1}
+  }
+
+  /**
+    * Creates a map assigning to each provided synth function a list of arguments
+    * this function was invoked with in the constraints. Each invocation is represented
+    * as a distinct entry, so there may be duplicates.
+    */
+  def getSynthFunsInvocationsInfo(problem: SyGuS16, setNames: Set[String]): Map[String, Seq[Seq[String]]] = {
+    def searchExpr(term: Term): List[(String, List[String])] = term match {
+      case c: CompositeTerm if setNames.contains(c.symbol) =>
+        val tup = (c.symbol, c.terms.map{
+          case LiteralTerm(v) => v.asInstanceOf[Literal].toString
+          case SymbolTerm(s) => s
+          case x @ CompositeTerm(_, _) => x.toString
+        })
+        List(tup)
+      case c: CompositeTerm =>
+        c.terms.flatMap{ x: Term => searchExpr(x) }
+      case _ => List()
+    }
+    val collected: Seq[(String, List[String])] = problem.cmds.collect {
+        case ConstraintCmd(term) => searchExpr(term)
+      }.flatten
+    val gr = collected.groupBy(_._1).map{ case (k, v) => (k, v.map(_._2)) }
+    println("gr: " + gr)
+    gr
+  }
+
+  private def loadBenchmarkContent(benchmark: String): String = {
     try {
-      SyGuS16.parseSyGuS16File(new File(benchmark))
+      scala.io.Source.fromFile(new File(benchmark)).mkString
     }
     catch {
       case _: java.io.FileNotFoundException =>
@@ -59,7 +138,7 @@ object ExtractSygusGrammar {
 
 
 object ExtractSynthesisTasks {
-  def apply(tree: SyGuS16) = tree.cmds.collect {
+  def apply(tree: SyGuS16): List[SygusSynthesisTask] = tree.cmds.collect {
     case SynthFunCmd14(sym: String, args: List[(String, SortExpr)], se: SortExpr, ntDefs: List[NTDef]) => {
       val grammar = retrieveGrammar(ntDefs)
       SygusSynthesisTask(sym, grammar, args, se) // name, function syntax, args list, output type
