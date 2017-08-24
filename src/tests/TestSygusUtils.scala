@@ -35,7 +35,7 @@ final class TestSygusUtils {
 (constraint (=> (= (- b a) (- c b)) (= (funSynth a 1 c) 1)))
 (constraint (=> (not (= (- b a) (- c b))) (= (funSynth a c 1) 0)))
 (check-synth)"""
-    val problem = LoadSygusBenchmark.parseText(code)
+    val problem = LoadSygusBenchmark.parseText(code, checkSupport=false)
     assertEquals(false, LoadSygusBenchmark.hasSingleInvocationProperty(problem))
     assertEquals(Map("funSynth" -> List(List("a", "1", "c"), List("a", "c", "1"))),
                  LoadSygusBenchmark.getSynthFunsInvocationsInfo(problem, Set("funSynth")))
@@ -52,7 +52,6 @@ final class TestSygusUtils {
 (constraint (=> (= (- b a) (- c b)) (= (funSynth a 1 c) 1)))
 (constraint (=> (not (= (- b a) (- c b))) (= (funSynth a c (funSynth a c 1)) 0)))
 (check-synth)"""
-    val problem = LoadSygusBenchmark.parseText(code)
-    LoadSygusBenchmark.checkSupported(problem) // this should throw exception
+    val problem = LoadSygusBenchmark.parseText(code)  // this should throw exception
   }
 }

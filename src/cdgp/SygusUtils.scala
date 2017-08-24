@@ -32,25 +32,28 @@ case class SygusSynthesisTask(fname: String,
 
 
 object LoadSygusBenchmark {
-  def apply(path: String): SyGuS16 = {
-    parseText(loadBenchmarkContent(path))
+  def apply(path: String, checkSupport: Boolean = true): SyGuS16 = {
+    parseText(loadBenchmarkContent(path), checkSupport)
   }
 
-  def parseText(code: String): SyGuS16 = {
+  def parseText(code: String, checkSupport: Boolean = true): SyGuS16 = {
     val parseRes = SyGuS16.parseSyGuS16Text(code)
     if (parseRes.isLeft)
       throw new Exception("PARSE ERROR: " + parseRes.left)
     assume(parseRes.isRight)
-    parseRes match { case Right(t) => t }
+    val res = parseRes match { case Right(t) => t }
+    if (checkSupport)
+      checkIfSupported(res)
+    res
   }
 
   /**
     * Checks, if the loaded problem can be solved by CDGP and if not throws
     * UnsupportedFeatureException with appropriate message.
     */
-  def checkSupported(problem: SyGuS16) {
+  def checkIfSupported(problem: SyGuS16) {
     if (!hasSingleInvocationProperty(problem))
-      throw new UnsupportedFeatureException("Problem does not have single invocation property.")
+      throw new UnsupportedFeatureException("CDGP supports only problems with the single invocation property.")
     checkUnsupportedTerms(problem)
   }
 
