@@ -31,6 +31,45 @@ case class SygusSynthesisTask(fname: String,
 }
 
 
+
+object SygusUtils {
+
+  def renameVarsInCmd(cmd: Cmd, map: Map[String, String]): Cmd = {
+    cmd match {
+      case ConstraintCmd(term)  => ConstraintCmd(renameVarsInTerm(term, map))
+      case VarDeclCmd(symb, se) => VarDeclCmd(map.getOrElse(symb, symb), se)
+      case x => x
+    }
+  }
+
+  def renameNamesInCmd(cmd: Cmd, map: Map[String, String]): Cmd = {
+    cmd match {
+      case ConstraintCmd(term)  => ConstraintCmd(renameNamesInTerm(term, map))
+      case VarDeclCmd(symb, se) => VarDeclCmd(map.getOrElse(symb, symb), se)
+      case x => x
+    }
+  }
+
+  def renameVarsInTerm(term: Term, map: Map[String, String]): Term = {
+    term match {
+      case CompositeTerm(name, terms) => CompositeTerm(name, terms.map(renameVarsInTerm(_, map)))
+      case SymbolTerm(symb) => SymbolTerm(map.getOrElse(symb, symb))
+      case x => x
+    }
+  }
+
+  def renameNamesInTerm(term: Term, map: Map[String, String]): Term = {
+    term match {
+      case CompositeTerm(name, terms) =>
+        CompositeTerm(map.getOrElse(name, name), terms.map(renameNamesInTerm(_, map)))
+      case SymbolTerm(symb) => SymbolTerm(map.getOrElse(symb, symb))
+      case x => x
+    }
+  }
+}
+
+
+
 object LoadSygusBenchmark {
   def apply(path: String, checkSupport: Boolean = true): SyGuS16 = {
     parseText(loadBenchmarkContent(path), checkSupport)
@@ -114,6 +153,10 @@ object LoadSygusBenchmark {
     val gr = collected.groupBy(_._1).map{ case (k, v) => (k, v.map(_._2)) }
     println("gr: " + gr)
     gr
+  }
+
+  def getSynthFunsInvocationsInfo(problem: SyGuS16, name: String): Seq[Seq[String]] = {
+    getSynthFunsInvocationsInfo(problem, Set(name))(name)
   }
 
   private def loadBenchmarkContent(benchmark: String): String = {

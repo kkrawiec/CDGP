@@ -90,6 +90,7 @@ class CDGPState(sygusProblem: SyGuS16)
   if (synthTasks.size > 1)
     throw new Exception("SKIPPING: Multiple synth-fun commands detected. Cannot handle such problems.")
   val synthTask = synthTasks.head
+  val invocationForm = LoadSygusBenchmark.getSynthFunsInvocationsInfo(sygusProblem, synthTask.fname).head
   val grammar = ExtractSygusGrammar(synthTask)
 
   private def fv = sygusProblem.cmds.collect { case v: VarDeclCmd => v }
