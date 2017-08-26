@@ -57,6 +57,7 @@ class TestsManagerCDGP[I,O](testsHistory: Boolean = true) {
 }
 
 
+
 /**
   * Manages everything needed for the CDGP to run. Among other things, handles interaction
   * with the solver, and contains test manager. As argument given is the definition of the

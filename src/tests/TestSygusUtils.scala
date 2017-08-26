@@ -19,6 +19,7 @@ final class TestSygusUtils {
 (check-synth)"""
     val problem = LoadSygusBenchmark.parseText(code)
     // println(problem.cmds.mkString("\n"))
+    assertEquals(false, SygusUtils.containsUnsupportedComplexTerms(problem))
     assertEquals(true, SygusUtils.hasSingleInvocationProperty(problem))
     assertEquals(Map("funSynth" -> List(List("a", "b", "c"), List("a", "b", "c"))),
       SygusUtils.getSynthFunsInvocationsInfo(problem, Set("funSynth")))
@@ -39,9 +40,10 @@ final class TestSygusUtils {
     assertEquals(false, SygusUtils.hasSingleInvocationProperty(problem))
     assertEquals(Map("funSynth" -> List(List("a", "1", "c"), List("a", "c", "1"))),
       SygusUtils.getSynthFunsInvocationsInfo(problem, Set("funSynth")))
+    assertEquals(false, SygusUtils.containsUnsupportedComplexTerms(problem))
   }
 
-  @Test(expected=classOf[UnsupportedFeatureException])
+  @Test
   def testSygusParsing3(): Unit = {
     val code =
 """(set-logic LIA)
@@ -52,6 +54,8 @@ final class TestSygusUtils {
 (constraint (=> (= (- b a) (- c b)) (= (funSynth a 1 c) 1)))
 (constraint (=> (not (= (- b a) (- c b))) (= (funSynth a c (funSynth a c 1)) 0)))
 (check-synth)"""
-    val problem = LoadSygusBenchmark.parseText(code)  // this should throw exception
+    val problem = LoadSygusBenchmark.parseText(code)
+    assertEquals(false, SygusUtils.hasSingleInvocationProperty(problem))
+    assertEquals(true, SygusUtils.containsUnsupportedComplexTerms(problem))
   }
 }
