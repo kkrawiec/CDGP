@@ -13,7 +13,7 @@ import cdgp._
   * Obligatory options:
   * --searchAlgorithm, accepted values: GP, GPSteadyState, Lexicase, LexicaseSteadyState
   * --benchmark, path to the SyGuS benchmark
-  * --solverPath, path to the SMT solver (e.g. Z3).
+  * --solverPath, path to the SMT solver (e.g. Z3)
   */
 object Main extends FApp {
   val benchmark = opt('benchmark)

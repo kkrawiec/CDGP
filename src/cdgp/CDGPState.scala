@@ -104,11 +104,16 @@ class CDGPState(sygusProblem: SyGuS16)
     println(f"(singleInvocationProperty $singleInvoc)")
     coll.set("cdgp.singleInvocationProperty", singleInvoc)
     if (singleInvoc) {
+      // Checking for the single answer has sense only if the problem
+      // has single invocation property.
       val singleAnswer = hasSingleAnswerForEveryInput(sygusProblem)
+      val unsupComplexTerms = SygusUtils.containsUnsupportedComplexTerms(sygusProblem)
       println(f"(singleAnswerForEveryInput ${singleAnswer.getOrElse("unknown")})")
-      coll.set("cdgp.singleInvocationProperty", singleAnswer.getOrElse("unknown"))
-      if (singleAnswer.getOrElse(false))
-        "gp"
+      println(f"(unsupportedComplexTerms $unsupComplexTerms)")
+      coll.set("cdgp.singleAnswerForEveryInput", singleAnswer.getOrElse("unknown"))
+      coll.set("cdgp.unsupportedComplexTerms", unsupComplexTerms)
+      if (singleAnswer.getOrElse(false) && !unsupComplexTerms)
+        "gp"  // it may be considered to treat unknown singleAnswer as true, with the potential soundness loss of fitness
       else
         "solver"
     }
@@ -117,14 +122,18 @@ class CDGPState(sygusProblem: SyGuS16)
   }
 
   /*
-   * Depending on the problem the CDGPState will switch between using domain and between
-   * executing solver for checking, if program passes given test case.
+   * Depending on the properties of the problem, CDGPState will switch between using
+   * GP domain and executing the solver for computing fitness.
    */
-  val testCasesMode = getTestCasesMode(sygusProblem)
+  val testCasesMode: String = getTestCasesMode(sygusProblem)
   assume(testCasesMode == "solver" || testCasesMode == "gp",
     "Possible values for --testCasesMode: 'solver', 'gp'.")
+
   println(f"(testCasesMode $testCasesMode)")
   coll.set("cdgp.testCasesMode", testCasesMode)
+  if (testCasesMode == "solver")
+    println("WARNING: solver will be used to compute fitness. Expect major efficiency decrease" +
+      " in comparison with GP test cases mode.")
 
 
 
@@ -133,10 +142,10 @@ class CDGPState(sygusProblem: SyGuS16)
   val synthTasks = ExtractSynthesisTasks(sygusProblem)
   if (synthTasks.size > 1)
     throw new Exception("SKIPPING: Multiple synth-fun commands detected. Cannot handle such problems.")
-  val synthTask = synthTasks.head
+  val synthTask: SygusSynthesisTask = synthTasks.head
   val invocations= SygusUtils.getSynthFunsInvocationsInfo(sygusProblem, synthTask.fname).toSet
-  assume(invocations.size == 1, "To run GP in testCasesValue mode synth-function in constraints must have" +
-    " single invocation property and only single correct answer for any input.")
+  //assume(invocations.size == 1, "To run GP in testCasesValue mode synth-function in constraints must have" +
+  //  " single invocation property and only single correct answer for any input.")
   val grammar = ExtractSygusGrammar(synthTask)
 
   private def fv = sygusProblem.cmds.collect { case v: VarDeclCmd => v }
