@@ -114,7 +114,7 @@ object SMTLIBFormatter {
     * correct output. This is required to be able to use the most efficient test cases
     * mechanism instead of SMT solver to obtain fitness for the GP.
     */
-  def checkIfOnlySingleCorrectAnswer(problem: SyGuS16, solverTimeout: Int = 0): String = {
+  def checkIfSingleAnswerForEveryInput(problem: SyGuS16, solverTimeout: Int = 5000): String = {
     val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head // synth-fun
     val sfArgs = synthFunArgsToString(sf)
     val varsDecl = problem.cmds.collect {
@@ -136,7 +136,6 @@ object SMTLIBFormatter {
     f"(set-logic ${getLogicName(problem)})\n" +
       (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
-      //"(set-option :incremental true)\n" +  // for compatibility with CVC4
       f"(declare-fun res1__2 () ${synthFunSort})\n" +
       f"(declare-fun res2__2 () ${synthFunSort})\n" +
       f"(define-fun ${sf.sym} ($sfArgs) ${sortToString(sf.se)} res1__2)\n" +

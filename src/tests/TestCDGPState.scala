@@ -145,7 +145,7 @@ final class TestCDGPState {
 //    val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=false)
 //    val queryVer = SMTLIBFormatter.verify(problem, op)
 //    println("queryVer:\n" + queryVer)
-    val query = SMTLIBFormatter.checkIfOnlySingleCorrectAnswer(problem)
+    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(problem)
     println("query:\n" + query)
     val state = new CDGPState(problem)
     val (decision, output) = state.solver.runSolver(query)
@@ -157,7 +157,7 @@ final class TestCDGPState {
   def test_checkIfOnlySingleCorrectAnswer_sat(): Unit = {
     val code = TestCDGPState.scriptPsuedoMaxRenamedVars
     val problem = LoadSygusBenchmark.parseText(code)
-    val query = SMTLIBFormatter.checkIfOnlySingleCorrectAnswer(problem)
+    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(problem)
     println("query:\n" + query)
     val state = new CDGPState(problem)
     val (decision, output) = state.solver.runSolver(query)

@@ -66,51 +66,6 @@ object SygusUtils {
       case x => x
     }
   }
-}
-
-
-
-object LoadSygusBenchmark {
-  def apply(path: String, checkSupport: Boolean = true): SyGuS16 = {
-    parseText(loadBenchmarkContent(path), checkSupport)
-  }
-
-  def parseText(code: String, checkSupport: Boolean = true): SyGuS16 = {
-    val parseRes = SyGuS16.parseSyGuS16Text(code)
-    if (parseRes.isLeft)
-      throw new Exception("PARSE ERROR: " + parseRes.left)
-    assume(parseRes.isRight)
-    val res = parseRes match { case Right(t) => t }
-    if (checkSupport)
-      checkIfSupported(res)
-    res
-  }
-
-  /**
-    * Checks, if the loaded problem can be solved by CDGP and if not throws
-    * UnsupportedFeatureException with appropriate message.
-    */
-  def checkIfSupported(problem: SyGuS16) {
-    if (!hasSingleInvocationProperty(problem))
-      throw new UnsupportedFeatureException("CDGP supports only problems with the single invocation property.")
-    checkUnsupportedTerms(problem)
-  }
-
-  def checkUnsupportedTerms(problem: SyGuS16) {
-    val synthFunNames = ExtractSynthesisTasks(problem).map(_.fname).toSet
-    def checkExpr(term: Term): Unit = term match {
-      case LetTerm(_, _) => throw new UnsupportedFeatureException("Let terms are not supported.")
-      case CompositeTerm(symbol, terms) if synthFunNames.contains(symbol) =>
-        terms.foreach {
-          case CompositeTerm(_, _) => throw new UnsupportedFeatureException("Invocation of a synthesized function must take as an argument a literal or a variable.")
-          case _ => terms.foreach{ x: Term => checkExpr(x) }
-        }
-      case c: CompositeTerm =>
-        c.terms.foreach{ x: Term => checkExpr(x) }
-      case _ => ()
-    }
-    problem.cmds.foreach{ case ConstraintCmd(term) => checkExpr(term) case _ => () }
-  }
 
   /**
     * Checks, if a set of constraints has single invocation property. This property
@@ -148,8 +103,8 @@ object LoadSygusBenchmark {
       case _ => List()
     }
     val collected: Seq[(String, List[String])] = problem.cmds.collect {
-        case ConstraintCmd(term) => searchExpr(term)
-      }.flatten
+      case ConstraintCmd(term) => searchExpr(term)
+    }.flatten
     val gr = collected.groupBy(_._1).map{ case (k, v) => (k, v.map(_._2)) }
     println("gr: " + gr)
     gr
@@ -157,6 +112,49 @@ object LoadSygusBenchmark {
 
   def getSynthFunsInvocationsInfo(problem: SyGuS16, name: String): Seq[Seq[String]] = {
     getSynthFunsInvocationsInfo(problem, Set(name))(name)
+  }
+}
+
+
+
+object LoadSygusBenchmark {
+  def apply(path: String, checkSupport: Boolean = true): SyGuS16 = {
+    parseText(loadBenchmarkContent(path), checkSupport)
+  }
+
+  def parseText(code: String, checkSupport: Boolean = true): SyGuS16 = {
+    val parseRes = SyGuS16.parseSyGuS16Text(code)
+    if (parseRes.isLeft)
+      throw new Exception("PARSE ERROR: " + parseRes.left)
+    assume(parseRes.isRight)
+    val res = parseRes match { case Right(t) => t }
+    if (checkSupport)
+      checkIfSupported(res)
+    res
+  }
+
+  /**
+    * Checks, if the loaded problem can be solved by CDGP and if not throws
+    * UnsupportedFeatureException with appropriate message.
+    */
+  def checkIfSupported(problem: SyGuS16) {
+    checkUnsupportedTerms(problem)
+  }
+
+  def checkUnsupportedTerms(problem: SyGuS16) {
+    val synthFunNames = ExtractSynthesisTasks(problem).map(_.fname).toSet
+    def checkExpr(term: Term): Unit = term match {
+      case LetTerm(_, _) => throw new UnsupportedFeatureException("Let terms are not supported.")
+      case CompositeTerm(symbol, terms) if synthFunNames.contains(symbol) =>
+        terms.foreach {
+          case CompositeTerm(_, _) => throw new UnsupportedFeatureException("Invocation of a synthesized function must take as an argument a literal or a variable.")
+          case _ => terms.foreach{ x: Term => checkExpr(x) }
+        }
+      case c: CompositeTerm =>
+        c.terms.foreach{ x: Term => checkExpr(x) }
+      case _ => ()
+    }
+    problem.cmds.foreach{ case ConstraintCmd(term) => checkExpr(term) case _ => () }
   }
 
   private def loadBenchmarkContent(benchmark: String): String = {

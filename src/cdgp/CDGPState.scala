@@ -85,12 +85,58 @@ class CDGPState(sygusProblem: SyGuS16)
   val silent = opt('silent, false)
   val sygusOutput = opt('sygusOutput, true)
 
+
+  /**
+    * Checks using SMT solver if the given problem has only one correct answer for
+    * any input.
+    */
+  def hasSingleAnswerForEveryInput(problem: SyGuS16): Option[Boolean] = {
+    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(problem)
+    //println("query (SingleAnswerForEveryInput):\n" + query)
+    val (decision, _) = solver.runSolver(query)
+    if (decision == "sat") Some(false)
+    else if (decision == "unsat") Some(true)
+    else None
+  }
+
+  def getTestCasesMode(problem: SyGuS16): String = {
+    val singleInvoc = SygusUtils.hasSingleInvocationProperty(sygusProblem)
+    println(f"(singleInvocationProperty $singleInvoc)")
+    coll.set("cdgp.singleInvocationProperty", singleInvoc)
+    if (singleInvoc) {
+      val singleAnswer = hasSingleAnswerForEveryInput(sygusProblem)
+      println(f"(singleAnswerForEveryInput ${singleAnswer.getOrElse("unknown")})")
+      coll.set("cdgp.singleInvocationProperty", singleAnswer.getOrElse("unknown"))
+      if (singleAnswer.getOrElse(false))
+        "gp"
+      else
+        "solver"
+    }
+    else
+      "solver"
+  }
+
+  /*
+   * Depending on the problem the CDGPState will switch between using domain and between
+   * executing solver for checking, if program passes given test case.
+   */
+  val testCasesMode = getTestCasesMode(sygusProblem)
+  assume(testCasesMode == "solver" || testCasesMode == "gp",
+    "Possible values for --testCasesMode: 'solver', 'gp'.")
+  println(f"(testCasesMode $testCasesMode)")
+  coll.set("cdgp.testCasesMode", testCasesMode)
+
+
+
+
   // Sygus parsing. TODO: relegate elsewhere
   val synthTasks = ExtractSynthesisTasks(sygusProblem)
   if (synthTasks.size > 1)
     throw new Exception("SKIPPING: Multiple synth-fun commands detected. Cannot handle such problems.")
   val synthTask = synthTasks.head
-  val invocationForm = LoadSygusBenchmark.getSynthFunsInvocationsInfo(sygusProblem, synthTask.fname).head
+  val invocations= SygusUtils.getSynthFunsInvocationsInfo(sygusProblem, synthTask.fname).toSet
+  assume(invocations.size == 1, "To run GP in testCasesValue mode synth-function in constraints must have" +
+    " single invocation property and only single correct answer for any input.")
   val grammar = ExtractSygusGrammar(synthTask)
 
   private def fv = sygusProblem.cmds.collect { case v: VarDeclCmd => v }
@@ -178,7 +224,10 @@ class CDGPState(sygusProblem: SyGuS16)
   def createTestFromFailedVerification(verOutput: String): (Map[String, Any], Option[Any]) = {
     val counterExample = GetValueParser(verOutput) // returns the counterexample
     val testNoOutput = (counterExample.toMap, None) // for this test currently the correct answer is not known
-    tryToFindOutputForTestCase(testNoOutput)
+    if (testCasesMode == "gp")
+      tryToFindOutputForTestCase(testNoOutput)
+    else
+      testNoOutput
   }
 
   def createRandomTest(verOutput: String): (Map[String, Any], Option[Any]) = {

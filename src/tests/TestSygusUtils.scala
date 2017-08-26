@@ -1,6 +1,6 @@
 package tests
 
-import cdgp.{LoadSygusBenchmark, UnsupportedFeatureException}
+import cdgp.{LoadSygusBenchmark, SygusUtils, UnsupportedFeatureException}
 import org.junit.Test
 import org.junit.Assert._
 
@@ -19,9 +19,9 @@ final class TestSygusUtils {
 (check-synth)"""
     val problem = LoadSygusBenchmark.parseText(code)
     // println(problem.cmds.mkString("\n"))
-    assertEquals(true, LoadSygusBenchmark.hasSingleInvocationProperty(problem))
+    assertEquals(true, SygusUtils.hasSingleInvocationProperty(problem))
     assertEquals(Map("funSynth" -> List(List("a", "b", "c"), List("a", "b", "c"))),
-                 LoadSygusBenchmark.getSynthFunsInvocationsInfo(problem, Set("funSynth")))
+      SygusUtils.getSynthFunsInvocationsInfo(problem, Set("funSynth")))
   }
 
   @Test
@@ -36,9 +36,9 @@ final class TestSygusUtils {
 (constraint (=> (not (= (- b a) (- c b))) (= (funSynth a c 1) 0)))
 (check-synth)"""
     val problem = LoadSygusBenchmark.parseText(code, checkSupport=false)
-    assertEquals(false, LoadSygusBenchmark.hasSingleInvocationProperty(problem))
+    assertEquals(false, SygusUtils.hasSingleInvocationProperty(problem))
     assertEquals(Map("funSynth" -> List(List("a", "1", "c"), List("a", "c", "1"))),
-                 LoadSygusBenchmark.getSynthFunsInvocationsInfo(problem, Set("funSynth")))
+      SygusUtils.getSynthFunsInvocationsInfo(problem, Set("funSynth")))
   }
 
   @Test(expected=classOf[UnsupportedFeatureException])
