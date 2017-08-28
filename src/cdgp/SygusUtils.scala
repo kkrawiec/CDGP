@@ -34,6 +34,10 @@ case class SygusSynthesisTask(fname: String,
 
 object SygusUtils {
 
+  /**
+    * Changes names of *variable* terms present in the command.
+    * The map contains mapping between old and new names and does not have to be complete.
+    */
   def renameVarsInCmd(cmd: Cmd, map: Map[String, String]): Cmd = {
     cmd match {
       case ConstraintCmd(term)  => ConstraintCmd(renameVarsInTerm(term, map))
@@ -42,6 +46,10 @@ object SygusUtils {
     }
   }
 
+  /**
+    * Changes names of *all* terms present in the command.
+    * The map contains mapping between old and new names and does not have to be complete.
+    */
   def renameNamesInCmd(cmd: Cmd, map: Map[String, String]): Cmd = {
     cmd match {
       case ConstraintCmd(term)  => ConstraintCmd(renameNamesInTerm(term, map))
@@ -50,6 +58,10 @@ object SygusUtils {
     }
   }
 
+  /**
+    * Changes names of *variable* terms in the expression.
+    * The map contains mapping between old and new names and does not have to be complete.
+    */
   def renameVarsInTerm(term: Term, map: Map[String, String]): Term = {
     term match {
       case CompositeTerm(name, terms) => CompositeTerm(name, terms.map(renameVarsInTerm(_, map)))
@@ -58,6 +70,10 @@ object SygusUtils {
     }
   }
 
+  /**
+    * Changes names of *all* terms in the expression, including names of functions.
+    * The map contains mapping between old and new names and does not have to be complete.
+    */
   def renameNamesInTerm(term: Term, map: Map[String, String]): Term = {
     term match {
       case CompositeTerm(name, terms) =>
@@ -105,9 +121,7 @@ object SygusUtils {
     val collected: Seq[(String, List[String])] = problem.cmds.collect {
       case ConstraintCmd(term) => searchExpr(term)
     }.flatten
-    val gr = collected.groupBy(_._1).map{ case (k, v) => (k, v.map(_._2)) }
-    println("gr: " + gr)
-    gr
+    collected.groupBy(_._1).map{ case (k, v) => (k, v.map(_._2)) }
   }
 
   def getSynthFunsInvocationsInfo(problem: SyGuS16, name: String): Seq[Seq[String]] = {

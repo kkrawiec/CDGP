@@ -108,12 +108,12 @@ class CDGPState(sygusProblem: SyGuS16)
       // Checking for the single answer has sense only if the problem
       // has single invocation property.
       val singleAnswer = hasSingleAnswerForEveryInput(sygusProblem)
-      val unsupComplexTerms = SygusUtils.containsUnsupportedComplexTerms(sygusProblem)
+      val supportForAllTerms = !SygusUtils.containsUnsupportedComplexTerms(sygusProblem)
       println(f"(singleAnswerForEveryInput ${singleAnswer.getOrElse("unknown")})")
-      println(f"(unsupportedComplexTerms $unsupComplexTerms)")
+      println(f"(supportForAllTerms $supportForAllTerms)")
       coll.set("cdgp.singleAnswerForEveryInput", singleAnswer.getOrElse("unknown"))
-      coll.set("cdgp.unsupportedComplexTerms", unsupComplexTerms)
-      if (singleAnswer.getOrElse(false) && !unsupComplexTerms)
+      coll.set("cdgp.supportForAllTerms", supportForAllTerms)
+      if (singleAnswer.getOrElse(false) && supportForAllTerms)
         "gp"  // it may be considered to treat unknown singleAnswer as true, with the potential soundness loss of fitness
       else
         "solver"
@@ -144,8 +144,8 @@ class CDGPState(sygusProblem: SyGuS16)
   if (synthTasks.size > 1)
     throw new Exception("SKIPPING: Multiple synth-fun commands detected. Cannot handle such problems.")
   val synthTask: SygusSynthesisTask = synthTasks.head
-  val invocations= SygusUtils.getSynthFunsInvocationsInfo(sygusProblem, synthTask.fname).toSet
-  //assume(invocations.size == 1, "To run GP in testCasesValue mode synth-function in constraints must have" +
+  val invocations: Seq[Seq[String]] = SygusUtils.getSynthFunsInvocationsInfo(sygusProblem, synthTask.fname)
+  //assume(invocations.size == 1, "To run test cases in gp mode synth-function in constraints must have" +
   //  " single invocation property and only single correct answer for any input.")
   val grammar = ExtractSygusGrammar(synthTask)
 
@@ -161,19 +161,26 @@ class CDGPState(sygusProblem: SyGuS16)
 
 
   /**
-    * Tests a program on the available tests and returns the vector of 0s (passed test) and 1s (failed test)
-    * If the desired output is not known for a test, uses a solver to determine it, and adds the obtained
-    * desired output to testsWithFoundOutputs
-    *
+    * Tests a program on the available tests and returns the vector of 0s (passed test)
+    * and 1s (failed test). If the desired output is not known for a test, uses a solver
+    * to determine it, and saves the obtained desired output.
     */
   def evalOnTests(s: Op, tests: Seq[(I, Option[O])]): Seq[Int] = {
     for (test <- tests) yield {
-      val testInputsMap = test._1
-      val testOutput = test._2
-      // Solver requires proper renaming of variables
-      val cexampleRenamed = synthTask.argNames.zip(testInputsMap.unzip._2).toMap
+      val testInputsMap: Map[String, Any] = test._1
+      val testOutput: Option[Any] = test._2
+
+      // Solver requires proper renaming of variables, so that it is able to
+      // handle case similar to the following:
+      //   (synth-fun synthFun ((x Int)(y Int)) ... )
+      //   (declare-var a Int)
+      //   (declare-var b Int)
+      //   (constraint (=> (= (- b a) (- c b)) (= (synthFun a b) 1)))
+      val inv: Seq[String] = invocations.head
+      val namesMap = inv.zip(synthTask.argNames).toMap  // Map from names in function signature to names of variables used in function invocation
+      val testInputsRenamed = inv.map{ s => (namesMap(s), testInputsMap(s)) }.toMap
       try {
-        val output = LIA(s)(cexampleRenamed)
+        val output = LIA(s)(testInputsRenamed)
         // If the desired output for this test is already known, simply compare
         if (testOutput.isDefined) {
           if (output == testOutput.get) 0 else 1
@@ -185,7 +192,8 @@ class CDGPState(sygusProblem: SyGuS16)
           val (decision, outputData) = solver.runSolver(checkOnTestCmd)
           // If the program passed the test, we know the desired output and can update
           // the set of tests
-          if (decision == "sat") testsManager.updateTest((testInputsMap, Some(output)))
+          if (decision == "sat")
+            testsManager.updateTest((testInputsMap, Some(output)))
           if (decision == "sat") 0 else 1
         }
       }

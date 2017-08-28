@@ -65,7 +65,6 @@ object TestCDGPState {
 (declare-var y Int)
 (constraint (>= (max2 x y) x))
 (constraint (>= (max2 x y) y))
-;(constraint (or (= x (max2 x y)) (= y (max2 x y))))
 (check-synth)"""
 
   val scriptNotSingleInvocation =
@@ -106,8 +105,7 @@ final class TestCDGPState {
     val t2 = (GetValueParser("((x 5)(y 1))").toMap, Some(5))
     val t3 = (GetValueParser("((x 1)(y 3))").toMap, Some(3))
     val tests = Seq(t1, t2, t3)
-    val res = state.evalOnTests(op, tests)
-    assertEquals(Seq(0, 0, 1), res)
+    assertEquals(Seq(0, 0, 1), state.evalOnTests(op, tests))
   }
 
   @Test
@@ -120,8 +118,7 @@ final class TestCDGPState {
     val t2 = (GetValueParser("((y 1)(x 5))").toMap, Some(5))
     val t3 = (GetValueParser("((y 3)(x 1))").toMap, Some(3))
     val tests = Seq(t1, t2, t3)
-    val res = state.evalOnTests(op, tests)
-    assertEquals(Seq(0, 0, 1), res)
+    assertEquals(Seq(0, 0, 1), state.evalOnTests(op, tests))
   }
 
   @Test
@@ -129,27 +126,27 @@ final class TestCDGPState {
     val code = TestCDGPState.scriptMaxRenamedVars
     val problem = LoadSygusBenchmark.parseText(code)
     val state = new CDGPState(problem)
-    val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=false)
+    val op = Op.fromStr("ite(>=(a b) a 0)", useSymbols=false)
     val t1 = (GetValueParser("((x 4)(y 3))").toMap, Some(4))
     val t2 = (GetValueParser("((x 5)(y 1))").toMap, Some(5))
     val t3 = (GetValueParser("((x 1)(y 3))").toMap, Some(3))
     val tests = Seq(t1, t2, t3)
-    val res = state.evalOnTests(op, tests)
-    assertEquals(Seq(0, 0, 1), res)
+    assertEquals(Seq(0, 0, 1), state.evalOnTests(op, tests))
+
+    val t2_2 = (GetValueParser("((y 1)(x 5))").toMap, Some(5))
+    val tests_2 = Seq(t1, t2_2, t3)
+    assertEquals(Seq(0, 0, 1), state.evalOnTests(op, tests))
   }
 
   @Test
   def test_checkIfOnlySingleCorrectAnswer_unsat(): Unit = {
     val code = TestCDGPState.scriptMaxRenamedVars
     val problem = LoadSygusBenchmark.parseText(code)
-//    val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=false)
-//    val queryVer = SMTLIBFormatter.verify(problem, op)
-//    println("queryVer:\n" + queryVer)
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(problem)
     println("query:\n" + query)
     val state = new CDGPState(problem)
     val (decision, output) = state.solver.runSolver(query)
-    assertEquals("unsat", decision)
+    assertEquals("unsat", decision)  // unsat, so there is only a single answer
     assertEquals(None, output)
   }
 
