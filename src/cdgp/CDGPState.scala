@@ -93,10 +93,10 @@ class CDGPState(sygusProblem: SyGuS16)
     */
   def hasSingleAnswerForEveryInput(problem: SyGuS16): Option[Boolean] = {
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(problem)
-    //println("query (SingleAnswerForEveryInput):\n" + query)
-    val (decision, _) = solver.runSolver(query)
-    if (decision == "sat") Some(false)
-    else if (decision == "unsat") Some(true)
+    // println("\nQuery checkIfSingleAnswerForEveryInput:\n" + query)
+    val (dec, _) = solver.runSolver(query)
+    if (dec == "sat") Some(false)
+    else if (dec == "unsat") Some(true)
     else None
   }
 
@@ -167,27 +167,24 @@ class CDGPState(sygusProblem: SyGuS16)
     * to determine it, and saves the obtained desired output.
     */
   def evalOnTests(s: Op, tests: Seq[(I, Option[O])]): Seq[Int] = {
+    def handleException(test: (I, Option[O]), message: String) {
+      val msg = f"Error during evalutation of $s and test $test: $message"
+      coll.set("error_evalOnTests", msg)
+      println(msg)
+    }
     for (test <- tests) yield {
       try {
-        if (useDomainToComputeFitness)
-          evalOnTestsDomain(s, test)
-        else
-          evalOnTestsSolver(s, test)
+        if (useDomainToComputeFitness) evalOnTestsDomain(s, test)
+        else evalOnTestsSolver(s, test)
       }
-      catch {
-        case e: Throwable =>
-          val msg = f"Error during evalutation of $s and test $test: ${e.getMessage}"
-          coll.set("error_evalOnTests", msg)
-          println(msg)
-          1  // fail test
-      }
+      catch { case e: Throwable => handleException(test, e.getMessage); 1 }
     }
   }
 
   /**
-    * Checks correctness of the program for the given input only.
+    * Checks correctness of the program only for the given test.
     * Tests here always have None as the answer, because in general there is no
-    * single answer for the problem being solved.
+    * single answer for the problem being solved in 'solver' mode.
     */
   def evalOnTestsSolver(s: Op, test: (I, Option[O])): Int = {
     val testInputsMap: Map[String, Any] = test._1
@@ -195,10 +192,18 @@ class CDGPState(sygusProblem: SyGuS16)
     if (dec == "sat") 0 else 1
   }
 
+  /**
+    * Checks correctness of the program only for the given test.
+    * If test has a defined expected answer, then it is compared with the answer
+    * obtained by executing the program in the domain simulating semantics of SMT
+    * theory.
+    * If test don't have defined expected answer, then the program's output is verified
+    * by the solver for consistency with the specification. The test will be updated if
+    * this output is deemed consistent by the solver.
+    */
   def evalOnTestsDomain(s: Op, test: (I, Option[O])): Int = {
     val testInputsMap: Map[String, Any] = test._1
     val testOutput: Option[Any] = test._2
-
     /**
       * Solver requires renaming of the variables, so that it is able to handle cases
       * similar to the following:
@@ -215,12 +220,9 @@ class CDGPState(sygusProblem: SyGuS16)
     // TODO: implement domains other than LIA
     val output = LIA(s)(testInputsRenamed)
 
-    // If the desired output for this test is already known, simply compare
     if (testOutput.isDefined) {
       if (output == testOutput.get) 0 else 1
     }
-    // If the desired output is not known yet, use the solver to check if the output
-    // returned by the domain is correct by any chance.
     else {
       val (dec, _) = checkOnInputAndKnownOutput(s, testInputsMap, output)
       if (dec == "sat")
@@ -233,71 +235,34 @@ class CDGPState(sygusProblem: SyGuS16)
   def checkOnInputAndKnownOutput(s: Op,
                                  testInputsMap: Map[String, Any],
                                  output: Any): (String, Option[String]) = {
-    /**
-      * An example of the query:
-      *   (set-logic LIA)
-      *   (define-fun max2 ((x Int)(y Int)) Int 5)
-      *   (define-fun x () Int 5)
-      *   (define-fun y () Int 1)
-      *   (assert (and (>= (max2 x y) x)
-      *   (>= (max2 x y) y)
-      *   (or (= x (max2 x y)) (= y (max2 x y)))))
-      *
-      * The result is either sat or unsat, model usually will be empty.
-      * Sat means that the answer is correct.
-      */
     val query = SMTLIBFormatter.checkOnInputAndKnownOutput(sygusProblem, testInputsMap, output,
                   opt('solverTimeout, 0))
+    // println("\nQuery checkOnInputAndKnownOutput:\n" + query)
     solver.runSolver(query)
   }
 
 
   def checkOnInputOnly(s: Op,
                        testInputsMap: Map[String, Any]): (String, Option[String]) = {
-    /**
-      * An example of the query:
-      *   (set-logic LIA)
-      *   (define-fun max2 ((x Int)(y Int)) Int 5)
-      *   (define-fun x () Int 5)
-      *   (define-fun y () Int 1)
-      *   (assert (and (>= (max2 x y) x)
-      *   (>= (max2 x y) y)
-      *   (or (= x (max2 x y)) (= y (max2 x y)))))
-      *
-      * The result is either sat or unsat, model usually will be empty.
-      * Sat means that the answer is correct.
-      */
     val query = SMTLIBFormatter.checkOnInput(sygusProblem, testInputsMap, s, opt('solverTimeout, 0))
-    println("\nQuery checkOnInputOnly:\n" + query)
+    // println("\nQuery checkOnInputOnly:\n" + query)
     solver.runSolver(query)
   }
 
 
   def verify(s: Op): (String, Option[String]) = {
-    /**
-      * An example of the query:
-      *   (set-logic LIA)
-      *   (define-fun max2 ((x Int)(y Int)) Int (ite (>= x y) x 0))
-      *   (declare-fun x () Int)
-      *   (declare-fun y () Int)
-      *   (assert (not (and (>= (max2 x y) x)
-      *   (>= (max2 x y) y)
-      *   (or (= x (max2 x y)) (= y (max2 x y))))))
-      *
-      * Sat means that there is a counterexample, unsat means perfect program was found.
-      */
     val query = SMTLIBFormatter.verify(sygusProblem, s, opt('solverTimeout, 0))
+    // println("\nQuery verify:\n" + query)
     solver.runSolver(query, getValueCommand)
   }
 
   def tryToFindOutputForTestCase(test: (I, Option[O])): (I, Option[O]) = {
-    val cmd: String = SMTLIBFormatter.searchForCorrectOutput(sygusProblem, test._1, solverTimeout=opt('solverTimeout, 0))
-    //println("\nSearch cmd:\n" + cmd)
+    val query = SMTLIBFormatter.searchForCorrectOutput(sygusProblem, test._1, solverTimeout=opt('solverTimeout, 0))
+    // println("\nQuery searchForCorrectOutput:\n" + query)
     try {
       val getValueCommand = f"(get-value (CorrectOutput))"
-      val (decision, res) = solver.runSolver(cmd, getValueCommand)
-      // println("Solver res: " + res)
-      if (decision == "sat") {
+      val (dec, res) = solver.runSolver(query, getValueCommand)
+      if (dec == "sat") {
         val values = GetValueParser(res.get)
         (test._1, Some(values.head._2))
       }

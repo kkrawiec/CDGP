@@ -47,14 +47,27 @@ object SMTLIBFormatter {
     }
   }
 
+
   /**
     * Produces the input to the solver for verifying if program p is correct
     * wrt the specification given by problem.
+    *
+    * An example of the query:
+    * <pre>{@code
+    *   (set-logic LIA)
+    *   (define-fun max2 ((x Int)(y Int)) Int (ite (>= x y) x 0))
+    *   (declare-fun x () Int)
+    *   (declare-fun y () Int)
+    *   (assert (not (and (>= (max2 x y) x)
+    *   (>= (max2 x y) y)
+    *   (or (= x (max2 x y)) (= y (max2 x y))))))
+    * }</pre>
+    * Sat means that there is a counterexample, unsat means perfect program was found.
     */
-  def verify(problem: SyGuS16, op: Op, solverTimeout: Int = 0): String = {
-    val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head // head!
+  def verify(problem: SyGuS16, program: Op, solverTimeout: Int = 0): String = {
+    val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head
     val sfArgs = synthFunArgsToString(sf)
-    val programBody = opToString(op)
+    val programBody = opToString(program)
     val varsDecl = problem.cmds.collect { case v: VarDeclCmd => v }
     val constraints = problem.cmds.collect {
       case ConstraintCmd(t: Term) => f"${nestedProductToString(t)}"
@@ -68,15 +81,29 @@ object SMTLIBFormatter {
       f"\n(assert (not (and $constraints)))\n" // 'and' works also for one argument
   }
 
+
   /**
     * Query for checking whether the given output produced by a program for a given
     * input is correct wrt the specification given by the problem.
     * This is done by copying most of the problem and defining a constant function
     * that returns the output value.
+    *
+    * An example of the query:
+    * <pre>{@code
+    *   (set-logic LIA)
+    *   (define-fun max2 ((x Int)(y Int)) Int 5)
+    *   (define-fun x () Int 5)
+    *   (define-fun y () Int 1)
+    *   (assert (and (>= (max2 x y) x)
+    *   (>= (max2 x y) y)
+    *   (or (= x (max2 x y)) (= y (max2 x y)))))
+    * }</pre>
+    * The result is either sat or unsat, model usually will be empty.
+    * Sat means that the answer is correct.
     */
   def checkOnInputAndKnownOutput(problem: SyGuS16, input: Map[String, Any],
                                  output: Any, solverTimeout: Int = 0): String = {
-    val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head // head!
+    val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head
     val sfArgs = synthFunArgsToString(sf)
     val varsDecl = problem.cmds.collect { case v: VarDeclCmd => v }
     val constraints = problem.cmds.collect {
@@ -90,18 +117,32 @@ object SMTLIBFormatter {
       f"\n(assert (and $constraints))\n" // 'and' works also for one argument
   }
 
+
   /**
     * Query for checking whether the given output produced by a program for a given
     * input is correct wrt the specification given by the problem.
     * This is done by copying most of the problem and defining a constant function
     * that returns the output value.
+    *
+    * An example of the query:
+    * <pre>{@code
+    *   (set-logic LIA)
+    *   (define-fun max2 ((x Int)(y Int)) Int (ite (>= x y) x 0))
+    *   (define-fun x () Int 5)
+    *   (define-fun y () Int 1)
+    *   (assert (and (>= (max2 x y) x)
+    *   (>= (max2 x y) y)
+    *   (or (= x (max2 x y)) (= y (max2 x y)))))
+    * }</pre>
+    * The result is either sat or unsat, model usually will be empty.
+    * Sat means that the answer is correct.
     */
   def checkOnInput(problem: SyGuS16, input: Map[String, Any],
-                   op: Op, solverTimeout: Int = 0): String = {
-    val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head // head!
+                   program: Op, solverTimeout: Int = 0): String = {
+    val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head
     val sfArgs = synthFunArgsToString(sf)
     val varsDecl = problem.cmds.collect { case v: VarDeclCmd => v }
-    val programBody = opToString(op)
+    val programBody = opToString(program)
     val constraints = problem.cmds.collect {
       case ConstraintCmd(t: Term) => f"${nestedProductToString(t)}"
     }.mkString("\n")
@@ -112,13 +153,30 @@ object SMTLIBFormatter {
       varsDecl.map(v => f"(define-fun ${v.sym} () ${sortToString(v.sortExpr)} ${input(v.sym)})").mkString("\n") +
       f"\n(assert (and $constraints))\n"
   }
-  
+
+
   /**
     * Query for searching for the output correct wrt the specification and the
-    *  specified inputs.
+    * specified inputs.
+    *
+    * An example of the query:
+    * <pre>{@code
+    *   (set-logic LIA)
+    *   (declare-fun CorrectOutput () Int)
+    *   (define-fun max2 ((x Int)(y Int)) Int CorrectOutput)
+    *   (define-fun x () Int 4)
+    *   (define-fun y () Int 3)
+    *   (assert (and (>= (max2 x y) x)
+    *   (>= (max2 x y) y)
+    *   (or (= x (max2 x y)) (= y (max2 x y)))))
+    * }</pre>
+    * Sat means that correct output was found, unsat that there is no output
+    * consistent with the specification (this probably means that problem was
+    * wrongly specified).
     */
-  def searchForCorrectOutput(problem: SyGuS16, input: Map[String, Any], solverTimeout: Int = 0): String = {
-    val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head // synth-fun
+  def searchForCorrectOutput(problem: SyGuS16, input: Map[String, Any],
+                             solverTimeout: Int = 0): String = {
+    val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head
     val sfArgs = synthFunArgsToString(sf)
     val varsDecl = problem.cmds.collect { case v: VarDeclCmd => v }
     val constraints = problem.cmds.collect {
@@ -134,10 +192,35 @@ object SMTLIBFormatter {
       f"\n(assert (and $constraints))\n"
   }
 
+
   /**
     * Query for checking, if for the given problem for any input there is always a single
     * correct output. This is required to be able to use the most efficient test cases
     * mechanism instead of SMT solver to obtain fitness for the GP.
+    *
+    * An example of the query:
+    * <pre>{@code
+    *   (set-logic LIA)
+    *   (declare-fun res1__2 () Int)
+    *   (declare-fun res2__2 () Int)
+    *   (define-fun max2 ((x Int)(y Int)) Int res1__2)
+    *   (define-fun max2__2 ((x Int)(y Int)) Int res2__2)
+    *
+    *   (declare-fun x () Int)
+    *   (declare-fun y () Int)
+    *
+    *   (assert (>= (max2 x y) x))
+    *   (assert (>= (max2 x y) y))
+    *   (assert (or (= x (max2 x y)) (= y (max2 x y))))
+    *
+    *   (assert (>= (max2__2 x y) x))
+    *   (assert (>= (max2__2 x y) y))
+    *   (assert (or (= x (max2__2 x y)) (= y (max2__2 x y))))
+    *
+    *   (assert (distinct res1__2 res2__2))
+    * }</pre>
+    * Sat means that there is at least one input for which there is more than
+    * one correct output.
     */
   def checkIfSingleAnswerForEveryInput(problem: SyGuS16, solverTimeout: Int = 5000): String = {
     val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head // synth-fun
@@ -156,7 +239,6 @@ object SMTLIBFormatter {
     }.mkString("", "\n", "\n")
 
     val synthFunSort = sortToString(sf.se)
-
     val sfSort = sortToString(sf.se)
     f"(set-logic ${getLogicName(problem)})\n" +
       (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
