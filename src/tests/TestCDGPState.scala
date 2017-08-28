@@ -109,6 +109,40 @@ final class TestCDGPState {
   }
 
   @Test
+  def test_evalOnTestsMaxUsingSolver(): Unit = {
+    val code = TestCDGPState.scriptMax
+    val problem = LoadSygusBenchmark.parseText(code)
+    val state = new CDGPState(problem)
+    assertEquals(true, state.useDomainToComputeFitness)
+    val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=false)
+    val t1 = (GetValueParser("((x 4)(y 3))").toMap, None)
+    val t2 = (GetValueParser("((x 5)(y 1))").toMap, None)
+    val t3 = (GetValueParser("((x 1)(y 3))").toMap, None)
+    state.testsManager.addNewTest(t1)
+    state.testsManager.addNewTest(t2)
+    state.testsManager.addNewTest(t3)
+    state.testsManager.flushHelpers()
+    assertEquals(3, state.testsManager.getNumberOfTests)
+    assertEquals(0, state.testsManager.getNumberOfKnownOutputs)
+    assertEquals(Seq(0, 0, 1), state.evalOnTests(op, state.testsManager.getTests()))
+    assertEquals(2, state.testsManager.getNumberOfKnownOutputs)
+    assertEquals(Some(4), state.testsManager.tests(t1._1))
+    assertEquals(Some(5), state.testsManager.tests(t2._1))
+    assertEquals(None,state.testsManager.tests(t3._1))
+  }
+
+  @Test
+  def test_evalOnTestsMaxVerify(): Unit = {
+    val code = TestCDGPState.scriptMax
+    val problem = LoadSygusBenchmark.parseText(code)
+    val state = new CDGPState(problem)
+    val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=false)
+    val (dec, output) = state.verify(op)
+    assertEquals("sat", dec)
+    assertEquals(true, output.isDefined)
+  }
+
+  @Test
   def test_evalOnTestsMaxDifferentVarOrderInModel(): Unit = {
     val code = TestCDGPState.scriptMax
     val problem = LoadSygusBenchmark.parseText(code)

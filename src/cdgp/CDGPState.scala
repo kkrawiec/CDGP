@@ -129,6 +129,7 @@ class CDGPState(sygusProblem: SyGuS16)
   val testCasesMode: String = getTestCasesMode(sygusProblem)
   assume(testCasesMode == "solver" || testCasesMode == "gp",
     "Possible values for --testCasesMode: 'solver', 'gp'.")
+  val useDomainToComputeFitness: Boolean = testCasesMode == "gp"
 
   println(f"(testCasesMode $testCasesMode)")
   coll.set("cdgp.testCasesMode", testCasesMode)
@@ -167,55 +168,126 @@ class CDGPState(sygusProblem: SyGuS16)
     */
   def evalOnTests(s: Op, tests: Seq[(I, Option[O])]): Seq[Int] = {
     for (test <- tests) yield {
-      val testInputsMap: Map[String, Any] = test._1
-      val testOutput: Option[Any] = test._2
-
-      // Solver requires proper renaming of variables, so that it is able to
-      // handle case similar to the following:
-      //   (synth-fun synthFun ((x Int)(y Int)) ... )
-      //   (declare-var a Int)
-      //   (declare-var b Int)
-      //   (constraint (=> (= (- b a) (- c b)) (= (synthFun a b) 1)))
-      val inv: Seq[String] = invocations.head
-      val namesMap = inv.zip(synthTask.argNames).toMap  // Map from names in function signature to names of variables used in function invocation
-      val testInputsRenamed = inv.map{ s => (namesMap(s), testInputsMap(s)) }.toMap
       try {
-        val output = LIA(s)(testInputsRenamed)
-        // If the desired output for this test is already known, simply compare
-        if (testOutput.isDefined) {
-          if (output == testOutput.get) 0 else 1
-        } else {
-          // If the desired output is not known yet, use the solver:
-          val checkOnTestCmd = SMTLIBFormatter.checkOnInput(sygusProblem, testInputsMap, output,
-            solverTimeout=opt('solverTimeout, 0))
-          //println("\ncheckOnTestCmd:\n" + checkOnTestCmd)
-          val (decision, outputData) = solver.runSolver(checkOnTestCmd)
-          // If the program passed the test, we know the desired output and can update
-          // the set of tests
-          if (decision == "sat")
-            testsManager.updateTest((testInputsMap, Some(output)))
-          if (decision == "sat") 0 else 1
-        }
+        if (useDomainToComputeFitness)
+          evalOnTestsDomain(s, test)
+        else
+          evalOnTestsSolver(s, test)
       }
       catch {
         case e: Throwable =>
           val msg = f"Error during evalutation of $s and test $test: ${e.getMessage}"
           coll.set("error_evalOnTests", msg)
           println(msg)
-          1
+          1  // fail test
       }
     }
   }
 
-
-  def verify(s: Op): (String, Option[String]) = {
-    val verProblemCmds = SMTLIBFormatter.verify(sygusProblem, s, solverTimeout=opt('solverTimeout, 0))
-    solver.runSolver(verProblemCmds, getValueCommand)
+  /**
+    * Checks correctness of the program for the given input only.
+    * Tests here always have None as the answer, because in general there is no
+    * single answer for the problem being solved.
+    */
+  def evalOnTestsSolver(s: Op, test: (I, Option[O])): Int = {
+    val testInputsMap: Map[String, Any] = test._1
+    val (dec, _) = checkOnInputOnly(s, testInputsMap)
+    if (dec == "sat") 0 else 1
   }
 
-  def evaluateOnAllTests(s: Op): Boolean = {
-    val failedTests = evalOnTests(s, testsManager.getTests())
-    failedTests.count(_ == 1) == 0
+  def evalOnTestsDomain(s: Op, test: (I, Option[O])): Int = {
+    val testInputsMap: Map[String, Any] = test._1
+    val testOutput: Option[Any] = test._2
+
+    /**
+      * Solver requires renaming of the variables, so that it is able to handle cases
+      * similar to the following:
+      *   (synth-fun synthFun ((x Int)(y Int)) ... )
+      *   (declare-var a Int)
+      *   (declare-var b Int)
+      *   (constraint (=> (= (- b a) (- c b)) (= (synthFun a b) 1)))
+      *
+      * This renaming is only needed for the execution of the program by the domain.
+      */
+    val inv: Seq[String] = invocations.head
+    val namesMap = inv.zip(synthTask.argNames).toMap  // Map from names in function signature to names of variables used in function invocation
+    val testInputsRenamed = inv.map{ s => (namesMap(s), testInputsMap(s)) }.toMap
+    // TODO: implement domains other than LIA
+    val output = LIA(s)(testInputsRenamed)
+
+    // If the desired output for this test is already known, simply compare
+    if (testOutput.isDefined) {
+      if (output == testOutput.get) 0 else 1
+    }
+    // If the desired output is not known yet, use the solver to check if the output
+    // returned by the domain is correct by any chance.
+    else {
+      val (dec, _) = checkOnInputAndKnownOutput(s, testInputsMap, output)
+      if (dec == "sat")
+        testsManager.updateTest((testInputsMap, Some(output)))
+      if (dec == "sat") 0 else 1
+    }
+  }
+
+
+  def checkOnInputAndKnownOutput(s: Op,
+                                 testInputsMap: Map[String, Any],
+                                 output: Any): (String, Option[String]) = {
+    /**
+      * An example of the query:
+      *   (set-logic LIA)
+      *   (define-fun max2 ((x Int)(y Int)) Int 5)
+      *   (define-fun x () Int 5)
+      *   (define-fun y () Int 1)
+      *   (assert (and (>= (max2 x y) x)
+      *   (>= (max2 x y) y)
+      *   (or (= x (max2 x y)) (= y (max2 x y)))))
+      *
+      * The result is either sat or unsat, model usually will be empty.
+      * Sat means that the answer is correct.
+      */
+    val query = SMTLIBFormatter.checkOnInputAndKnownOutput(sygusProblem, testInputsMap, output,
+                  opt('solverTimeout, 0))
+    solver.runSolver(query)
+  }
+
+
+  def checkOnInputOnly(s: Op,
+                       testInputsMap: Map[String, Any]): (String, Option[String]) = {
+    /**
+      * An example of the query:
+      *   (set-logic LIA)
+      *   (define-fun max2 ((x Int)(y Int)) Int 5)
+      *   (define-fun x () Int 5)
+      *   (define-fun y () Int 1)
+      *   (assert (and (>= (max2 x y) x)
+      *   (>= (max2 x y) y)
+      *   (or (= x (max2 x y)) (= y (max2 x y)))))
+      *
+      * The result is either sat or unsat, model usually will be empty.
+      * Sat means that the answer is correct.
+      */
+    val query = SMTLIBFormatter.checkOnInput(sygusProblem, testInputsMap, s, opt('solverTimeout, 0))
+    println("\nQuery checkOnInputOnly:\n" + query)
+    solver.runSolver(query)
+  }
+
+
+  def verify(s: Op): (String, Option[String]) = {
+    /**
+      * An example of the query:
+      *   (set-logic LIA)
+      *   (define-fun max2 ((x Int)(y Int)) Int (ite (>= x y) x 0))
+      *   (declare-fun x () Int)
+      *   (declare-fun y () Int)
+      *   (assert (not (and (>= (max2 x y) x)
+      *   (>= (max2 x y) y)
+      *   (or (= x (max2 x y)) (= y (max2 x y))))))
+      *
+      * Sat means that there is a counterexample, unsat means perfect program was found.
+      */
+    val query = SMTLIBFormatter.verify(sygusProblem, s, opt('solverTimeout, 0))
+    solver.runSolver(query, getValueCommand)
   }
 
   def tryToFindOutputForTestCase(test: (I, Option[O])): (I, Option[O]) = {

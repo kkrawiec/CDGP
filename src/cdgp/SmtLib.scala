@@ -51,9 +51,10 @@ object SMTLIBFormatter {
     * Produces the input to the solver for verifying if program p is correct
     * wrt the specification given by problem.
     */
-  def verify(problem: SyGuS16, p: Op, solverTimeout: Int = 0): String = {
+  def verify(problem: SyGuS16, op: Op, solverTimeout: Int = 0): String = {
     val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head // head!
     val sfArgs = synthFunArgsToString(sf)
+    val programBody = opToString(op)
     val varsDecl = problem.cmds.collect { case v: VarDeclCmd => v }
     val constraints = problem.cmds.collect {
       case ConstraintCmd(t: Term) => f"${nestedProductToString(t)}"
@@ -62,7 +63,7 @@ object SMTLIBFormatter {
       (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
       //"(set-option :incremental true)\n" +  // for compatibility with CVC4
-      f"(define-fun ${sf.sym} ($sfArgs) ${sortToString(sf.se)} ${apply(p)})\n" +
+      f"(define-fun ${sf.sym} ($sfArgs) ${sortToString(sf.se)} $programBody)\n" +
       varsDecl.map(v => f"(declare-fun ${v.sym} () ${sortToString(v.sortExpr)})").mkString("\n") +
       f"\n(assert (not (and $constraints)))\n" // 'and' works also for one argument
   }
@@ -73,7 +74,8 @@ object SMTLIBFormatter {
     * This is done by copying most of the problem and defining a constant function
     * that returns the output value.
     */
-  def checkOnInput(problem: SyGuS16, input: Map[String, Any], output: Any, solverTimeout: Int = 0): String = {
+  def checkOnInputAndKnownOutput(problem: SyGuS16, input: Map[String, Any],
+                                 output: Any, solverTimeout: Int = 0): String = {
     val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head // head!
     val sfArgs = synthFunArgsToString(sf)
     val varsDecl = problem.cmds.collect { case v: VarDeclCmd => v }
@@ -86,6 +88,29 @@ object SMTLIBFormatter {
       f"(define-fun ${sf.sym} ($sfArgs) ${sortToString(sf.se)} $output)\n" +
       varsDecl.map(v => f"(define-fun ${v.sym} () ${sortToString(v.sortExpr)} ${input(v.sym)})").mkString("\n") +
       f"\n(assert (and $constraints))\n" // 'and' works also for one argument
+  }
+
+  /**
+    * Query for checking whether the given output produced by a program for a given
+    * input is correct wrt the specification given by the problem.
+    * This is done by copying most of the problem and defining a constant function
+    * that returns the output value.
+    */
+  def checkOnInput(problem: SyGuS16, input: Map[String, Any],
+                   op: Op, solverTimeout: Int = 0): String = {
+    val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head // head!
+    val sfArgs = synthFunArgsToString(sf)
+    val varsDecl = problem.cmds.collect { case v: VarDeclCmd => v }
+    val programBody = opToString(op)
+    val constraints = problem.cmds.collect {
+      case ConstraintCmd(t: Term) => f"${nestedProductToString(t)}"
+    }.mkString("\n")
+    f"(set-logic ${getLogicName(problem)})\n" +
+      (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
+      "(set-option :produce-models true)\n" +
+      f"(define-fun ${sf.sym} ($sfArgs) ${sortToString(sf.se)} $programBody)\n" +
+      varsDecl.map(v => f"(define-fun ${v.sym} () ${sortToString(v.sortExpr)} ${input(v.sym)})").mkString("\n") +
+      f"\n(assert (and $constraints))\n"
   }
   
   /**
@@ -106,7 +131,7 @@ object SMTLIBFormatter {
       f"(declare-fun CorrectOutput () $sfSort)\n" +
       f"(define-fun ${sf.sym} ($sfArgs) $sfSort CorrectOutput)\n" +
       varsDecl.map(v => f"(define-fun ${v.sym} () ${sortToString(v.sortExpr)} ${input(v.sym)})").mkString("\n") +
-      f"\n(assert (and $constraints))\n" // 'and' works also for one argument
+      f"\n(assert (and $constraints))\n"
   }
 
   /**
@@ -147,11 +172,8 @@ object SMTLIBFormatter {
   }
 
 
-  def apply(op: Op): String = op.args.size match {
-    case 0 => op.op.toString
-    case _ => f"(${op.op}" + op.args.
-      map(apply(_)).fold("")(_ + " " + _) + ")"
-  }
+  def apply(op: Op): String = opToString(op)
+
 
   def nestedProductToString(p: Any): String = p match {
     case seq: Seq[Any] => seq.map(nestedProductToString(_)).reduce(_ + " " + _)

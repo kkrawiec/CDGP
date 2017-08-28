@@ -131,7 +131,8 @@ object MainGecco2017 extends FApp {
           if (output == testOutput.get) 0 else 1
         } else {
           // If the desired output is not known yet, use the solver:
-          val checkOnTestCmd = SMTLIBFormatter.checkOnInput(sygusProblem, testInputsMap, output, solverTimeout=opt('solverTimeout, 0))
+          val checkOnTestCmd = SMTLIBFormatter.checkOnInputAndKnownOutput(sygusProblem, testInputsMap, output,
+                                solverTimeout=opt('solverTimeout, 0))
           println("\ncheckOnTestCmd:\n" + checkOnTestCmd)
           val (decision, outputData) = solver.runSolver(checkOnTestCmd)
           // If the program passed the test, we know the desired output and can update
@@ -147,7 +148,8 @@ object MainGecco2017 extends FApp {
   }
   
   def tryToFindOutputForTestCase(test: (I, Option[O])): (I, Option[O]) = {
-    val cmd: String = SMTLIBFormatter.searchForCorrectOutput(sygusProblem, test._1, solverTimeout=opt('solverTimeout, 0))
+    val cmd: String = SMTLIBFormatter.searchForCorrectOutput(sygusProblem, test._1,
+                        solverTimeout=opt('solverTimeout, 0))
     //println("\nSearch cmd:\n" + cmd)
     try {
       val getValueCommand = f"(get-value (CorrectOutput))"

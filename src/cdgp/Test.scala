@@ -94,7 +94,7 @@ object TestLIA extends IApp('maxGenerations -> 300, 'printResults -> true, 'popu
         println("Counterexample: " + cexampleRenamed)
         val output = LIA.apply(p)(cexampleRenamed.toMap)
 
-        val checkOnTestCmd = SMTLIBFormatter.checkOnInput(sygusProblem, cexample.toMap, output)
+        val checkOnTestCmd = SMTLIBFormatter.checkOnInputAndKnownOutput(sygusProblem, cexample.toMap, output)
         solver.solve(checkOnTestCmd)
       } else {
         println("Correct program found")
