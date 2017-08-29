@@ -111,8 +111,8 @@ class CDGPState(sygusProblem: SyGuS16)
 
   /**
     * Tests a program on the available tests and returns the vector of 0s (passed test)
-    * and 1s (failed test). If the desired output is not known for a test, uses a solver
-    * to determine it, and saves the obtained desired output.
+    * and 1s (failed test). Depending on the problem will either optimize by executing
+    * program directly on the tests, or will have to resort to a solver.
     */
   def evalOnTests(s: Op, tests: Seq[(I, Option[O])]): Seq[Int] = {
     def handleException(test: (I, Option[O]), message: String) {
@@ -154,19 +154,22 @@ class CDGPState(sygusProblem: SyGuS16)
     val testOutput: Option[Any] = test._2
     /**
       * Solver requires renaming of the variables, so that it is able to handle cases
-      * similar to the following:
+      * similar to the one below. This renaming is only needed for the execution of the
+      * program by the domain.
       *   (synth-fun synthFun ((x Int)(y Int)) ... )
       *   (declare-var a Int)
       *   (declare-var b Int)
       *   (constraint (=> (= (- b a) (- c b)) (= (synthFun a b) 1)))
-      *
-      * This renaming is only needed for the execution of the program by the domain.
       */
-    val inv: Seq[String] = invocations.head
-    val namesMap = inv.zip(synthTask.argNames).toMap  // Map from names in function signature to names of variables used in function invocation
-    val testInputsRenamed = inv.map{ s => (namesMap(s), testInputsMap(s)) }.toMap
-    // TODO: implement domains other than LIA
-    val output = LIA(s)(testInputsRenamed)
+    def renameVars(): Map[String, Any] = {
+      val inv: Seq[String] = invocations.head
+      // Map from names in function signature to names of variables used in function invocation
+      val namesMap = inv.zip(synthTask.argNames).toMap
+      inv.map{ x => (namesMap(x), testInputsMap(x)) }.toMap
+    }
+
+    val testInputsRenamed = renameVars()
+    val output = LIA(s)(testInputsRenamed) // TODO: implement domains other than LIA
 
     if (testOutput.isDefined) {
       if (output == testOutput.get) 0 else 1
@@ -180,15 +183,18 @@ class CDGPState(sygusProblem: SyGuS16)
   }
 
 
+
+  ///////  Interactions with the solver  ///////
+
+
   def checkOnInputAndKnownOutput(s: Op,
                                  testInputsMap: Map[String, Any],
                                  output: Any): (String, Option[String]) = {
-    val query = SMTLIBFormatter.checkOnInputAndKnownOutput(sygusProblem, testInputsMap, output,
-                  opt('solverTimeout, 0))
+    val query = SMTLIBFormatter.checkOnInputAndKnownOutput(sygusProblem,
+      testInputsMap, output, opt('solverTimeout, 0))
     // println("\nQuery checkOnInputAndKnownOutput:\n" + query)
     solver.runSolver(query)
   }
-
 
   def checkOnInputOnly(s: Op,
                        testInputsMap: Map[String, Any]): (String, Option[String]) = {
@@ -197,16 +203,15 @@ class CDGPState(sygusProblem: SyGuS16)
     solver.runSolver(query)
   }
 
-
   def verify(s: Op): (String, Option[String]) = {
     val query = SMTLIBFormatter.verify(sygusProblem, s, opt('solverTimeout, 0))
     // println("\nQuery verify:\n" + query)
     solver.runSolver(query, getValueCommand)
   }
 
-  def tryToFindOutputForTestCase(test: (I, Option[O])): (I, Option[O]) = {
-    val query = SMTLIBFormatter.searchForCorrectOutput(sygusProblem, test._1, solverTimeout=opt('solverTimeout, 0))
-    // println("\nQuery searchForCorrectOutput:\n" + query)
+  def findOutputForTestCase(test: (I, Option[O])): (I, Option[O]) = {
+    val query = SMTLIBFormatter.findOutputForTestCase(sygusProblem, test._1, solverTimeout=opt('solverTimeout, 0))
+    println("\nQuery findOutputForTestCase:\n" + query)
     try {
       val getValueCommand = f"(get-value (CorrectOutput))"
       val (dec, res) = solver.runSolver(query, getValueCommand)
@@ -224,11 +229,16 @@ class CDGPState(sygusProblem: SyGuS16)
     }
   }
 
+  ///////////////////////////////////////////////////////
+
+
+
+
   def createTestFromFailedVerification(verOutput: String): (Map[String, Any], Option[Any]) = {
     val counterExample = GetValueParser(verOutput) // returns the counterexample
     val testNoOutput = (counterExample.toMap, None) // for this test currently the correct answer is not known
     if (testCasesMode == "gp")
-      tryToFindOutputForTestCase(testNoOutput)
+      findOutputForTestCase(testNoOutput)  // TODO: Research, if doing this is good; possibly enabled by a parameter
     else
       testNoOutput
   }
@@ -238,7 +248,7 @@ class CDGPState(sygusProblem: SyGuS16)
     val argNames = GetValueParser(verOutput).unzip._1
     val example = argNames.map(argName => (argName, GPRminInt + rng.nextInt(GPRmaxInt+1-GPRminInt)))
     val testNoOutput = (example.toMap, None) // for this test currently the correct answer is not known
-    tryToFindOutputForTestCase(testNoOutput)
+    findOutputForTestCase(testNoOutput)  // TODO: Research, if doing this is good; possibly enabled by a parameter
   }
 
   /**
@@ -264,14 +274,14 @@ class CDGPState(sygusProblem: SyGuS16)
   def fitnessCDGP: Op => (Boolean, Seq[Int]) =
     new Function1[Op, (Boolean, Seq[Int])] {
       def apply(s: Op) = {
+        val failedTests = evalOnTests(s, testsManager.getTests())
         val (decision, r) = verify(s)
-        if (decision == "unsat") (true, testsManager.getTests().map(_ => -1)) // perfect program found; end of run
+        if (decision == "unsat") (true, failedTests) // perfect program found; end of run
         else {
           if (!CDGPoneTestPerIter || testsManager.newTests.isEmpty) {
             val newTest = createTestFromFailedVerification(r.get)
             testsManager.addNewTest(newTest)
           }
-          val failedTests = evalOnTests(s, testsManager.getTests())
           (false, failedTests)
         }
       }
@@ -288,7 +298,7 @@ class CDGPState(sygusProblem: SyGuS16)
           (false, failedTests)
         else {
           val (decision, r) = verify(s)
-          if (decision == "unsat") (true, testsManager.getTests().map(_ => -1)) // perfect program found; end of run
+          if (decision == "unsat") (true, failedTests) // perfect program found; end of run
           else {
             if (!CDGPoneTestPerIter || testsManager.newTests.isEmpty) {
               val newTest = createTestFromFailedVerification(r.get)
@@ -309,7 +319,7 @@ class CDGPState(sygusProblem: SyGuS16)
           (false, failedTests)
         else {
           val (decision, r) = verify(s)
-          if (decision == "unsat") (true, testsManager.getTests().map(_ => -1)) // perfect program found; end of run
+          if (decision == "unsat") (true, failedTests) // perfect program found; end of run
           else {
             if (!GPRoneTestPerIter || testsManager.newTests.isEmpty) {
               val newTest = createRandomTest(r.get)

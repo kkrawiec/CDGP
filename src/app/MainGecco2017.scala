@@ -148,7 +148,7 @@ object MainGecco2017 extends FApp {
   }
   
   def tryToFindOutputForTestCase(test: (I, Option[O])): (I, Option[O]) = {
-    val cmd: String = SMTLIBFormatter.searchForCorrectOutput(sygusProblem, test._1,
+    val cmd: String = SMTLIBFormatter.findOutputForTestCase(sygusProblem, test._1,
                         solverTimeout=opt('solverTimeout, 0))
     //println("\nSearch cmd:\n" + cmd)
     try {

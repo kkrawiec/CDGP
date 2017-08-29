@@ -19,6 +19,8 @@ object SMTLIBFormatter {
     case BitVecSortExpr(n: Int) => f"BV$n" // TODO:?
   }
 
+  def apply(op: Op): String = opToString(op)
+
   def opToString(op: Op): String = {
     val opStr = if (op.op.isInstanceOf[Symbol]) op.op.toString.tail else op.op.toString
     if (op.args.isEmpty) opStr
@@ -174,8 +176,8 @@ object SMTLIBFormatter {
     * consistent with the specification (this probably means that problem was
     * wrongly specified).
     */
-  def searchForCorrectOutput(problem: SyGuS16, input: Map[String, Any],
-                             solverTimeout: Int = 0): String = {
+  def findOutputForTestCase(problem: SyGuS16, input: Map[String, Any],
+                            solverTimeout: Int = 0): String = {
     val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head
     val sfArgs = synthFunArgsToString(sf)
     val varsDecl = problem.cmds.collect { case v: VarDeclCmd => v }
@@ -252,9 +254,6 @@ object SMTLIBFormatter {
       body2 + "\n" +
       f"(assert (distinct res1__2 res2__2))"
   }
-
-
-  def apply(op: Op): String = opToString(op)
 
 
   def nestedProductToString(p: Any): String = p match {
