@@ -67,6 +67,25 @@ object TestCDGPState {
 (constraint (>= (max2 x y) y))
 (check-synth)"""
 
+  val scriptMaxFixedX =
+    """(set-logic LIA)
+(synth-fun max2 ((x Int) (y Int)) Int
+  ((Start Int (x y 0 1
+(+ Start Start)
+(- Start Start)
+(ite StartBool Start Start)))
+(StartBool Bool ((and StartBool StartBool)
+  (or StartBool StartBool)
+  (not StartBool)
+  (<= Start Start)
+  (= Start Start)
+  (>= Start Start)))))
+(declare-var y Int)
+(constraint (>= (max2 1 y) 1))
+(constraint (>= (max2 1 y) y))
+(constraint (or (= 1 (max2 1 y)) (= y (max2 1 y))))
+(check-synth)"""
+
   val scriptNotSingleInvocation =
 """; three.sl
 ; Synthesize x * 3 mod 10
@@ -169,6 +188,19 @@ final class TestCDGPState {
 
     val t2_2 = (GetValueParser("((y 1)(x 5))").toMap, Some(5))
     val tests_2 = Seq(t1, t2_2, t3)
+    assertEquals(Seq(0, 0, 1), state.evalOnTests(op, tests))
+  }
+
+  @Test
+  def test_evalOnTestsMaxFixedX(): Unit = {
+    val code = TestCDGPState.scriptMaxFixedX
+    val problem = LoadSygusBenchmark.parseText(code)
+    val state = new CDGPState(problem)
+    val op = Op.fromStr("ite(>=(a b) a 0)", useSymbols=false)
+    val t1 = (GetValueParser("((asd 4)(y -3))").toMap, Some(1))
+    val t2 = (GetValueParser("((asd 5)(y 0))").toMap, Some(1))
+    val t3 = (GetValueParser("((asd 1)(y 3))").toMap, Some(3))
+    val tests = Seq(t1, t2, t3)
     assertEquals(Seq(0, 0, 1), state.evalOnTests(op, tests))
   }
 

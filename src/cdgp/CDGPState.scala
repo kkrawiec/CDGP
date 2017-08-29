@@ -170,7 +170,6 @@ class CDGPState(sygusProblem: SyGuS16)
 
     val testInputsRenamed = renameVars()
     val output = LIA(s)(testInputsRenamed) // TODO: implement domains other than LIA
-
     if (testOutput.isDefined) {
       if (output == testOutput.get) 0 else 1
     }

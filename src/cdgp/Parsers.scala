@@ -29,35 +29,9 @@ object GetValueParser extends RegexParsers {
     case list ~ _ => list
   }
   
-  def apply(s: String) = GetValueParser.parse(GetValueParser.values, s) match {
+  def apply(s: String): List[(String, Int)] = GetValueParser.parse(GetValueParser.values, s) match {
     case m @ Failure(msg, next) => throw ValueParseException(s"Parse failure: $msg")
     case m @ Error(msg, next)   => throw ValueParseException(s"Parse error: $msg")
     case Success(result, next)  => result
   }
 }
-
-///////////////////////////////////
-
-import org.junit._
-import org.junit.Assert._
-
-class TestGetValueParser {
-
-  @Test
-  def testPass: Unit = {
-    
-    assertEquals( Map( "x" -> 1, "y" -> -2 ), GetValueParser(""" ((x 1)
-               (y (- 2)))""") )
-
-    assertEquals( Map( "x" -> - 7787, "y" -> -2 ), GetValueParser(""" ((x (- 7787))
-               (y (- 2)))"""))
-  }
-  
-  @Test(expected=classOf[GetValueParser.ValueParseException])
-  def testFail: Unit = {
-    GetValueParser(""" ((x (- 7787))
-      (y (- ERROR)))""")    
-  }
-}
-
-// End ///////////////////////////////////////////////////////////////

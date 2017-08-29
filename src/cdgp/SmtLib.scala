@@ -1,10 +1,9 @@
 package cdgp
 
-import sygus14.SyGuS14
-import sygus14.SyGuS14._
 import swim.tree.Op
 import sygus._
 import sygus16.SyGuS16
+
 
 /**
   * Functions for converting the SMTLIB and Sygus terms into input to
