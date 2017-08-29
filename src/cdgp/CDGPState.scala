@@ -163,9 +163,10 @@ class CDGPState(sygusProblem: SyGuS16)
       */
     def renameVars(): Map[String, Any] = {
       val inv: Seq[String] = invocations.head
-      // Map from names in function signature to names of variables used in function invocation
-      val namesMap = inv.zip(synthTask.argNames).toMap
-      inv.map{ x => (namesMap(x), testInputsMap(x)) }.toMap
+      inv.zip(synthTask.argNames).map{
+        case (invName, stName) =>  // invName potentially may be a constant
+          (stName, testInputsMap.getOrElse(invName, ConstParser(invName)))
+      }.toMap
     }
 
     val testInputsRenamed = renameVars()

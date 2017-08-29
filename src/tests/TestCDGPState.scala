@@ -69,8 +69,8 @@ object TestCDGPState {
 
   val scriptMaxFixedX =
     """(set-logic LIA)
-(synth-fun max2 ((x Int) (y Int)) Int
-  ((Start Int (x y 0 1
+(synth-fun max2 ((argA Int) (argB Int)) Int
+  ((Start Int (argA argB 0 1
 (+ Start Start)
 (- Start Start)
 (ite StartBool Start Start)))
@@ -196,10 +196,23 @@ final class TestCDGPState {
     val code = TestCDGPState.scriptMaxFixedX
     val problem = LoadSygusBenchmark.parseText(code)
     val state = new CDGPState(problem)
-    val op = Op.fromStr("ite(>=(a b) a 0)", useSymbols=false)
+    val op = Op.fromStr("ite(>=(argA argB) argA 0)", useSymbols=false)
     val t1 = (GetValueParser("((asd 4)(y -3))").toMap, Some(1))
     val t2 = (GetValueParser("((asd 5)(y 0))").toMap, Some(1))
     val t3 = (GetValueParser("((asd 1)(y 3))").toMap, Some(3))
+    val tests = Seq(t1, t2, t3)
+    assertEquals(Seq(0, 0, 1), state.evalOnTests(op, tests))
+  }
+
+  @Test
+  def test_evalOnTestsMaxFixedX2(): Unit = {
+    val code = TestCDGPState.scriptMaxFixedX.replace("argA", "x").replace("argB", "y")
+    val problem = LoadSygusBenchmark.parseText(code)
+    val state = new CDGPState(problem)
+    val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=false)
+    val t1 = (GetValueParser("((y -3))").toMap, Some(1))
+    val t2 = (GetValueParser("((y 0))").toMap, Some(1))
+    val t3 = (GetValueParser("((y 3))").toMap, Some(3))
     val tests = Seq(t1, t2, t3)
     assertEquals(Seq(0, 0, 1), state.evalOnTests(op, tests))
   }
