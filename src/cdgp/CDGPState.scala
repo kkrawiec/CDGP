@@ -53,7 +53,7 @@ class CDGPState(sygusProblem: SyGuS16)
     println(f"(singleInvocationProperty $singleInvoc)")
     coll.set("cdgp.singleInvocationProperty", singleInvoc)
     if (singleInvoc) {
-      // Checking for the single answer has sense only if the problem
+      // Checking for the single answer property has sense only if the problem
       // has single invocation property.
       val singleAnswer = hasSingleAnswerForEveryInput(sygusProblem)
       val supportForAllTerms = !SygusUtils.containsUnsupportedComplexTerms(sygusProblem)
@@ -62,7 +62,7 @@ class CDGPState(sygusProblem: SyGuS16)
       coll.set("cdgp.singleAnswerForEveryInput", singleAnswer.getOrElse("unknown"))
       coll.set("cdgp.supportForAllTerms", supportForAllTerms)
       if (singleAnswer.getOrElse(false) && supportForAllTerms)
-        "gp"  // it may be considered to treat unknown singleAnswer as true, with the potential soundness loss of fitness
+        "gp"  // it may be considered to treat unknown singleAnswer as true, with the potential risk of losing "soundness" of the fitness
       else
         "solver"
     }
