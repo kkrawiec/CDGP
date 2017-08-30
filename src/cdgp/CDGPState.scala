@@ -104,7 +104,7 @@ class CDGPState(sygusProblem: SyGuS16)
 
   // Creating solver manager
   private def solverPath = opt('solverPath)
-  private def solverArgs = opt('solverArgs, "-in")
+  private def solverArgs = opt.getOption("solverArgs")
   lazy val solver = new SolverManager(solverPath, solverArgs, verbose=false)
 
 

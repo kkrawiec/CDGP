@@ -68,7 +68,7 @@ object TestLIA extends IApp('maxGenerations -> 25, 'printResults -> false, 'popu
     ////////////////////////////////////////////////////////////////
     // Verifying programs using SMT solver
     println("Verifying programs:")
-    val solver = Solver(solverPath, verbose = false)
+    val solver = SolverInteractive(solverPath, verbose = false)
     val fv = sygusProblem.cmds.collect { case v: VarDeclCmd => v }
     val getValueCommand = f"(get-value (${fv.map(_.sym).mkString(" ")}))"
 

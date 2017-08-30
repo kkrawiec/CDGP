@@ -101,7 +101,7 @@ object MainGecco2017 extends FApp {
   // Creating solver manager
   val solverPath = opt('solverPath)
   val solverArgs = opt('solverArgs, "-in")
-  val solver = new SolverManager(solverPath, solverArgs, verbose=false)
+  val solver = new SolverManager(solverPath, Some(solverArgs), verbose=false)
 
 
   // The types for input and output

@@ -1,11 +1,9 @@
 package cdgp
 
-import java.io.Closeable
-import java.io.InputStream
-import java.io.OutputStream
-import java.io.PrintWriter
+import java.io._
 import java.util.Scanner
-import scala.sys.process.{Process, ProcessIO}
+
+import scala.sys.process._
 import fuel.util.{Collector, FApp, Options}
 
 
@@ -13,9 +11,59 @@ import fuel.util.{Collector, FApp, Options}
 class UnknownSolverOutputException(message: String = "", cause: Throwable = null)
       extends Exception(message, cause)
 
+trait SolverSMT extends Closeable {
+  def solve(input: String, postCommands: String*): (String, Option[String])
+}
 
-case class Solver(path: String, args: String = "-in", verbose: Boolean = false)
-      extends Closeable {
+
+/**
+  * Saves each query on disk as a temporary file and then executes solver binaries
+  * for this query.
+  */
+case class SolverFromScript(path: String, args: String = "-smt2 -file:", verbose: Boolean = false)
+            extends SolverSMT {
+
+  def apply(input: String): String = {
+    val tmpfile = File.createTempFile("smtlib", ".tmp")
+    save(tmpfile, input)
+    var res: String = ""
+    try {
+      res = f"$path $args${tmpfile.getAbsolutePath}" !! // strangely may require one empty line after
+    } catch {
+      case e: RuntimeException => throw new Exception(f"Solver failed for input:\n$input\nwith output:\n$res\n", e)
+    }
+    tmpfile.delete
+    res
+  }
+
+  override def solve(input: String, postCommands: String*): (String, Option[String]) = {
+    val inputStr = f"$input\n(check-sat)\n${postCommands.mkString}"
+    if (verbose) println(f"Input to the solver:\n$inputStr\n")
+    val output = apply(inputStr).trim
+    if (verbose) print("Solver output:\n" + output)
+    val lines = output.split("\n").map(_.trim)
+    val outputDec = lines.head
+    val outputRest = if (lines.size == 1) None else Some(lines.tail.mkString("\n"))
+    if (outputDec == "sat" || outputDec == "unsat" || outputDec == "unknown")
+      (outputDec, outputRest)
+    else throw new Exception(f"Solver did not return sat, unsat, nor unknown, but this: $output")
+  }
+
+  def save(file: File, s: String): Unit = {
+    val pw = new PrintWriter(file)
+    pw.print(s)
+    pw.close()
+  }
+  override def close(): Unit = {}
+}
+
+
+
+/**
+  * Executes solver binaries one and works in the interactive mode.
+  */
+case class SolverInteractive(path: String, args: String = "-in", verbose: Boolean = false)
+            extends SolverSMT {
 
   private[this] var is: OutputStream = _
   private[this] var os: InputStream = _
@@ -104,7 +152,7 @@ object TestSolverOpenConnection extends FApp {
 
 
 
-class SolverManager(path: String, args: String = "-in", verbose: Boolean = false)
+class SolverManager(path: String, args: Option[String] = None, verbose: Boolean = false)
                    (implicit opt: Options, coll: Collector) {
   private val maxSolverRestarts: Int = opt('maxSolverRestarts, 5)
   private var doneRestarts: Int = 0
@@ -113,17 +161,18 @@ class SolverManager(path: String, args: String = "-in", verbose: Boolean = false
   def getNumCalls: Int = numCalls
   def setNumCalls(nc: Int) { numCalls = nc}
 
-  private var _solver: Solver = createWithRetries()
-  def solver: Solver = _solver
+  private var _solver: SolverSMT = createWithRetries()
+  def solver: SolverSMT = _solver
 
   /**
     * Sometimes during opening connection with a solver an unidentified error occurs.
     * This function retries opening connection if this happens.
     */
-  protected def createWithRetries(): Solver = {
+  protected def createWithRetries(): SolverSMT = {
     coll.set("doneSolverRestarts", doneRestarts)
     try {
-      Solver(path, args, verbose=verbose)
+      if (args.isDefined) SolverInteractive(path, args.get, verbose=verbose)
+      else SolverInteractive(path, verbose=verbose)
     }
     catch {
       case error: Throwable =>
