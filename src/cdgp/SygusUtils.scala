@@ -162,7 +162,10 @@ object SygusUtils {
 
 object LoadSygusBenchmark {
   def apply(path: String): SyGuS16 = {
-    parseText(loadBenchmarkContent(path))
+    parseText(getBenchmarkContent(path))
+  }
+  def apply(file: File): SyGuS16 = {
+    parseText(getBenchmarkContent(file))
   }
 
   def parseText(code: String, checkSupport: Boolean = true): SyGuS16 = {
@@ -174,9 +177,12 @@ object LoadSygusBenchmark {
     res
   }
 
-  private def loadBenchmarkContent(benchmark: String): String = {
+  def getBenchmarkContent(benchmark: String): String =
+    getBenchmarkContent(new File(benchmark))
+
+  def getBenchmarkContent(benchmark: File): String = {
     try {
-      scala.io.Source.fromFile(new File(benchmark)).mkString
+      scala.io.Source.fromFile(benchmark).mkString
     }
     catch {
       case _: java.io.FileNotFoundException =>
@@ -190,7 +196,6 @@ object LoadSygusBenchmark {
 
 object ExtractSygusGrammar {
   def apply(synthTask: SygusSynthesisTask): Grammar = {
-    val argNames = synthTask.argNames
     val grammarMap = synthTask.grammar.toMap
     val start = if (!grammarMap.contains("Start")) synthTask.grammar.head._1 else "Start"
     Grammar.fromMap(start, grammarMap)
