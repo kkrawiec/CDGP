@@ -20,9 +20,14 @@ object SMTLIBFormatter {
 
   def apply(op: Op): String = opToString(op)
 
+  def normalizeTerminal(x: String): String = {
+    if (x.head == '-') s"(- ${x.tail})"  // special treatment for negative numbers
+    else x
+  }
+
   def opToString(op: Op): String = {
     val opStr = if (op.op.isInstanceOf[Symbol]) op.op.toString.tail else op.op.toString
-    if (op.args.isEmpty) opStr
+    if (op.args.isEmpty) normalizeTerminal(opStr)
     else f"($opStr ${op.args.map(opToString(_)).mkString(" ")})"
   }
 
@@ -110,11 +115,13 @@ object SMTLIBFormatter {
     val constraints = problem.cmds.collect {
       case ConstraintCmd(t: Term) => f"${nestedProductToString(t)}"
     }.mkString("\n")
+    val textOutput = normalizeTerminal(output.toString)
     f"(set-logic ${getLogicName(problem)})\n" +
       (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
-      f"(define-fun ${sf.sym} ($sfArgs) ${sortToString(sf.se)} $output)\n" +
-      varsDecl.map(v => f"(define-fun ${v.sym} () ${sortToString(v.sortExpr)} ${input(v.sym)})").mkString("\n") +
+      f"(define-fun ${sf.sym} ($sfArgs) ${sortToString(sf.se)} $textOutput)\n" +
+      varsDecl.map(v => f"(define-fun ${v.sym} ()" +
+        f" ${sortToString(v.sortExpr)} ${normalizeTerminal(input(v.sym).toString)})").mkString("\n") +
       f"\n(assert (and $constraints))\n" // 'and' works also for one argument
   }
 
@@ -151,7 +158,8 @@ object SMTLIBFormatter {
       (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
       f"(define-fun ${sf.sym} ($sfArgs) ${sortToString(sf.se)} $programBody)\n" +
-      varsDecl.map(v => f"(define-fun ${v.sym} () ${sortToString(v.sortExpr)} ${input(v.sym)})").mkString("\n") +
+      varsDecl.map(v => f"(define-fun ${v.sym} ()" +
+        f" ${sortToString(v.sortExpr)} ${normalizeTerminal(input(v.sym).toString)})").mkString("\n") +
       f"\n(assert (and $constraints))\n"
   }
 
@@ -189,7 +197,8 @@ object SMTLIBFormatter {
       "(set-option :produce-models true)\n" +
       f"(declare-fun CorrectOutput () $sfSort)\n" +
       f"(define-fun ${sf.sym} ($sfArgs) $sfSort CorrectOutput)\n" +
-      varsDecl.map(v => f"(define-fun ${v.sym} () ${sortToString(v.sortExpr)} ${input(v.sym)})").mkString("\n") +
+      varsDecl.map(v => f"(define-fun ${v.sym} ()" +
+        f" ${sortToString(v.sortExpr)} ${normalizeTerminal(input(v.sym).toString)})").mkString("\n") +
       f"\n(assert (and $constraints))\n"
   }
 
@@ -223,7 +232,7 @@ object SMTLIBFormatter {
     * Sat means that there is at least one input for which there is more than
     * one correct output.
     */
-  def checkIfSingleAnswerForEveryInput(problem: SyGuS16, solverTimeout: Int = 5000): String = {
+  def checkIfSingleAnswerForEveryInput(problem: SyGuS16, solverTimeout: Int = 0): String = {
     val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head // synth-fun
     val sfArgs = synthFunArgsToString(sf)
     val varsDecl = problem.cmds.collect {

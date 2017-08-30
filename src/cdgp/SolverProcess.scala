@@ -6,6 +6,8 @@ import java.util.Scanner
 import scala.sys.process._
 import fuel.util.{Collector, FApp, Options}
 
+import scala.util.Random
+
 
 
 class UnknownSolverOutputException(message: String = "", cause: Throwable = null)
@@ -20,11 +22,15 @@ trait SolverSMT extends Closeable {
   * Saves each query on disk as a temporary file and then executes solver binaries
   * for this query.
   */
-case class SolverFromScript(path: String, args: String = "-smt2 -file:", verbose: Boolean = false)
+case class SolverFromScript(path: String, args: String = "-smt2 -file:", verbose: Boolean = false,
+                            seed: Int = 0)
             extends SolverSMT {
+  private val rng: Random = scala.util.Random
+  rng.setSeed(seed)  // rng is needed to avoid tmp file clashes in case many different processes are run
 
   def apply(input: String): String = {
-    val tmpfile = File.createTempFile("smtlib", ".tmp")
+    val r = rng.nextInt(1000000000)
+    val tmpfile = File.createTempFile("smtlib"+r, ".tmp")
     save(tmpfile, input)
     var res: String = ""
     try {
@@ -55,6 +61,11 @@ case class SolverFromScript(path: String, args: String = "-smt2 -file:", verbose
     pw.close()
   }
   override def close(): Unit = {}
+}
+
+object SolverFromScript {
+  def ARGS_Z3: String = "-smt2 -file:"
+  def ARGS_CVC4: String = "--lang=smt2.5 "
 }
 
 
@@ -133,6 +144,12 @@ case class SolverInteractive(path: String, args: String = "-in", verbose: Boolea
   }
 }
 
+object SolverInteractive {
+  def ARGS_Z3: String = "-smt2 -in "
+  def ARGS_CVC4: String = "--lang=smt2.5 --incremental "
+}
+
+
 
 object TestSolverOpenConnection extends FApp {
   val n = opt('n, 100)
@@ -155,6 +172,9 @@ object TestSolverOpenConnection extends FApp {
 class SolverManager(path: String, args: Option[String] = None, verbose: Boolean = false)
                    (implicit opt: Options, coll: Collector) {
   private val maxSolverRestarts: Int = opt('maxSolverRestarts, 5)
+  private val solverInteractive: Boolean = opt('solverInteractive, true)
+  private val solverType: String = opt('solverType, "z3")
+  assert(solverType == "z3" || solverType == "cvc4", "Invalid solver type! --solverType argument accepts values: 'z3', 'cvc4'.")
   private var doneRestarts: Int = 0
   private var numCalls: Int = 0
   def getNumRestarts: Int = doneRestarts
@@ -164,6 +184,18 @@ class SolverManager(path: String, args: Option[String] = None, verbose: Boolean 
   private var _solver: SolverSMT = createWithRetries()
   def solver: SolverSMT = _solver
 
+  protected def getSolverArgs: String = {
+    if (args.isDefined) args.get
+    else if (solverInteractive) {
+      if (solverType == "z3") SolverInteractive.ARGS_Z3
+      else SolverInteractive.ARGS_CVC4
+    }
+    else {
+      if (solverType == "z3") SolverFromScript.ARGS_Z3
+      else SolverFromScript.ARGS_CVC4
+    }
+  }
+
   /**
     * Sometimes during opening connection with a solver an unidentified error occurs.
     * This function retries opening connection if this happens.
@@ -171,8 +203,11 @@ class SolverManager(path: String, args: Option[String] = None, verbose: Boolean 
   protected def createWithRetries(): SolverSMT = {
     coll.set("doneSolverRestarts", doneRestarts)
     try {
-      if (args.isDefined) SolverInteractive(path, args.get, verbose=verbose)
-      else SolverInteractive(path, verbose=verbose)
+      val solverArgs = getSolverArgs
+      if (solverInteractive)
+        SolverInteractive(path, solverArgs, verbose = verbose)
+      else
+        SolverFromScript(path, solverArgs, verbose = verbose, seed = opt("seed", 0))
     }
     catch {
       case error: Throwable =>

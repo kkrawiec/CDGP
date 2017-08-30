@@ -211,7 +211,7 @@ class CDGPState(sygusProblem: SyGuS16)
 
   def findOutputForTestCase(test: (I, Option[O])): (I, Option[O]) = {
     val query = SMTLIBFormatter.findOutputForTestCase(sygusProblem, test._1, solverTimeout=opt('solverTimeout, 0))
-    println("\nQuery findOutputForTestCase:\n" + query)
+    // println("\nQuery findOutputForTestCase:\n" + query)
     try {
       val getValueCommand = f"(get-value (CorrectOutput))"
       val (dec, res) = solver.runSolver(query, getValueCommand)
