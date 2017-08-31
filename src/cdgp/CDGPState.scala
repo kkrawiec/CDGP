@@ -211,7 +211,7 @@ class CDGPState(sygusProblem: SyGuS16)
     val counterExample = GetValueParser(verOutput) // returns the counterexample
     val testNoOutput = (counterExample.toMap, None) // for this test currently the correct answer is not known
     if (useDomainToComputeFitness)
-      findOutputForTestCase(testNoOutput)  // TODO: Research, if doing this is good; possibly enabled by a parameter
+      findOutputForTestCase(testNoOutput)
     else
       testNoOutput
   }
@@ -221,7 +221,7 @@ class CDGPState(sygusProblem: SyGuS16)
     val argNames = GetValueParser(verOutput).unzip._1
     val example = argNames.map(argName => (argName, GPRminInt + rng.nextInt(GPRmaxInt+1-GPRminInt)))
     val testNoOutput = (example.toMap, None) // for this test currently the correct answer is not known
-    findOutputForTestCase(testNoOutput)  // TODO: Research, if doing this is good; possibly enabled by a parameter
+    findOutputForTestCase(testNoOutput)
   }
 
   /**
