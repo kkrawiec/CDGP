@@ -3,11 +3,13 @@ package tests
 import java.io.File
 
 import cdgp._
-import fuel.util.IApp
 import sygus.{BoolSortExpr, IntSortExpr, SortExpr, VarDeclCmd}
+import scala.util.Random
 
 
-object SolverCorrectOutput extends IApp() {
+object SolverCorrectOutput extends App {
+  private val rng: Random = scala.util.Random
+  rng.setSeed(0)
   val root = System.getProperty("user.dir")
   println(s"Working directory: $root")
 
