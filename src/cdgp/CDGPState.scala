@@ -1,6 +1,7 @@
 package cdgp
 
 import fuel.util.{Collector, Options, TRandom}
+import swim.Grammar
 import swim.tree.Op
 import sygus.VarDeclCmd
 import sygus16.SyGuS16
@@ -25,14 +26,11 @@ class CDGPState(sygusProblem: SyGuS16)
   assume(searchAlg == "GP" || searchAlg == "GPSteadyState" ||
          searchAlg == "Lexicase" || searchAlg == "LexicaseSteadyState")
 
-
   // Other parameters
   val GPRminInt = opt('GPRminInt, -100)
   val GPRmaxInt = opt('GPRmaxInt, 100)
   val CDGPoneTestPerIter = opt('CDGPoneTestPerIter, false)
   val GPRoneTestPerIter = opt('GPRoneTestPerIter, true)
-  val silent = opt('silent, false)
-  val sygusOutput = opt('sygusOutput, true)
 
 
   /**
@@ -75,31 +73,22 @@ class CDGPState(sygusProblem: SyGuS16)
    * GP domain and executing the solver for computing fitness.
    */
   val testCasesMode: String = getTestCasesMode(sygusProblem)
-  assume(testCasesMode == "solver" || testCasesMode == "gp",
-    "Possible values for --testCasesMode: 'solver', 'gp'.")
+  assert(testCasesMode == "solver" || testCasesMode == "gp")
   val useDomainToComputeFitness: Boolean = testCasesMode == "gp"
-
   println(f"(testCasesMode $testCasesMode)")
   coll.set("cdgp.testCasesMode", testCasesMode)
   if (testCasesMode == "solver")
-    println("WARNING: solver will be used to compute fitness. Expect major efficiency decrease" +
+    println("INFO: solver will be used to compute fitness. Expect major efficiency decrease" +
       " in comparison with GP test cases mode.")
 
 
-
-
-  // Sygus parsing. TODO: relegate elsewhere
   val synthTasks = ExtractSynthesisTasks(sygusProblem)
   if (synthTasks.size > 1)
     throw new Exception("SKIPPING: Multiple synth-fun commands detected. Cannot handle such problems.")
   val synthTask: SygusSynthesisTask = synthTasks.head
   val invocations: Seq[Seq[String]] = SygusUtils.getSynthFunsInvocationsInfo(sygusProblem, synthTask.fname)
-  //assume(invocations.size == 1, "To run test cases in gp mode synth-function in constraints must have" +
-  //  " single invocation property and only single correct answer for any input.")
-  val grammar = ExtractSygusGrammar(synthTask)
-
-  private def fv = sygusProblem.cmds.collect { case v: VarDeclCmd => v }
-  private val getValueCommand = f"(get-value (${fv.map(_.sym).mkString(" ")}))"
+  val grammar: Grammar = ExtractSygusGrammar(synthTask)
+  val varDecls: List[VarDeclCmd] = sygusProblem.cmds.collect { case v: VarDeclCmd => v }
 
 
   // Creating solver manager
@@ -206,6 +195,7 @@ class CDGPState(sygusProblem: SyGuS16)
   def verify(s: Op): (String, Option[String]) = {
     val query = SMTLIBFormatter.verify(sygusProblem, s, opt('solverTimeout, 0))
     // println("\nQuery verify:\n" + query)
+    val getValueCommand = f"(get-value (${varDecls.map(_.sym).mkString(" ")}))"
     solver.runSolver(query, getValueCommand)
   }
 
@@ -237,7 +227,7 @@ class CDGPState(sygusProblem: SyGuS16)
   def createTestFromFailedVerification(verOutput: String): (Map[String, Any], Option[Any]) = {
     val counterExample = GetValueParser(verOutput) // returns the counterexample
     val testNoOutput = (counterExample.toMap, None) // for this test currently the correct answer is not known
-    if (testCasesMode == "gp")
+    if (useDomainToComputeFitness)
       findOutputForTestCase(testNoOutput)  // TODO: Research, if doing this is good; possibly enabled by a parameter
     else
       testNoOutput
