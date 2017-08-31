@@ -141,24 +141,7 @@ class CDGPState(sygusProblem: SyGuS16)
   def evalOnTestsDomain(s: Op, test: (I, Option[O])): Int = {
     val testInputsMap: Map[String, Any] = test._1
     val testOutput: Option[Any] = test._2
-    /**
-      * Solver requires renaming of the variables, so that it is able to handle cases
-      * similar to the one below. This renaming is only needed for the execution of the
-      * program by the domain.
-      *   (synth-fun synthFun ((x Int)(y Int)) ... )
-      *   (declare-var a Int)
-      *   (declare-var b Int)
-      *   (constraint (=> (= (- b a) (- c b)) (= (synthFun a b) 1)))
-      */
-    def renameVars(): Map[String, Any] = {
-      val inv: Seq[String] = invocations.head
-      inv.zip(synthTask.argNames).map{
-        case (invName, stName) =>  // invName potentially may be a constant
-          (stName, testInputsMap.getOrElse(invName, ConstParser(invName)))
-      }.toMap
-    }
-
-    val testInputsRenamed = renameVars()
+    val testInputsRenamed = SygusUtils.renameVars(testInputsMap, synthTask.argNames, invocations.head)
     val output = LIA(s)(testInputsRenamed) // TODO: implement domains other than LIA
     if (testOutput.isDefined) {
       if (output == testOutput.get) 0 else 1

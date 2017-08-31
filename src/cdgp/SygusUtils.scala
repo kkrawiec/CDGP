@@ -3,8 +3,6 @@ package cdgp
 import java.io.File
 
 import swim.Grammar
-
-import scala.collection.immutable.Seq
 import sygus._
 import sygus16.SyGuS16
 
@@ -33,6 +31,23 @@ case class SygusSynthesisTask(fname: String,
 
 
 object SygusUtils {
+
+  /**
+    * Solver requires renaming of the variables, so that it is able to handle cases
+    * similar to the one below. This renaming is only needed for the execution of the
+    * program by the domain.
+    *   (synth-fun synthFun ((x Int)(y Int)) ... )
+    *   (declare-var a Int)
+    *   (declare-var b Int)
+    *   (constraint (=> (= (- b a) (- c b)) (= (synthFun a b) 1)))
+    */
+  def renameVars(testInputsMap: Map[String, Any], synFunArgNames: Seq[String],
+                 inv: Seq[String]): Map[String, Any] = {
+    inv.zip(synFunArgNames).map{
+      case (invName, stName) =>  // invName potentially may be a constant
+        (stName, testInputsMap.getOrElse(invName, ConstParser(invName)))
+    }.toMap
+  }
 
   /**
     * Changes names of *variable* terms present in the command.
