@@ -278,6 +278,7 @@ object Common {
     coll.set("cdgp.solverTimeStdSec", cdgpState.solver.getStdSolveTime)
     coll.set("cdgp.solverTimeMedianSec", cdgpState.solver.getMedianSolveTime)
     coll.set("cdgp.solverTimeSumSec", cdgpState.solver.getSumSolveTime)
+    coll.set("cdgp.solverAllTimesCountMap", cdgpState.solver.getSolveTimesAsCountMap.toList.sortBy(_._1))
     coll.saveSnapshot("cdgp")
     s
   }

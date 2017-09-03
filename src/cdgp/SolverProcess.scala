@@ -185,6 +185,13 @@ class SolverManager(path: String, args: Option[String] = None, verbose: Boolean 
   def getNumRestarts: Int = doneRestarts
   def getNumCalls: Int = numCalls
   def setNumCalls(nc: Int) { numCalls = nc}
+  def getSolveTimes: List[Double] = solveTimes.toList
+  def getSolveTimesAsCountMap: Map[Double, Int] = {
+    val lst = solveTimes.toList.sorted
+    val tmp = lst.zip(lst)
+    val z = tmp.groupBy[Double](_._1)
+    z.map{ case (k, v) => (k, v.size) }
+  }
   def getSumSolveTime: Double = sumSolveTime
   def getMinSolveTime: Double = solveTimes.min
   def getMaxSolveTime: Double = solveTimes.max
