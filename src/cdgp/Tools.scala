@@ -27,4 +27,11 @@ object Tools {
     result
   }
 
+  def stddev(xs: List[Double], avg: Double): Double = xs match {
+    case Nil => -1.0
+    case ys => math.sqrt((0.0 /: ys) {
+      (a,e) => a + math.pow(e - avg, 2.0)
+    } / xs.size)
+  }
+
 }

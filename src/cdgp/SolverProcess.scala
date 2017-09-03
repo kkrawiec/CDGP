@@ -6,6 +6,7 @@ import java.util.Scanner
 import scala.sys.process._
 import fuel.util.{Collector, FApp, Options}
 
+import scala.collection.mutable
 import scala.util.Random
 
 
@@ -176,10 +177,26 @@ class SolverManager(path: String, args: Option[String] = None, verbose: Boolean 
   private val solverType: String = opt('solverType, "z3")
   assert(solverType == "z3" || solverType == "cvc4", "Invalid solver type! --solverType argument accepts values: 'z3', 'cvc4'.")
   private var doneRestarts: Int = 0
+  private val solveTimes = mutable.MutableList[Double]()
   private var numCalls: Int = 0
+  private var minSolveTime: Double = 0.0
+  private var maxSolveTime: Double = 0.0
+  private var sumSolveTime: Double = 0.0
   def getNumRestarts: Int = doneRestarts
   def getNumCalls: Int = numCalls
   def setNumCalls(nc: Int) { numCalls = nc}
+  def getSumSolveTime: Double = sumSolveTime
+  def getMinSolveTime: Double = solveTimes.min
+  def getMaxSolveTime: Double = solveTimes.max
+  def getAvgSolveTime: Double = if (numCalls > 0) sumSolveTime / numCalls else 0.0
+  def getStdSolveTime: Double = Tools.stddev(solveTimes.toList, getAvgSolveTime)
+  def getMedianSolveTime: Double = {
+    if (solveTimes.isEmpty) -1
+    else {
+      val s = solveTimes.sorted
+      s(solveTimes.length / 2) / 2.0 + s(solveTimes.length - solveTimes.length / 2) / 2.0
+    }
+  }
 
   private var _solver: SolverSMT = createWithRetries()
   def solver: SolverSMT = _solver
@@ -229,8 +246,10 @@ class SolverManager(path: String, args: Option[String] = None, verbose: Boolean 
     */
   def runSolver(cmd: String, postCommands: String*): (String, Option[String]) = {
     try {
-      numCalls += 1
-      solver.solve(cmd, postCommands:_*)
+      val start = System.currentTimeMillis()
+      val res = solver.solve(cmd, postCommands:_*)
+      updateRunStats((System.currentTimeMillis() - start) / 1000.0)
+      res
     }
     catch {
       case e : UnknownSolverOutputException => throw e  // we want to fail if any UNKNOWN happens
@@ -243,6 +262,12 @@ class SolverManager(path: String, args: Option[String] = None, verbose: Boolean 
         else throwExceededMaxRestartsException(e)
       }
     }
+  }
+
+  private def updateRunStats(timeDiffInSecs: Double): Unit = {
+    numCalls += 1
+    solveTimes += timeDiffInSecs
+    sumSolveTime += timeDiffInSecs
   }
 
   /**

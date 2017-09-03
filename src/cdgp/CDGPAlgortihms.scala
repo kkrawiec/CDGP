@@ -270,8 +270,14 @@ object Common {
     coll.set("cdgp.testsHistory", cdgpState.testsManager.history.mkString(","))
     coll.set("cdgp.totalTestsKnownOutputs", cdgpState.testsManager.getNumberOfKnownOutputs)
     coll.set("cdgp.totalTestsUnknownOutputs", cdgpState.testsManager.getNumberOfUnknownOutputs)
-    coll.set("cdgp.totalSolverCalls", cdgpState.solver.getNumCalls)
-    coll.set("cdgp.totalSolverRestarts", cdgpState.solver.getNumRestarts)
+    coll.set("cdgp.solverTotalCalls", cdgpState.solver.getNumCalls)
+    coll.set("cdgp.solverTotalRestarts", cdgpState.solver.getNumRestarts)
+    coll.set("cdgp.solverTimeMinSec", cdgpState.solver.getMinSolveTime)
+    coll.set("cdgp.solverTimeMaxSec", cdgpState.solver.getMaxSolveTime)
+    coll.set("cdgp.solverTimeAvgSec", cdgpState.solver.getAvgSolveTime)
+    coll.set("cdgp.solverTimeStdSec", cdgpState.solver.getStdSolveTime)
+    coll.set("cdgp.solverTimeMedianSec", cdgpState.solver.getMedianSolveTime)
+    coll.set("cdgp.solverTimeSumSec", cdgpState.solver.getSumSolveTime)
     coll.saveSnapshot("cdgp")
     s
   }
