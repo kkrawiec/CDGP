@@ -30,7 +30,7 @@ class CDGPState(sygusProblem: SyGuS16)
   val GPRminInt = opt('GPRminInt, -100)
   val GPRmaxInt = opt('GPRmaxInt, 100)
   val CDGPoneTestPerIter = opt('CDGPoneTestPerIter, false)
-  val GPRoneTestPerIter = opt('GPRoneTestPerIter, true)
+  val GPRoneTestPerIter = opt('GPRoneTestPerIter, false)
   val timeout = opt('solverTimeout, 0)
 
 
