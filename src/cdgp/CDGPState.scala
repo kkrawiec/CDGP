@@ -20,7 +20,7 @@ class CDGPState(sygusProblem: SyGuS16)
   type O = Any
   val testsManager = new TestsManagerCDGP[I, O]()
 
-  val method = opt('method, "CDGP")
+  val method = opt('method, "CDGPcons")
   val searchAlg = opt('searchAlgorithm)
   assume(method == "CDGP" || method == "CDGPcons" || method == "GPR")
   assume(searchAlg == "GP" || searchAlg == "GPSteadyState" ||
@@ -31,6 +31,7 @@ class CDGPState(sygusProblem: SyGuS16)
   val GPRmaxInt = opt('GPRmaxInt, 100)
   val CDGPoneTestPerIter = opt('CDGPoneTestPerIter, false)
   val GPRoneTestPerIter = opt('GPRoneTestPerIter, true)
+  val timeout = opt('solverTimeout, 0)
 
 
   /**
@@ -163,27 +164,27 @@ class CDGPState(sygusProblem: SyGuS16)
                                  testInputsMap: Map[String, Any],
                                  output: Any): (String, Option[String]) = {
     val query = SMTLIBFormatter.checkOnInputAndKnownOutput(sygusProblem,
-      testInputsMap, output, opt('solverTimeout, 0))
+      testInputsMap, output, timeout)
     // println("\nQuery checkOnInputAndKnownOutput:\n" + query)
     solver.runSolver(query)
   }
 
   def checkOnInputOnly(s: Op,
                        testInputsMap: Map[String, Any]): (String, Option[String]) = {
-    val query = SMTLIBFormatter.checkOnInput(sygusProblem, testInputsMap, s, opt('solverTimeout, 0))
+    val query = SMTLIBFormatter.checkOnInput(sygusProblem, testInputsMap, s, timeout)
     // println("\nQuery checkOnInputOnly:\n" + query)
     solver.runSolver(query)
   }
 
   def verify(s: Op): (String, Option[String]) = {
-    val query = SMTLIBFormatter.verify(sygusProblem, s, opt('solverTimeout, 0))
+    val query = SMTLIBFormatter.verify(sygusProblem, s, timeout)
     // println("\nQuery verify:\n" + query)
     val getValueCommand = f"(get-value (${varDecls.map(_.sym).mkString(" ")}))"
     solver.runSolver(query, getValueCommand)
   }
 
   def findOutputForTestCase(test: (I, Option[O])): (I, Option[O]) = {
-    val query = SMTLIBFormatter.findOutputForTestCase(sygusProblem, test._1, solverTimeout=opt('solverTimeout, 0))
+    val query = SMTLIBFormatter.findOutputForTestCase(sygusProblem, test._1, solverTimeout=timeout)
     // println("\nQuery findOutputForTestCase:\n" + query)
     try {
       val getValueCommand = f"(get-value (CorrectOutput))"
