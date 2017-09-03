@@ -42,7 +42,7 @@ object Main extends FApp {
       (finalPop, alg.bsf.bestSoFar)
     }
   }
-
+  coll.saveSnapshot("cdgp")
 
 
   /////////////////////// Printing results ///////////////////////////////
