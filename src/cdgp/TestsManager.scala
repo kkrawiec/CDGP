@@ -6,15 +6,17 @@ import scala.collection.mutable
 /**
   * Manages the set of test cases during evolution run.
   */
-class TestsManagerCDGP[I,O](testsHistory: Boolean = false) {
+class TestsManagerCDGP[I,O](testsHistory: Boolean = true) {
   // Set of counterexamples collected along the run.
   // The Option is None if the desired output for a given input is not known yet.
   val tests: mutable.LinkedHashMap[I, Option[O]] = mutable.LinkedHashMap[I, Option[O]]()
   // Set of counterexamples collected from the current generation. To be reseted after each iteration.
   val newTests: mutable.Set[(I, Option[O])] = mutable.Set[(I, Option[O])]()
 
+  private var flushNo = 0
+  def getNumFlushes = flushNo
   // Stores the number of tests after each use of flushHelpers.
-  val history: mutable.MutableList[Int] = mutable.MutableList[Int]()
+  val history: mutable.Map[Int, Int] = mutable.Map[Int, Int]()
 
   def getTests(): List[(I, Option[O])] = {
     tests.toList
@@ -44,7 +46,9 @@ class TestsManagerCDGP[I,O](testsHistory: Boolean = false) {
       if (!tests.contains(test._1)) {
         tests.put(test._1, test._2)
       }
-    if (testsHistory) history += tests.size
+    if (testsHistory && newTests.size > 0)
+      history.put(flushNo, newTests.size)
     newTests.clear
+    flushNo += 1
   }
 }

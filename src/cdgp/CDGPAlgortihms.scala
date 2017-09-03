@@ -267,7 +267,7 @@ object Common {
       coll.set("result.best.height", bsf.bestSoFar.get._1.height)
     }
     coll.set("cdgp.totalTests", cdgpState.testsManager.tests.size)
-    coll.set("cdgp.testsHistory", cdgpState.testsManager.history.mkString(","))
+    coll.set("cdgp.testsHistory", cdgpState.testsManager.history.toList.sorted.mkString(", "))
     coll.set("cdgp.totalTestsKnownOutputs", cdgpState.testsManager.getNumberOfKnownOutputs)
     coll.set("cdgp.totalTestsUnknownOutputs", cdgpState.testsManager.getNumberOfUnknownOutputs)
     coll.set("cdgp.solverTotalCalls", cdgpState.solver.getNumCalls)
@@ -278,7 +278,7 @@ object Common {
     coll.set("cdgp.solverTimeStdSec", cdgpState.solver.getStdSolveTime)
     coll.set("cdgp.solverTimeMedianSec", cdgpState.solver.getMedianSolveTime)
     coll.set("cdgp.solverTimeSumSec", cdgpState.solver.getSumSolveTime)
-    coll.set("cdgp.solverAllTimesCountMap", cdgpState.solver.getSolveTimesAsCountMap.toList.sortBy(_._1))
+    coll.set("cdgp.solverAllTimesCountMap", cdgpState.solver.getSolveTimesAsCountMap.toList.sortBy(_._1).mkString(", "))
     coll.saveSnapshot("cdgp")
     s
   }
