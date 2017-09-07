@@ -3,6 +3,7 @@
 .settings
 .idea
 
+CDGP.jar
 res*.txt.cdgp
 res*.txt
 res*.txt.error_solver
