@@ -34,6 +34,7 @@ class CDGPGenerational(moves: GPMoves,
                        cdgpEval: CDGPEvaluation[Op, FInt])
                       (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[FInt])
       extends SimpleGP(moves, cdgpEval.eval, Common.correctInt) {
+  override def initialize  = super.initialize
   override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalInt(cdgpEval.state, bsf)
   override def iter = super.iter// andThen super.report // uncomment report to change the result (FUEL issue #6)
   override def evaluate = cdgpEval
@@ -75,6 +76,7 @@ class CDGPSteadyState(moves: GPMoves,
                       cdgpEval: CDGPEvaluationSteadyState[Op, FInt])
                      (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[FInt])
       extends SimpleSteadyStateEA[Op, FInt](moves, cdgpEval.eval, Common.correctInt) {
+  override def initialize  = super.initialize
   override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests
   override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalInt(cdgpEval.state, bsf)
   override def evaluate = Common.evalPopToDefaultValue(FInt(false, 0)) // used only for the initial population
@@ -120,6 +122,7 @@ class CDGPGenerationalLexicase(moves: GPMoves,
                                cdgpEval: CDGPEvaluation[Op, FSeqInt])
                               (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[Int])
       extends LexicaseGPMain[Int, FSeqInt](moves, cdgpEval.eval, Common.correctSeqInt, FSeqIntOrdering) {
+  override def initialize  = super.initialize
   override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalSeqInt(cdgpEval.state, bsf)
   override def iter = super.iter andThen super.report
   override def evaluate = cdgpEval
@@ -167,6 +170,7 @@ class CDGPSteadyStateLexicase(moves: GPMoves,
                                           Common.correctSeqInt,
                                           CDGPSteadyStateLexicase.getSelection(),
                                           CDGPSteadyStateLexicase.getDeselection()) {
+  override def initialize  = super.initialize
   override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests
   override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalSeqInt(cdgpEval.state, bsf)
   override def evaluate = Common.evalPopToDefaultValue(FSeqInt(false, List())) // used only for the initial population

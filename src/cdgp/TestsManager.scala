@@ -46,7 +46,7 @@ class TestsManagerCDGP[I,O](testsHistory: Boolean = true) {
       if (!tests.contains(test._1)) {
         tests.put(test._1, test._2)
       }
-    if (testsHistory && newTests.size > 0)
+    if (testsHistory && newTests.nonEmpty)
       history.put(flushNo, newTests.size)
     newTests.clear
     flushNo += 1
