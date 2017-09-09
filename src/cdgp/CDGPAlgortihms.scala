@@ -77,7 +77,7 @@ class CDGPSteadyState(moves: GPMoves,
       extends SimpleSteadyStateEA[Op, FInt](moves, cdgpEval.eval, Common.correctInt) {
   override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests
   override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalInt(cdgpEval.state, bsf)
-  override def evaluate = cdgpEval // used only for the initial population
+  override def evaluate = Common.evalPopToDefaultValue(FInt(false, 0)) // used only for the initial population
   override def report = s => s
 }
 
@@ -169,7 +169,7 @@ class CDGPSteadyStateLexicase(moves: GPMoves,
                                           CDGPSteadyStateLexicase.getDeselection()) {
   override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests
   override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalSeqInt(cdgpEval.state, bsf)
-  override def evaluate = cdgpEval // used only for the initial population
+  override def evaluate = Common.evalPopToDefaultValue(FSeqInt(false, List())) // used only for the initial population
 }
 
 object CDGPSteadyStateLexicase {
@@ -210,6 +210,10 @@ object Common {
   def evalSeqInt(fitness: (Op) => (Boolean, Seq[Int]))(s: Op): FSeqInt = {
     val (isPerfect, r) = fitness(s)
     FSeqInt(isPerfect, r)
+  }
+
+  def evalPopToDefaultValue[S, E](value: E)(s: StatePop[S]): StatePop[(S, E)] = {
+    StatePop(s.map((_, value)))
   }
 
   def printPop[S, E](s: StatePop[(S, E)]): StatePop[(S, E)] = {
