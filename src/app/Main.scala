@@ -46,7 +46,6 @@ object Main extends FApp {
       }
     }
     coll.saveSnapshot("cdgp")
-    val x = 0 / 0
 
     /////////////////////// Printing results ///////////////////////////////
 
