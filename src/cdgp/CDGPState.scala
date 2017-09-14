@@ -20,18 +20,20 @@ class CDGPState(sygusProblem: SyGuS16)
   type O = Any
   val testsManager = new TestsManagerCDGP[I, O]()
 
-  val method = opt('method, "CDGPcons")
+  val method = opt('method, "CDGP")
   val searchAlg = opt('searchAlgorithm)
-  assume(method == "CDGP" || method == "CDGPcons" || method == "GPR")
-  assume(searchAlg == "GP" || searchAlg == "GPSteadyState" ||
-         searchAlg == "Lexicase" || searchAlg == "LexicaseSteadyState")
+  assert(method == "CDGP" || method == "GPR", "Invalid method! Possible values: 'CDGP', 'GPR'.")
+  assert(searchAlg == "GP" || searchAlg == "GPSteadyState" ||
+         searchAlg == "Lexicase" || searchAlg == "LexicaseSteadyState",
+         "Invalid searchAlgorithm! Possible values: 'GP', 'GPSteadyState', 'Lexicase', 'LexicaseSteadyState'.")
 
   // Other parameters
-  val GPRminInt = opt('GPRminInt, -100)
-  val GPRmaxInt = opt('GPRmaxInt, 100)
-  val CDGPoneTestPerIter = opt('CDGPoneTestPerIter, false)
-  val GPRoneTestPerIter = opt('GPRoneTestPerIter, false)
-  val timeout = opt('solverTimeout, 0)
+  val GPRminInt: Int = opt('GPRminInt, -100)
+  val GPRmaxInt: Int = opt('GPRmaxInt, 100)
+  val CDGPtestsRatio: Double = opt('CDGPtestsRatio, 1.0, (x: Double) => x >= 0.0 && x <= 1.0)
+  val CDGPoneTestPerIter: Boolean = opt('CDGPoneTestPerIter, false)
+  val GPRoneTestPerIter: Boolean = opt('GPRoneTestPerIter, false)
+  val timeout: Int = opt('solverTimeout, 0)
 
 
   /**
@@ -240,23 +242,50 @@ class CDGPState(sygusProblem: SyGuS16)
 
   val fitness: (Op) => (Boolean, Seq[Int]) =
     method match {
-      case "CDGP"     => fitnessCDGP
-      case "CDGPcons" => fitnessCDGPConservative
+      case "CDGP"     => fitnessCDGPGeneral
       case "GPR"      => fitnessGPR
+    }
+
+  def fitnessCDGPGeneral: Op => (Boolean, Seq[Int]) =
+    new Function1[Op, (Boolean, Seq[Int])] {
+      def doVerify(evalTests: Seq[Int]): Boolean = {
+        val numPassed = evalTests.count(_ == 0).asInstanceOf[Double]
+        (numPassed / evalTests.size) >= CDGPtestsRatio || evalTests.isEmpty
+      }
+      def apply(s: Op) = {
+        val evalTests = evalOnTests(s, testsManager.getTests())
+        // If the program passes the specified ratio of test cases, it will be verified
+        // and a counterexample will be produced (or program will be deemed correct).
+        // NOTE: if the program does not pass all test cases, then the probability is high
+        // that produced counterexample will already be in the set of test cases.
+        if (!doVerify(evalTests))
+          (false, evalTests)
+        else {
+          val (decision, r) = verify(s)
+          if (decision == "unsat") (true, evalTests) // perfect program found; end of run
+          else {
+            if (!CDGPoneTestPerIter || testsManager.newTests.isEmpty) {
+              val newTest = createTestFromFailedVerification(r.get)
+              testsManager.addNewTest(newTest)
+            }
+            (false, evalTests)
+          }
+        }
+      }
     }
 
   def fitnessCDGP: Op => (Boolean, Seq[Int]) =
     new Function1[Op, (Boolean, Seq[Int])] {
       def apply(s: Op) = {
-        val failedTests = evalOnTests(s, testsManager.getTests())
+        val evalTests = evalOnTests(s, testsManager.getTests())
         val (decision, r) = verify(s)
-        if (decision == "unsat") (true, failedTests) // perfect program found; end of run
+        if (decision == "unsat") (true, evalTests) // perfect program found; end of run
         else {
           if (!CDGPoneTestPerIter || testsManager.newTests.isEmpty) {
             val newTest = createTestFromFailedVerification(r.get)
             testsManager.addNewTest(newTest)
           }
-          (false, failedTests)
+          (false, evalTests)
         }
       }
     }
@@ -264,21 +293,21 @@ class CDGPState(sygusProblem: SyGuS16)
   def fitnessCDGPConservative: Op => (Boolean, Seq[Int]) =
     new Function1[Op, (Boolean, Seq[Int])] {
       def apply(s: Op) = {
-        val failedTests = evalOnTests(s, testsManager.getTests())
-        val numFailed = failedTests.count(_ == 1)
+        val evalTests = evalOnTests(s, testsManager.getTests())
+        val numFailed = evalTests.count(_ == 1)
         // CDGP Conservative variant: If the program fails any tests, then don't apply verification to it,
         // as it is very likely that the found counterexample is already among the tests.
         if (numFailed > 0)
-          (false, failedTests)
+          (false, evalTests)
         else {
           val (decision, r) = verify(s)
-          if (decision == "unsat") (true, failedTests) // perfect program found; end of run
+          if (decision == "unsat") (true, evalTests) // perfect program found; end of run
           else {
             if (!CDGPoneTestPerIter || testsManager.newTests.isEmpty) {
               val newTest = createTestFromFailedVerification(r.get)
               testsManager.addNewTest(newTest)
             }
-            (false, failedTests)
+            (false, evalTests)
           }
         }
       }
@@ -287,19 +316,19 @@ class CDGPState(sygusProblem: SyGuS16)
   def fitnessGPR: Op => (Boolean, Seq[Int]) = {
     new Function1[Op, (Boolean, Seq[Int])] {
       def apply(s: Op) = {
-        val failedTests = evalOnTests(s, testsManager.getTests())
-        val numFailed = failedTests.count(_ == 1)
+        val evalTests = evalOnTests(s, testsManager.getTests())
+        val numFailed = evalTests.count(_ == 1)
         if (numFailed > 0)
-          (false, failedTests)
+          (false, evalTests)
         else {
           val (decision, r) = verify(s)
-          if (decision == "unsat") (true, failedTests) // perfect program found; end of run
+          if (decision == "unsat") (true, evalTests) // perfect program found; end of run
           else {
             if (!GPRoneTestPerIter || testsManager.newTests.isEmpty) {
               val newTest = createRandomTest(r.get)
               testsManager.addNewTest(newTest)
             }
-            (false, failedTests)
+            (false, evalTests)
           }
         }
       }

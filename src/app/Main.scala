@@ -64,6 +64,7 @@ object Main extends FApp {
     println("Tests known outputs:\t" + cdgpState.testsManager.getNumberOfKnownOutputs)
     println("Total solver calls:\t\t" + cdgpState.solver.getNumCalls)
     println("Total time [s]:\t\t\t" + coll.getResult("totalTimeSystem").get.toString.toInt / 1000.0)
+    println("Log file:\t\t\t\t" + coll.get("thisFileName").get.toString)
 
 
     assume(bestOfRun.isDefined, "No solution (optimal or approximate) to the problem was found.")
