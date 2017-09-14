@@ -283,8 +283,6 @@ object Common {
     coll.set("cdgp.solverTimeMinSec", cdgpState.solver.getMinSolveTime)
     coll.set("cdgp.solverTimeMaxSec", cdgpState.solver.getMaxSolveTime)
     coll.set("cdgp.solverTimeAvgSec", cdgpState.solver.getAvgSolveTime)
-    coll.set("cdgp.solverTimeStdSec", cdgpState.solver.getStdSolveTime)
-    coll.set("cdgp.solverTimeMedianSec", cdgpState.solver.getMedianSolveTime)
     coll.set("cdgp.solverTimeSumSec", cdgpState.solver.getSumSolveTime)
     coll.set("cdgp.solverAllTimesCountMap", cdgpState.solver.getSolveTimesAsCountMap.toList.sortBy(_._1).mkString(", "))
     s

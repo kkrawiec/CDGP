@@ -177,7 +177,7 @@ class SolverManager(path: String, args: Option[String] = None, verbose: Boolean 
   private val solverType: String = opt('solverType, "z3")
   assert(solverType == "z3" || solverType == "cvc4", "Invalid solver type! --solverType argument accepts values: 'z3', 'cvc4'.")
   private var doneRestarts: Int = 0
-  private val solveTimes = mutable.MutableList[Double]()
+  private val solveTimes: mutable.Map[Double, Int] = mutable.Map[Double, Int]()
   private var numCalls: Int = 0
   private var minSolveTime: Double = 0.0
   private var maxSolveTime: Double = 0.0
@@ -185,24 +185,19 @@ class SolverManager(path: String, args: Option[String] = None, verbose: Boolean 
   def getNumRestarts: Int = doneRestarts
   def getNumCalls: Int = numCalls
   def setNumCalls(nc: Int) { numCalls = nc}
-  def getSolveTimes: List[Double] = solveTimes.toList
-  def getSolveTimesAsCountMap: Map[Double, Int] = {
-    val lst = solveTimes.toList.sorted
-    val tmp = lst.zip(lst)
-    val z = tmp.groupBy[Double](_._1)
-    z.map{ case (k, v) => (k, v.size) }
-  }
+  def getSolveTimesAsCountMap: Map[Double, Int] = solveTimes.toMap
   def getSumSolveTime: Double = sumSolveTime
-  def getMinSolveTime: Double = solveTimes.min
-  def getMaxSolveTime: Double = solveTimes.max
-  def getAvgSolveTime: Double = if (numCalls > 0) sumSolveTime / numCalls else 0.0
-  def getStdSolveTime: Double = Tools.stddev(solveTimes.toList, getAvgSolveTime)
-  def getMedianSolveTime: Double = {
-    if (solveTimes.isEmpty) -1
-    else {
-      val s = solveTimes.sorted
-      s(solveTimes.length / 2) / 2.0 + s(solveTimes.length - solveTimes.length / 2) / 2.0
-    }
+  def getMinSolveTime: Double = solveTimes.keys.min
+  def getMaxSolveTime: Double = solveTimes.keys.max
+  def getAvgSolveTime: Double = sumSolveTime / solveTimes.values.sum
+
+  private def updateRunStats(timeDiffInSecs: Double): Unit = {
+    numCalls += 1
+    if (solveTimes.contains(timeDiffInSecs))
+      solveTimes.put(timeDiffInSecs, solveTimes(timeDiffInSecs) + 1)
+    else
+      solveTimes.put(timeDiffInSecs, 1)
+    sumSolveTime += timeDiffInSecs
   }
 
   private var _solver: SolverSMT = createWithRetries()
@@ -269,12 +264,6 @@ class SolverManager(path: String, args: Option[String] = None, verbose: Boolean 
         else throwExceededMaxRestartsException(e)
       }
     }
-  }
-
-  private def updateRunStats(timeDiffInSecs: Double): Unit = {
-    numCalls += 1
-    solveTimes += timeDiffInSecs
-    sumSolveTime += timeDiffInSecs
   }
 
   /**
