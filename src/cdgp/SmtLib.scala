@@ -78,10 +78,11 @@ object SMTLIBFormatter {
     val constraints = problem.cmds.collect {
       case ConstraintCmd(t: Term) => f"${nestedProductToString(t)}"
     }.mkString("\n")
+    val auxiliaries = getCodeForAuxiliaries(problem)
     f"(set-logic ${getLogicName(problem)})\n" +
       (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
-      //"(set-option :incremental true)\n" +  // for compatibility with CVC4
+      auxiliaries + "\n" +
       f"(define-fun ${sf.sym} ($sfArgs) ${sortToString(sf.se)} $programBody)\n" +
       varsDecl.map(v => f"(declare-fun ${v.sym} () ${sortToString(v.sortExpr)})").mkString("\n") +
       f"\n(assert (not (and $constraints)))\n" // 'and' works also for one argument
@@ -115,10 +116,12 @@ object SMTLIBFormatter {
     val constraints = problem.cmds.collect {
       case ConstraintCmd(t: Term) => f"${nestedProductToString(t)}"
     }.mkString("\n")
+    val auxiliaries = getCodeForAuxiliaries(problem)
     val textOutput = normalizeTerminal(output.toString)
     f"(set-logic ${getLogicName(problem)})\n" +
       (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
+      auxiliaries + "\n" +
       f"(define-fun ${sf.sym} ($sfArgs) ${sortToString(sf.se)} $textOutput)\n" +
       varsDecl.map(v => f"(define-fun ${v.sym} ()" +
         f" ${sortToString(v.sortExpr)} ${normalizeTerminal(input(v.sym).toString)})").mkString("\n") +
@@ -154,9 +157,11 @@ object SMTLIBFormatter {
     val constraints = problem.cmds.collect {
       case ConstraintCmd(t: Term) => f"${nestedProductToString(t)}"
     }.mkString("\n")
+    val auxiliaries = getCodeForAuxiliaries(problem)
     f"(set-logic ${getLogicName(problem)})\n" +
       (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
+      auxiliaries + "\n" +
       f"(define-fun ${sf.sym} ($sfArgs) ${sortToString(sf.se)} $programBody)\n" +
       varsDecl.map(v => f"(define-fun ${v.sym} ()" +
         f" ${sortToString(v.sortExpr)} ${normalizeTerminal(input(v.sym).toString)})").mkString("\n") +
@@ -191,10 +196,12 @@ object SMTLIBFormatter {
     val constraints = problem.cmds.collect {
       case ConstraintCmd(t: Term) => f"${nestedProductToString(t)}"
     }.mkString("\n")
+    val auxiliaries = getCodeForAuxiliaries(problem)
     val sfSort = sortToString(sf.se)
     f"(set-logic ${getLogicName(problem)})\n" +
       (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
+      auxiliaries + "\n" +
       f"(declare-fun CorrectOutput () $sfSort)\n" +
       f"(define-fun ${sf.sym} ($sfArgs) $sfSort CorrectOutput)\n" +
       varsDecl.map(v => f"(define-fun ${v.sym} ()" +
@@ -247,12 +254,14 @@ object SMTLIBFormatter {
     val body2 = cmds2.collect {
       case ConstraintCmd(t: Term) => f"(assert ${nestedProductToString(t)})"
     }.mkString("", "\n", "\n")
-
+    val auxiliaries = getCodeForAuxiliaries(problem)
+    
     val synthFunSort = sortToString(sf.se)
     val sfSort = sortToString(sf.se)
     f"(set-logic ${getLogicName(problem)})\n" +
       (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
+      auxiliaries + "\n" +
       f"(declare-fun res1__2 () ${synthFunSort})\n" +
       f"(declare-fun res2__2 () ${synthFunSort})\n" +
       f"(define-fun ${sf.sym} ($sfArgs) ${sortToString(sf.se)} res1__2)\n" +
@@ -263,9 +272,25 @@ object SMTLIBFormatter {
       f"(assert (distinct res1__2 res2__2))"
   }
 
+  def getCodeForAuxiliaries(problem: SyGuS16): String = {
+    problem.cmds.collect {
+      case FunDeclCmd(name, sortExprs, sortExpr) =>
+        val argsSorts = sortExprs.map(sortToString(_)).mkString(" ")
+        val retSort = sortToString(sortExpr)
+        f"(declare-fun $name ($argsSorts) $retSort)"
+      case FunDefCmd(name, sortExprs, sortExpr, term) =>
+        val argsSorts = sortExprs.map{ case (n, s) => s"($n ${sortToString(s)})"}.mkString("")
+        val retSort = sortToString(sortExpr)
+        val body = nestedProductToString(term)
+        f"(define-fun $name ($argsSorts) $retSort $body)"
+    }.mkString("\n")
+  }
 
   def nestedProductToString(p: Any): String = p match {
-    case seq: Seq[Any] => seq.map(nestedProductToString(_)).reduce(_ + " " + _)
+    case seq: Seq[Any] => {
+      val s = seq.map(nestedProductToString(_))
+      s.reduce(_ + " " + _)
+    }
     case prod: Product => prod.productArity match {
       case 1 => nestedProductToString(prod.productElement(0))
       case _ => "(" + prod.productIterator.
