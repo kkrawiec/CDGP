@@ -75,9 +75,7 @@ object SMTLIBFormatter {
     val sfArgs = synthFunArgsToString(sf)
     val programBody = opToString(program)
     val varsDecl = problem.cmds.collect { case v: VarDeclCmd => v }
-    val constraints = problem.cmds.collect {
-      case ConstraintCmd(t: Term) => f"${nestedProductToString(t)}"
-    }.mkString("\n")
+    val constraints = getCodeForConstraints(problem)
     val auxiliaries = getCodeForAuxiliaries(problem)
     f"(set-logic ${getLogicName(problem)})\n" +
       (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
@@ -85,7 +83,7 @@ object SMTLIBFormatter {
       auxiliaries + "\n" +
       f"(define-fun ${sf.sym} ($sfArgs) ${sortToString(sf.se)} $programBody)\n" +
       varsDecl.map(v => f"(declare-fun ${v.sym} () ${sortToString(v.sortExpr)})").mkString("\n") +
-      f"\n(assert (not (and $constraints)))\n" // 'and' works also for one argument
+      f"\n$constraints\n"
   }
 
 
@@ -113,9 +111,7 @@ object SMTLIBFormatter {
     val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head
     val sfArgs = synthFunArgsToString(sf)
     val varsDecl = problem.cmds.collect { case v: VarDeclCmd => v }
-    val constraints = problem.cmds.collect {
-      case ConstraintCmd(t: Term) => f"${nestedProductToString(t)}"
-    }.mkString("\n")
+    val constraints = getCodeForConstraints(problem)
     val auxiliaries = getCodeForAuxiliaries(problem)
     val textOutput = normalizeTerminal(output.toString)
     f"(set-logic ${getLogicName(problem)})\n" +
@@ -125,7 +121,7 @@ object SMTLIBFormatter {
       f"(define-fun ${sf.sym} ($sfArgs) ${sortToString(sf.se)} $textOutput)\n" +
       varsDecl.map(v => f"(define-fun ${v.sym} ()" +
         f" ${sortToString(v.sortExpr)} ${normalizeTerminal(input(v.sym).toString)})").mkString("\n") +
-      f"\n(assert (and $constraints))\n" // 'and' works also for one argument
+      f"\n$constraints\n"
   }
 
 
@@ -154,9 +150,7 @@ object SMTLIBFormatter {
     val sfArgs = synthFunArgsToString(sf)
     val varsDecl = problem.cmds.collect { case v: VarDeclCmd => v }
     val programBody = opToString(program)
-    val constraints = problem.cmds.collect {
-      case ConstraintCmd(t: Term) => f"${nestedProductToString(t)}"
-    }.mkString("\n")
+    val constraints = getCodeForConstraints(problem)
     val auxiliaries = getCodeForAuxiliaries(problem)
     f"(set-logic ${getLogicName(problem)})\n" +
       (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
@@ -165,7 +159,7 @@ object SMTLIBFormatter {
       f"(define-fun ${sf.sym} ($sfArgs) ${sortToString(sf.se)} $programBody)\n" +
       varsDecl.map(v => f"(define-fun ${v.sym} ()" +
         f" ${sortToString(v.sortExpr)} ${normalizeTerminal(input(v.sym).toString)})").mkString("\n") +
-      f"\n(assert (and $constraints))\n"
+      f"\n$constraints\n"
   }
 
 
@@ -193,9 +187,7 @@ object SMTLIBFormatter {
     val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head
     val sfArgs = synthFunArgsToString(sf)
     val varsDecl = problem.cmds.collect { case v: VarDeclCmd => v }
-    val constraints = problem.cmds.collect {
-      case ConstraintCmd(t: Term) => f"${nestedProductToString(t)}"
-    }.mkString("\n")
+    val constraints = getCodeForConstraints(problem)
     val auxiliaries = getCodeForAuxiliaries(problem)
     val sfSort = sortToString(sf.se)
     f"(set-logic ${getLogicName(problem)})\n" +
@@ -206,7 +198,7 @@ object SMTLIBFormatter {
       f"(define-fun ${sf.sym} ($sfArgs) $sfSort CorrectOutput)\n" +
       varsDecl.map(v => f"(define-fun ${v.sym} ()" +
         f" ${sortToString(v.sortExpr)} ${normalizeTerminal(input(v.sym).toString)})").mkString("\n") +
-      f"\n(assert (and $constraints))\n"
+      f"\n$constraints\n"
   }
 
 
@@ -255,7 +247,7 @@ object SMTLIBFormatter {
       case ConstraintCmd(t: Term) => f"(assert ${nestedProductToString(t)})"
     }.mkString("", "\n", "\n")
     val auxiliaries = getCodeForAuxiliaries(problem)
-    
+
     val synthFunSort = sortToString(sf.se)
     val sfSort = sortToString(sf.se)
     f"(set-logic ${getLogicName(problem)})\n" +
@@ -284,6 +276,13 @@ object SMTLIBFormatter {
         val body = nestedProductToString(term)
         f"(define-fun $name ($argsSorts) $retSort $body)"
     }.mkString("\n")
+  }
+
+  def getCodeForConstraints(problem: SyGuS16): String = {
+    val constraints = problem.cmds.collect {
+      case ConstraintCmd(t: Term) => f"${nestedProductToString(t)}"
+    }
+    constraints.map{ x => s"(assert $x)"}.mkString("\n")
   }
 
   def nestedProductToString(p: Any): String = p match {
