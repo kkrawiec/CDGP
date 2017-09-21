@@ -31,6 +31,7 @@ class CDGPState(sygusProblem: SyGuS16)
   val GPRminInt: Int = opt('GPRminInt, -100)
   val GPRmaxInt: Int = opt('GPRmaxInt, 100)
   val CDGPtestsRatio: Double = opt('CDGPtestsRatio, 1.0, (x: Double) => x >= 0.0 && x <= 1.0)
+  val GPRtestsRatio: Double = opt('GPRtestsRatio, 1.0, (x: Double) => x >= 0.0 && x <= 1.0)
   val CDGPoneTestPerIter: Boolean = opt('CDGPoneTestPerIter, false)
   val GPRoneTestPerIter: Boolean = opt('GPRoneTestPerIter, false)
   val timeout: Int = opt('solverTimeout, 0)
@@ -274,51 +275,15 @@ class CDGPState(sygusProblem: SyGuS16)
       }
     }
 
-  def fitnessCDGP: Op => (Boolean, Seq[Int]) =
-    new Function1[Op, (Boolean, Seq[Int])] {
-      def apply(s: Op) = {
-        val evalTests = evalOnTests(s, testsManager.getTests())
-        val (decision, r) = verify(s)
-        if (decision == "unsat") (true, evalTests) // perfect program found; end of run
-        else {
-          if (!CDGPoneTestPerIter || testsManager.newTests.isEmpty) {
-            val newTest = createTestFromFailedVerification(r.get)
-            testsManager.addNewTest(newTest)
-          }
-          (false, evalTests)
-        }
-      }
-    }
-
-  def fitnessCDGPConservative: Op => (Boolean, Seq[Int]) =
-    new Function1[Op, (Boolean, Seq[Int])] {
-      def apply(s: Op) = {
-        val evalTests = evalOnTests(s, testsManager.getTests())
-        val numFailed = evalTests.count(_ == 1)
-        // CDGP Conservative variant: If the program fails any tests, then don't apply verification to it,
-        // as it is very likely that the found counterexample is already among the tests.
-        if (numFailed > 0)
-          (false, evalTests)
-        else {
-          val (decision, r) = verify(s)
-          if (decision == "unsat") (true, evalTests) // perfect program found; end of run
-          else {
-            if (!CDGPoneTestPerIter || testsManager.newTests.isEmpty) {
-              val newTest = createTestFromFailedVerification(r.get)
-              testsManager.addNewTest(newTest)
-            }
-            (false, evalTests)
-          }
-        }
-      }
-    }
-
   def fitnessGPR: Op => (Boolean, Seq[Int]) = {
     new Function1[Op, (Boolean, Seq[Int])] {
+      def doVerify(evalTests: Seq[Int]): Boolean = {
+        val numPassed = evalTests.count(_ == 0).asInstanceOf[Double]
+        (numPassed / evalTests.size) >= GPRtestsRatio || evalTests.isEmpty
+      }
       def apply(s: Op) = {
         val evalTests = evalOnTests(s, testsManager.getTests())
-        val numFailed = evalTests.count(_ == 1)
-        if (numFailed > 0)
+        if (!doVerify(evalTests))
           (false, evalTests)
         else {
           val (decision, r) = verify(s)
