@@ -291,6 +291,9 @@ object SMTLIBFormatter {
       val s = seq.map(nestedProductToString(_))
       s.reduce(_ + " " + _)
     }
+    case LetTerm(list, term) =>
+      val boundVars = list.map{ case (name, _, t) => s"($name ${nestedProductToString(t)})" }
+      s"(let (${boundVars.mkString("")}) ${nestedProductToString(term)})"
     case prod: Product => prod.productArity match {
       case 1 => nestedProductToString(prod.productElement(0))
       case _ => "(" + prod.productIterator.

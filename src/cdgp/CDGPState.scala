@@ -37,19 +37,6 @@ class CDGPState(sygusProblem: SyGuS16)
   val timeout: Int = opt('solverTimeout, 0)
 
 
-  /**
-    * Checks using SMT solver if the given problem has only one correct answer for
-    * any input.
-    */
-  def hasSingleAnswerForEveryInput(problem: SyGuS16): Option[Boolean] = {
-    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(problem)
-    // println("\nQuery checkIfSingleAnswerForEveryInput:\n" + query)
-    val (dec, _) = solver.runSolver(query)
-    if (dec == "sat") Some(false)
-    else if (dec == "unsat") Some(true)
-    else None
-  }
-
   def getTestCasesMode(problem: SyGuS16): String = {
     val singleInvoc = SygusUtils.hasSingleInvocationProperty(sygusProblem)
     println(f"(singleInvocationProperty $singleInvoc)")
@@ -162,6 +149,18 @@ class CDGPState(sygusProblem: SyGuS16)
 
   ///////  Interactions with the solver  ///////
 
+  /**
+    * Checks using SMT solver if the given problem has only one correct answer for
+    * any input.
+    */
+  def hasSingleAnswerForEveryInput(problem: SyGuS16): Option[Boolean] = {
+    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(problem)
+    // println("\nQuery checkIfSingleAnswerForEveryInput:\n" + query)
+    val (dec, _) = solver.runSolver(query)
+    if (dec == "sat") Some(false)
+    else if (dec == "unsat") Some(true)
+    else None
+  }
 
   def checkOnInputAndKnownOutput(s: Op,
                                  testInputsMap: Map[String, Any],

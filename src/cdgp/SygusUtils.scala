@@ -77,10 +77,11 @@ object SygusUtils {
     * Changes names of *variable* terms in the expression.
     * The map contains mapping between old and new names and does not have to be complete.
     */
-  def renameVarsInTerm(term: Term, map: Map[String, String]): Term = {
-    term match {
+  def renameVarsInTerm(p: Term, map: Map[String, String]): Term = {
+    p match {
       case CompositeTerm(name, terms) => CompositeTerm(name, terms.map(renameVarsInTerm(_, map)))
       case SymbolTerm(symb) => SymbolTerm(map.getOrElse(symb, symb))
+      case LetTerm(list, term) => LetTerm(list, renameVarsInTerm(term, map))
       case x => x
     }
   }
@@ -89,11 +90,12 @@ object SygusUtils {
     * Changes names of *all* terms in the expression, including names of functions.
     * The map contains mapping between old and new names and does not have to be complete.
     */
-  def renameNamesInTerm(term: Term, map: Map[String, String]): Term = {
-    term match {
+  def renameNamesInTerm(p: Term, map: Map[String, String]): Term = {
+    p match {
       case CompositeTerm(name, terms) =>
         CompositeTerm(map.getOrElse(name, name), terms.map(renameNamesInTerm(_, map)))
       case SymbolTerm(symb) => SymbolTerm(map.getOrElse(symb, symb))
+      case LetTerm(list, term) => LetTerm(list, renameNamesInTerm(term, map))
       case x => x
     }
   }
@@ -121,7 +123,7 @@ object SygusUtils {
     * as a distinct entry, so there may be duplicates.
     */
   def getSynthFunsInvocationsInfo(problem: SyGuS16, setNames: Set[String]): Map[String, Seq[Seq[String]]] = {
-    def searchExpr(term: Term): List[(String, List[String])] = term match {
+    def searchExpr(p: Term): List[(String, List[String])] = p match {
       case c: CompositeTerm if setNames.contains(c.symbol) =>
         val tup = (c.symbol, c.terms.map{
           case LiteralTerm(v) => v.toString
@@ -129,8 +131,8 @@ object SygusUtils {
           case x @ CompositeTerm(_, _) => x.toString
         })
         List(tup)
-      case c: CompositeTerm =>
-        c.terms.flatMap{ x: Term => searchExpr(x) }
+      case CompositeTerm(_, terms) => terms.flatMap{ x: Term => searchExpr(x) }
+      case LetTerm(_, term) => searchExpr(term)
       case _ => List()
     }
     val collected: Seq[(String, List[String])] = problem.cmds.collect {
