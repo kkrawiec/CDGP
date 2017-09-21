@@ -58,4 +58,36 @@ final class TestSygusUtils {
     assertEquals(false, SygusUtils.hasSingleInvocationProperty(problem))
     assertEquals(true, SygusUtils.containsUnsupportedComplexTerms(problem))
   }
+
+  @Test
+  def testSygusParsingLet1(): Unit = {
+    val code =
+      """(set-logic LIA)
+(synth-fun funSynth ((a Int) (b Int) (c Int)) Int ((Start Int (a b c))))
+(declare-var a Int)
+(declare-var b Int)
+(declare-var c Int)
+(constraint (let ((m Int b)(b1 Int a)(b2 Int c))
+    (=> (and (>= (abs b1) m) (>= (abs b2) m) ) (= (funSynth a b c) m))))
+(check-synth)"""
+    val problem = LoadSygusBenchmark.parseText(code)
+    assertEquals(true, SygusUtils.hasSingleInvocationProperty(problem))
+    assertEquals(false, SygusUtils.containsUnsupportedComplexTerms(problem))
+  }
+
+  @Test
+  def testSygusParsingLet2(): Unit = {
+    val code =
+      """(set-logic LIA)
+(synth-fun funSynth ((a Int) (b Int) (c Int)) Int ((Start Int (a b c))))
+(declare-var a Int)
+(declare-var b Int)
+(declare-var c Int)
+(constraint (let ((m Int b)(b1 Int a)(b2 Int c))
+    (=> (and (>= (abs b1) m) (>= (abs b2) m) ) (= (funSynth b1 m b2) m))))
+(check-synth)"""
+    val problem = LoadSygusBenchmark.parseText(code)
+    assertEquals(true, SygusUtils.hasSingleInvocationProperty(problem))
+    assertEquals(true, SygusUtils.containsUnsupportedComplexTerms(problem))
+  }
 }

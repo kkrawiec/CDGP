@@ -80,7 +80,7 @@ class CDGPState(sygusProblem: SyGuS16)
   val useDomainToComputeFitness: Boolean = testCasesMode == "gp"
   println(f"(testCasesMode $testCasesMode)")
   coll.set("cdgp.testCasesMode", testCasesMode)
-  if (testCasesMode == "solver")
+  if (!useDomainToComputeFitness)
     println("INFO: solver will be used to compute fitness. Expect major efficiency decrease" +
       " in comparison with GP test cases mode.")
 

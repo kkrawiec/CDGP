@@ -158,18 +158,27 @@ object SygusUtils {
 
   def checkUnsupportedTermsForGPMode(problem: SyGuS16) {
     val synthFunNames = ExtractSynthesisTasks(problem).map(_.fname).toSet
-    def checkExpr(term: Term): Unit = term match {
-      case LetTerm(_, _) => throw new UnsupportedFeatureException("Let terms are not supported.")
-      case CompositeTerm(symbol, terms) if synthFunNames.contains(symbol) =>
-        terms.foreach {
-          case CompositeTerm(_, _) => throw new UnsupportedFeatureException("Invocation of a synthesized function must take as an argument a literal or a variable.")
-          case _ => terms.foreach{ x: Term => checkExpr(x) }
+    def checkExpr(term: Term, letVars: Set[String]): Unit = term match {
+      case LetTerm(list, t) =>
+        val newLetVars = list.map{case (name, _, _) => name}
+        checkExpr(t, letVars ++ newLetVars)
+
+      case CompositeTerm(symbol, args) if synthFunNames.contains(symbol) =>
+        args.foreach {
+          case LiteralTerm(_)   => true
+          case SymbolTerm(name) =>
+            if (letVars.contains(name))
+              throw new UnsupportedFeatureException("Arguments to synthesized function cannot be bound by let expression.")
+          case _ =>
+            throw new UnsupportedFeatureException("Invocation of a synthesized function must take as an argument a literal or a variable.")
         }
+
       case c: CompositeTerm =>
-        c.terms.foreach{ x: Term => checkExpr(x) }
+        c.terms.foreach{ x: Term => checkExpr(x, letVars) }
+
       case _ => ()
     }
-    problem.cmds.foreach{ case ConstraintCmd(term) => checkExpr(term) case _ => () }
+    problem.cmds.foreach{ case ConstraintCmd(term) => checkExpr(term, Set()) case _ => () }
   }
 }
 
