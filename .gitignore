@@ -5,6 +5,7 @@
 
 CDGP.jar
 res*.txt.cdgp
+res*.txt.cdgp.error
 res*.txt
 res*.txt.error_solver
 
