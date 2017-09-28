@@ -31,6 +31,52 @@ case class SygusSynthesisTask(fname: String,
 
 
 object SygusUtils {
+  /**
+    * Returns a set of fun-defined symbols which can be used only in postconditions.
+    */
+  def getPostcondSymbols(synthFunNames: Set[String], dmap: Map[String, Set[String]]): Set[String] = {
+    def helper(post: Set[String], newDmap: Map[String, Set[String]]) = {
+      val (newPost, newPre) = dmap.partition{ case (_, set) => set.exists(post.contains(_)) }
+      if (newPost.isEmpty)
+        post
+      else
+        getPostcondSymbols(post ++ newPost.keys, newPre)
+    }
+    helper(synthFunNames, dmap)
+  }
+
+  def getPostcondSymbols(problem: SyGuS16): Set[String] = {
+    val synthFunNames = ExtractSynthesisTasks(problem).map(_.fname)
+    val dmap = getFunDefDependencyMap(problem)
+    getPostcondSymbols(synthFunNames.toSet, dmap)
+  }
+
+  /**
+    * Returns all constraints which are preconditions of the synthesis task.
+    * Preconditions are constraints which may contain only:
+    * (a) variables introduced with declare-var
+    * (b) constants
+    * (c) macros, which themselves contain only elements specified in (a), (b) or (c).
+    */
+  def getPreconditions(problem: SyGuS16): Seq[Cmd] = {
+    val postSymbols = getPostcondSymbols(problem)
+    problem.cmds.filter{case ConstraintCmd(term) => isPrecondition(term, postSymbols); case _ => false}
+  }
+
+  /**
+    * Returns all constraints which are preconditions of the synthesis task.
+    * Postconditions depends, directly or indirectly, on the result of the function being
+    * synthesized.
+    */
+  def getPostconditions(problem: SyGuS16): Seq[Cmd] = {
+    val postSymbols = getPostcondSymbols(problem)
+    problem.cmds.filter{case ConstraintCmd(term) => !isPrecondition(term, postSymbols); case _ => false}
+  }
+
+  private def isPrecondition(term: Term, postSymbols: Set[String]): Boolean = {
+    val freeSymbs = collectFreeSymbols(term)
+    !freeSymbs.exists{ v: String => postSymbols.contains(v) }
+  }
 
   /**
     * Solver requires renaming of the variables, so that it is able to handle cases
@@ -83,6 +129,57 @@ object SygusUtils {
       case SymbolTerm(symb) => SymbolTerm(map.getOrElse(symb, symb))
       case LetTerm(list, term) => LetTerm(list, renameVarsInTerm(term, map))
       case x => x
+    }
+  }
+
+  def getDeclaredFunNames(problem: SyGuS16): Set[String] = {
+    problem.cmds.collect{ case FunDeclCmd(name, _, _) => name}.toSet
+  }
+
+  /**
+    * Returns a map assigning to each symbol symbols it is dependent on. This is later
+    * used to establish, if a certain constraint belongs to preconditions or postconditions.
+    */
+  def getFunDefDependencyMap(problem: SyGuS16): Map[String, Set[String]] = {
+    problem.cmds.collect{
+      case FunDefCmd(name, args, _, term) => (name, collectFreeSymbols(term, args.map(_._1).toSet))
+    }.toMap
+  }
+
+  /**
+    * Collects names of all free variables in the term.
+    */
+  def collectFreeVars(p: Term, boundVars: Set[String] = Set()): Set[String] = {
+    p match {
+      case CompositeTerm(name, terms) => terms.flatMap(collectFreeVars(_, boundVars)).toSet -- boundVars
+      case SymbolTerm(symb) => Set(symb) -- boundVars
+      case LetTerm(list, term) => collectFreeVars(term, boundVars ++ list.map(_._1))
+      case _ => Set()
+    }
+  }
+
+  /**
+    * Collects names of all free symbols (i.e. symbols not bounded by let expression)
+    * in the term. Function names are included.
+    */
+  def collectFreeSymbols(p: Term, boundVars: Set[String] = Set()): Set[String] = {
+    p match {
+      case CompositeTerm(name, terms) => (terms.flatMap(collectFreeSymbols(_, boundVars)).toSet + name) -- boundVars
+      case SymbolTerm(symb) => Set(symb) -- boundVars
+      case LetTerm(list, term) => collectFreeSymbols(term, boundVars ++ list.map(_._1))
+      case _ => Set()
+    }
+  }
+
+  /**
+    * Collects names of all functions used in the term.
+    */
+  def collectFunctionNames(p: Term): Set[String] = {
+    p match {
+      case CompositeTerm(name, terms) => terms.flatMap(collectFunctionNames(_)).toSet + name
+      case SymbolTerm(symb) => Set()
+      case LetTerm(list, term) => collectFunctionNames(term)
+      case _ => Set()
     }
   }
 

@@ -74,7 +74,7 @@ object TestLIA extends IApp('maxGenerations -> 25, 'printResults -> false, 'popu
 
     for (p <- progs) {
       // Prepare input to the solver
-      val verificationProblem = SMTLIBFormatter.verify(sygusProblem, p)
+      val verificationProblem = SMTLIBFormatter.verifyProblem(sygusProblem, p)
       // Run the solver:
       val (_, res) = solver.solve(verificationProblem, getValueCommand)
       if (res.isDefined) {

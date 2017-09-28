@@ -1,6 +1,6 @@
 package tests
 
-import cdgp.{LoadSygusBenchmark, SygusUtils, UnsupportedFeatureException}
+import cdgp.{LoadSygusBenchmark, SMTLIBFormatter, SygusUtils}
 import org.junit.Test
 import org.junit.Assert._
 
@@ -89,5 +89,65 @@ final class TestSygusUtils {
     val problem = LoadSygusBenchmark.parseText(code)
     assertEquals(true, SygusUtils.hasSingleInvocationProperty(problem))
     assertEquals(true, SygusUtils.containsUnsupportedComplexTerms(problem))
+  }
+
+  @Test
+  def testSygusDependencyMap(): Unit = {
+    val code =
+      """(set-logic LIA)
+(synth-fun funSynth ((a Int) (b Int) (c Int)) Int ((Start Int (a b c))))
+(declare-var a Int)
+(declare-var b Int)
+(declare-var c Int)
+(define-fun x ((a Int)(b Int)) Int (+ a (let ((y Int 5)) (+ y c))))
+(define-fun y ((a Int)) Int (x a b))"""
+    val problem = LoadSygusBenchmark.parseText(code)
+    val d = SygusUtils.getFunDefDependencyMap(problem)
+    assertEquals(Map("x"->Set("c", "+"), "y"->Set("x", "b")), d)
+  }
+
+  @Test
+  def test_getPreconditions(): Unit = {
+    val script =
+      """
+      (set-logic NIA)
+      (synth-fun rsconf ((a Int) (b Int) (c Int) (d Int)) Int
+          ((Start Int (a b c d
+              (+ Start Start) (- Start Start) (* Start Start)))))
+      (declare-var a Int)
+      (declare-var b Int)
+      (declare-var c Int)
+      (declare-var d Int)
+      (define-fun ElementsSum () Int 32)
+      (constraint (>= a 0))
+      (constraint (>= b 0))
+      (constraint (>= c 0))
+      (constraint (>= d 0))
+      (constraint (= (+ a b c d) ElementsSum))
+
+      (define-fun condition ((a Int)(b Int)(c Int)(d Int)) Int
+          (- (* a ElementsSum) (* (+ a c) (+ a c)))
+      )
+      (constraint (=> (> (condition a b c d) 0)
+                      (> (rsconf a b c d) 0)))
+      (constraint (=> (< (condition a b c d) 0)
+                      (< (rsconf a b c d) 0)))
+      (constraint (=> (= (condition a b c d) 0)
+                      (= (rsconf a b c d) 0)))
+      (check-synth)
+      """
+    val problem = LoadSygusBenchmark.parseText(script)
+    val precond = SygusUtils.getPreconditions(problem)
+    assertEquals(Set("rsconf"), SygusUtils.getPostcondSymbols(problem))
+    assertEquals(5, precond.size)
+    assertEquals("(>= a 0)", SMTLIBFormatter.nestedProductToString(precond(0)))
+  }
+
+  @Test
+  def test_getPostcondSymbols(): Unit = {
+    assertEquals(Set("a", "b", "f2", "f1"), SygusUtils.getPostcondSymbols(
+      Set("a", "b"), Map("f1"->Set("x", "y", "f2"), "f2"->Set("a", "x", "+"))))
+    assertEquals(Set("a", "b"), SygusUtils.getPostcondSymbols(
+      Set("a", "b"), Map("f1"->Set("x", "y"))))
   }
 }

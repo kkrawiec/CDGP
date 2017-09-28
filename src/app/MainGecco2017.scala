@@ -189,7 +189,7 @@ object MainGecco2017 extends FApp {
   }
 
   def verify(s: Op): (String, Option[String]) = {
-    val verProblemCmds = SMTLIBFormatter.verify(sygusProblem, s, solverTimeout=opt('solverTimeout, 0))
+    val verProblemCmds = SMTLIBFormatter.verifyProblem(sygusProblem, s, solverTimeout=opt('solverTimeout, 0))
     solver.runSolver(verProblemCmds, getValueCommand)
   }
 

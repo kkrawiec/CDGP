@@ -3,7 +3,7 @@ package cdgp
 import fuel.util.{Collector, Options, TRandom}
 import swim.Grammar
 import swim.tree.Op
-import sygus.VarDeclCmd
+import sygus.{Cmd, ConstraintCmd, VarDeclCmd}
 import sygus16.SyGuS16
 
 
@@ -35,6 +35,7 @@ class CDGPState(sygusProblem: SyGuS16)
   val CDGPoneTestPerIter: Boolean = opt('CDGPoneTestPerIter, false)
   val GPRoneTestPerIter: Boolean = opt('GPRoneTestPerIter, false)
   val timeout: Int = opt('solverTimeout, 0)
+  val silent = opt('silent, false)
 
 
   def getTestCasesMode(problem: SyGuS16): String = {
@@ -80,6 +81,17 @@ class CDGPState(sygusProblem: SyGuS16)
   val invocations: Seq[Seq[String]] = SygusUtils.getSynthFunsInvocationsInfo(sygusProblem, synthTask.fname)
   val grammar: Grammar = ExtractSygusGrammar(synthTask)
   val varDecls: List[VarDeclCmd] = sygusProblem.cmds.collect { case v: VarDeclCmd => v }
+
+  // Pre- and post-conditions of the synthesis problem
+  val pre: Seq[Cmd] = SygusUtils.getPreconditions(sygusProblem)
+  val post: Seq[Cmd] = SygusUtils.getPostconditions(sygusProblem)
+  if (!silent) {
+    println("\nPRECONDITIONS:")
+    pre.foreach { case ConstraintCmd(t) => println(SMTLIBFormatter.nestedProductToString(t)) }
+    println("\nPOSTCONDITIONS:")
+    post.foreach { case ConstraintCmd(t) => println(SMTLIBFormatter.nestedProductToString(t)) }
+    println("")
+  }
 
 
   // Creating solver manager
@@ -179,7 +191,7 @@ class CDGPState(sygusProblem: SyGuS16)
   }
 
   def verify(s: Op): (String, Option[String]) = {
-    val query = SMTLIBFormatter.verify(sygusProblem, s, timeout)
+    val query = SMTLIBFormatter.verify(sygusProblem, s, pre, post, timeout)
     // println("\nQuery verify:\n" + query)
     val getValueCommand = f"(get-value (${varDecls.map(_.sym).mkString(" ")}))"
     solver.runSolver(query, getValueCommand)
