@@ -51,7 +51,7 @@ case class SolverFromScript(path: String, args: String = "-smt2 -file:", verbose
     val lines = output.split("\n").map(_.trim)
     val outputDec = lines.head
     val outputRest = if (lines.size == 1) None else Some(lines.tail.mkString("\n"))
-    if (outputDec == "sat" || outputDec == "unsat" || outputDec == "unknown")
+    if (outputDec == "sat" || outputDec == "unsat" || outputDec == "unknown" || outputDec == "timeout")
       (outputDec, outputRest)
     else throw new Exception(f"Solver did not return sat, unsat, nor unknown, but this: $output")
   }
@@ -132,7 +132,7 @@ case class SolverInteractive(path: String, args: String = "-in", verbose: Boolea
         })
         ("sat", outputData)
       }
-      else if (output == "unsat" || output == "unknown") (output, None)
+      else if (output == "unsat" || output == "unknown" || output == "timeout") (output, None)
       else throw new UnknownSolverOutputException(f"Solver did not return sat, unsat, nor unknown, but this: $output")
     }
   }
@@ -243,7 +243,7 @@ class SolverManager(path: String, args: Option[String] = None, verbose: Boolean 
     * Executes provided commands using the SMT solver.
     * @param cmd Commands to be executed.
     * @param postCommands Additional commands to be placed after (check-sat).
-    * @return Solver's decision ('sat', 'unsat', 'unknown') and optional content determined
+    * @return Solver's decision ('sat', 'unsat', 'unknown', 'timeout') and optional content determined
     *         by postCommands.
     */
   def runSolver(cmd: String, postCommands: String*): (String, Option[String]) = {
