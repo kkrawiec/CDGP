@@ -38,27 +38,14 @@ class CDGPState(sygusProblem: SyGuS16)
   val silent = opt('silent, false)
 
 
-  def getTestCasesMode(problem: SyGuS16): String = {
-    val singleInvoc = SygusUtils.hasSingleInvocationProperty(sygusProblem)
-    println(f"(singleInvocationProperty $singleInvoc)")
-    coll.set("cdgp.singleInvocationProperty", singleInvoc)
-    if (singleInvoc) {
-      // Checking for the single answer property has sense only if the problem
-      // has single invocation property.
-      val singleAnswer = hasSingleAnswerForEveryInput(sygusProblem)
-      val supportForAllTerms = !SygusUtils.containsUnsupportedComplexTerms(sygusProblem)
-      println(f"(singleAnswerForEveryInput ${singleAnswer.getOrElse("unknown")})")
-      println(f"(supportForAllTerms $supportForAllTerms)")
-      coll.set("cdgp.singleAnswerForEveryInput", singleAnswer.getOrElse("unknown"))
-      coll.set("cdgp.supportForAllTerms", supportForAllTerms)
-      if (singleAnswer.getOrElse(false) && supportForAllTerms)
-        "gp"  // it may be considered to treat unknown singleAnswer as true, with the potential risk of losing "soundness" of the fitness
-      else
-        "solver"
-    }
-    else
-      "solver"
-  }
+  val synthTasks = ExtractSynthesisTasks(sygusProblem)
+  if (synthTasks.size > 1)
+    throw new Exception("Multiple synth-fun commands detected. Cannot handle such problems.")
+  val synthTask: SygusSynthesisTask = synthTasks.head
+  val invocations: Seq[Seq[String]] = SygusUtils.getSynthFunsInvocationsInfo(sygusProblem, synthTask.fname)
+  def grammar: Grammar = synthTask.grammar
+  val varDecls: List[VarDeclCmd] = sygusProblem.cmds.collect { case v: VarDeclCmd => v }
+
 
   /*
    * Depending on the properties of the problem, CDGPState will switch between using
@@ -74,13 +61,6 @@ class CDGPState(sygusProblem: SyGuS16)
       " in comparison with GP test cases mode.")
 
 
-  val synthTasks = ExtractSynthesisTasks(sygusProblem)
-  if (synthTasks.size > 1)
-    throw new Exception("SKIPPING: Multiple synth-fun commands detected. Cannot handle such problems.")
-  val synthTask: SygusSynthesisTask = synthTasks.head
-  val invocations: Seq[Seq[String]] = SygusUtils.getSynthFunsInvocationsInfo(sygusProblem, synthTask.fname)
-  val grammar: Grammar = ExtractSygusGrammar(synthTask)
-  val varDecls: List[VarDeclCmd] = sygusProblem.cmds.collect { case v: VarDeclCmd => v }
 
   // Pre- and post-conditions of the synthesis problem
   val pre: Seq[Cmd] = SygusUtils.getPreconditions(sygusProblem)
@@ -99,6 +79,28 @@ class CDGPState(sygusProblem: SyGuS16)
   private def solverArgs = opt.getOption("solverArgs")
   lazy val solver = new SolverManager(solverPath, solverArgs, verbose=false)
 
+
+  def getTestCasesMode(problem: SyGuS16): String = {
+    val singleInvoc = SygusUtils.hasSingleInvocationProperty(problem)
+    println(f"(singleInvocationProperty $singleInvoc)")
+    coll.set("cdgp.singleInvocationProperty", singleInvoc)
+    if (singleInvoc) {
+      // Checking for the single answer property has sense only if the problem
+      // has single invocation property.
+      val singleAnswer = hasSingleAnswerForEveryInput(problem)
+      val supportForAllTerms = !SygusUtils.containsUnsupportedComplexTerms(problem)
+      println(f"(singleAnswerForEveryInput ${singleAnswer.getOrElse("unknown")})")
+      println(f"(supportForAllTerms $supportForAllTerms)")
+      coll.set("cdgp.singleAnswerForEveryInput", singleAnswer.getOrElse("unknown"))
+      coll.set("cdgp.supportForAllTerms", supportForAllTerms)
+      if (singleAnswer.getOrElse(false) && supportForAllTerms)
+        "gp"  // it may be considered to treat unknown singleAnswer as true, with the potential risk of losing "soundness" of the fitness
+      else
+        "solver"
+    }
+    else
+      "solver"
+  }
 
 
   /**
@@ -166,7 +168,7 @@ class CDGPState(sygusProblem: SyGuS16)
     * any input.
     */
   def hasSingleAnswerForEveryInput(problem: SyGuS16): Option[Boolean] = {
-    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(problem)
+    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(synthTask, problem)
     // println("\nQuery checkIfSingleAnswerForEveryInput:\n" + query)
     val (dec, _) = solver.runSolver(query)
     if (dec == "sat") Some(false)
@@ -177,7 +179,7 @@ class CDGPState(sygusProblem: SyGuS16)
   def checkOnInputAndKnownOutput(s: Op,
                                  testInputsMap: Map[String, Any],
                                  output: Any): (String, Option[String]) = {
-    val query = SMTLIBFormatter.checkOnInputAndKnownOutput(sygusProblem,
+    val query = SMTLIBFormatter.checkOnInputAndKnownOutput(synthTask, sygusProblem,
       testInputsMap, output, timeout)
     // println("\nQuery checkOnInputAndKnownOutput:\n" + query)
     solver.runSolver(query)
@@ -185,20 +187,20 @@ class CDGPState(sygusProblem: SyGuS16)
 
   def checkOnInputOnly(s: Op,
                        testInputsMap: Map[String, Any]): (String, Option[String]) = {
-    val query = SMTLIBFormatter.checkOnInput(sygusProblem, testInputsMap, s, timeout)
+    val query = SMTLIBFormatter.checkOnInput(synthTask, sygusProblem, testInputsMap, s, timeout)
     // println("\nQuery checkOnInputOnly:\n" + query)
     solver.runSolver(query)
   }
 
   def verify(s: Op): (String, Option[String]) = {
-    val query = SMTLIBFormatter.verify(sygusProblem, s, pre, post, timeout)
+    val query = SMTLIBFormatter.verify(synthTask, sygusProblem, s, pre, post, timeout)
     // println("\nQuery verify:\n" + query)
     val getValueCommand = f"(get-value (${varDecls.map(_.sym).mkString(" ")}))"
     solver.runSolver(query, getValueCommand)
   }
 
   def findOutputForTestCase(test: (I, Option[O])): (I, Option[O]) = {
-    val query = SMTLIBFormatter.findOutputForTestCase(sygusProblem, test._1, solverTimeout=timeout)
+    val query = SMTLIBFormatter.findOutputForTestCase(synthTask, sygusProblem, test._1, solverTimeout=timeout)
     // println("\nQuery findOutputForTestCase:\n" + query)
     try {
       val getValueCommand = f"(get-value (CorrectOutput))"

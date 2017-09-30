@@ -42,7 +42,7 @@ object SolverCorrectOutput extends App {
     // Generate 100 random inputs and find correct outputs for them
     0.until(100).foreach { _ =>
       val input = getRandomInput(inputsSortsMap).toMap
-      val query = SMTLIBFormatter.findOutputForTestCase(sygusProblem, input)
+      val query = SMTLIBFormatter.findOutputForTestCase(synthTask, sygusProblem, input)
       // println(query)
       val (dec, res) = solver.solve(query, getValueCommand)
       println(s"Decision: $dec, model: $res")

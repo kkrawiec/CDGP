@@ -31,10 +31,10 @@ object SMTLIBFormatter {
     else f"($opStr ${op.args.map(opToString(_)).mkString(" ")})"
   }
 
-  def synthTaskSolutionToString(sst: SygusSynthesisTask, solution: Op): String = {
-    val bestBody = SMTLIBFormatter.opToString(solution)
-    val args = SMTLIBFormatter.synthFunArgsToString(sst)
-    val tpe = SMTLIBFormatter.sortToString(sst.outputType)
+  def synthSolutionToString(sst: SygusSynthesisTask, solution: Op): String = {
+    val bestBody = opToString(solution)
+    val args = synthFunArgsToString(sst)
+    val tpe = sortToString(sst.outputType)
     f"(define-fun ${sst.fname} ($args) $tpe\n\t$bestBody)"
   }
 
@@ -44,6 +44,10 @@ object SMTLIBFormatter {
 
   def synthFunArgsToString(sfc: SynthFunCmd): String = {
     sfc.list.map { case (k, v) => f"($k ${sortToString(v)})" }.mkString
+  }
+
+  def synthFunArgsToString(sfc: Seq[(String, SortExpr)]): String = {
+    sfc.map { case (k, v) => f"($k ${sortToString(v)})" }.mkString
   }
 
   def getLogicName(problem: SyGuS16): String = {
@@ -69,15 +73,13 @@ object SMTLIBFormatter {
     * }</pre>
     * Sat means that there is a counterexample, unsat means perfect program was found.
     */
-  def verifyProblem(problem: SyGuS16, program: Op, solverTimeout: Int = 0): String = {
+  def verifyProblem(sf: SygusSynthesisTask, problem: SyGuS16, program: Op, solverTimeout: Int = 0): String = {
     val pre = SygusUtils.getPreconditions(problem)
     val post = SygusUtils.getPostconditions(problem)
-    verify(problem, program, pre, post, solverTimeout)
+    verify(sf, problem, program, pre, post, solverTimeout)
   }
 
-  def verify(problem: SyGuS16, program: Op, pre: Seq[Cmd], post: Seq[Cmd], solverTimeout: Int = 0): String = {
-    val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head
-    val sfArgs = synthFunArgsToString(sf)
+  def verify(sf: SygusSynthesisTask, problem: SyGuS16, program: Op, pre: Seq[Cmd], post: Seq[Cmd], solverTimeout: Int = 0): String = {
     val programBody = opToString(program)
     val varsDecl = problem.cmds.collect { case v: VarDeclCmd => v }
     val constraintsPre = getCodeForConstraints(pre)
@@ -87,7 +89,7 @@ object SMTLIBFormatter {
       (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
       auxiliaries + "\n" +
-      f"(define-fun ${sf.sym} ($sfArgs) ${sortToString(sf.se)} $programBody)\n" +
+      f"${sf.getSynthFunCode(programBody)}\n" +
       varsDecl.map(v => f"(declare-fun ${v.sym} () ${sortToString(v.sortExpr)})").mkString("", "\n", "\n") +
       constraintsPre +
       f"\n(assert (not $constraintsPost))\n" // 'and' works also for one argument
@@ -113,9 +115,8 @@ object SMTLIBFormatter {
     * The result is either sat or unsat, model usually will be empty.
     * Sat means that the answer is correct.
     */
-  def checkOnInputAndKnownOutput(problem: SyGuS16, input: Map[String, Any],
+  def checkOnInputAndKnownOutput(sf: SygusSynthesisTask, problem: SyGuS16, input: Map[String, Any],
                                  output: Any, solverTimeout: Int = 0): String = {
-    val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head
     val sfArgs = synthFunArgsToString(sf)
     val varsDecl = problem.cmds.collect { case v: VarDeclCmd => v }
     val constraints = getCodeForMergedConstraints(problem.cmds)
@@ -125,7 +126,7 @@ object SMTLIBFormatter {
       (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
       auxiliaries + "\n" +
-      f"(define-fun ${sf.sym} ($sfArgs) ${sortToString(sf.se)} $textOutput)\n" +
+      f"${sf.getSynthFunCode(textOutput)}\n" +
       varsDecl.map(v => f"(define-fun ${v.sym} ()" +
         f" ${sortToString(v.sortExpr)} ${normalizeTerminal(input(v.sym).toString)})").mkString("\n") +
       f"\n(assert $constraints)\n" // 'and' works also for one argument
@@ -151,9 +152,8 @@ object SMTLIBFormatter {
     * The result is either sat or unsat, model usually will be empty.
     * Sat means that the answer is correct.
     */
-  def checkOnInput(problem: SyGuS16, input: Map[String, Any],
+  def checkOnInput(sf: SygusSynthesisTask, problem: SyGuS16, input: Map[String, Any],
                    program: Op, solverTimeout: Int = 0): String = {
-    val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head
     val sfArgs = synthFunArgsToString(sf)
     val varsDecl = problem.cmds.collect { case v: VarDeclCmd => v }
     val programBody = opToString(program)
@@ -163,7 +163,7 @@ object SMTLIBFormatter {
       (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
       auxiliaries + "\n" +
-      f"(define-fun ${sf.sym} ($sfArgs) ${sortToString(sf.se)} $programBody)\n" +
+      f"${sf.getSynthFunCode(programBody)}\n" +
       varsDecl.map(v => f"(define-fun ${v.sym} ()" +
         f" ${sortToString(v.sortExpr)} ${normalizeTerminal(input(v.sym).toString)})").mkString("\n") +
       f"\n(assert $constraints)\n"
@@ -189,20 +189,18 @@ object SMTLIBFormatter {
     * consistent with the specification (this probably means that problem was
     * wrongly specified).
     */
-  def findOutputForTestCase(problem: SyGuS16, input: Map[String, Any],
+  def findOutputForTestCase(sf: SygusSynthesisTask, problem: SyGuS16, input: Map[String, Any],
                             solverTimeout: Int = 0): String = {
-    val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head
     val sfArgs = synthFunArgsToString(sf)
     val varsDecl = problem.cmds.collect { case v: VarDeclCmd => v }
     val constraints = getCodeForMergedConstraints(problem.cmds)
     val auxiliaries = getCodeForAuxiliaries(problem)
-    val sfSort = sortToString(sf.se)
     f"(set-logic ${getLogicName(problem)})\n" +
       (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
       auxiliaries + "\n" +
-      f"(declare-fun CorrectOutput () $sfSort)\n" +
-      f"(define-fun ${sf.sym} ($sfArgs) $sfSort CorrectOutput)\n" +
+      f"(declare-fun CorrectOutput () ${sortToString(sf.outputType)})\n" +
+      f"${sf.getSynthFunCode("CorrectOutput")}\n" +
       varsDecl.map(v => f"(define-fun ${v.sym} ()" +
         f" ${sortToString(v.sortExpr)} ${normalizeTerminal(input(v.sym).toString)})").mkString("\n") +
       f"\n(assert $constraints)\n"
@@ -238,13 +236,13 @@ object SMTLIBFormatter {
     * Sat means that there is at least one input for which there is more than
     * one correct output.
     */
-  def checkIfSingleAnswerForEveryInput(problem: SyGuS16, solverTimeout: Int = 0): String = {
-    val sf = problem.cmds.collect { case sf: SynthFunCmd => sf }.head // synth-fun
+  def checkIfSingleAnswerForEveryInput(sf: SygusSynthesisTask, problem: SyGuS16,
+                                       solverTimeout: Int = 0): String = {
     val sfArgs = synthFunArgsToString(sf)
     val varsDecl = problem.cmds.collect {
       case v: VarDeclCmd => f"(declare-fun ${v.sym} () ${sortToString(v.sortExpr)})"
     }.mkString("", "\n", "\n")
-    val vMap = Map(sf.sym -> (sf.sym+"__2"))
+    val vMap = Map(sf.fname -> (sf.fname+"__2"))
     val cmds1 = problem.cmds
     val cmds2 = problem.cmds.map(SygusUtils.renameNamesInCmd(_, vMap))
     val body1 = cmds1.collect {
@@ -255,16 +253,15 @@ object SMTLIBFormatter {
     }.mkString("", "\n", "\n")
     val auxiliaries = getCodeForAuxiliaries(problem)
     
-    val synthFunSort = sortToString(sf.se)
-    val sfSort = sortToString(sf.se)
+    val synthFunSort = sortToString(sf.outputType)
     f"(set-logic ${getLogicName(problem)})\n" +
       (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
       auxiliaries + "\n" +
-      f"(declare-fun res1__2 () ${synthFunSort})\n" +
-      f"(declare-fun res2__2 () ${synthFunSort})\n" +
-      f"(define-fun ${sf.sym} ($sfArgs) ${sortToString(sf.se)} res1__2)\n" +
-      f"(define-fun ${sf.sym}__2 ($sfArgs) ${sortToString(sf.se)} res2__2)\n\n" +
+      f"(declare-fun res1__2 () $synthFunSort)\n" +
+      f"(declare-fun res2__2 () $synthFunSort)\n" +
+      f"(define-fun ${sf.fname} ($sfArgs) $synthFunSort res1__2)\n" +
+      f"(define-fun ${sf.fname}__2 ($sfArgs) $synthFunSort res2__2)\n\n" +
       varsDecl + "\n" +
       body1 + "\n" +
       body2 + "\n" +

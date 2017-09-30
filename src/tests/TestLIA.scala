@@ -33,7 +33,7 @@ object TestLIA extends IApp('maxGenerations -> 25, 'printResults -> false, 'popu
     val synthTask = ExtractSynthesisTasks(sygusProblem).head
 
     // Create the Swim grammar from it
-    val gr = ExtractSygusGrammar(synthTask)
+    val gr = synthTask.grammar
 
     // Generate a bunch of random programs using the grammar
     val cf = new CodeFactory(gr, stoppingDepth = 4, maxDepth = 8)
@@ -74,7 +74,7 @@ object TestLIA extends IApp('maxGenerations -> 25, 'printResults -> false, 'popu
 
     for (p <- progs) {
       // Prepare input to the solver
-      val verificationProblem = SMTLIBFormatter.verifyProblem(sygusProblem, p)
+      val verificationProblem = SMTLIBFormatter.verifyProblem(synthTask, sygusProblem, p)
       // Run the solver:
       val (_, res) = solver.solve(verificationProblem, getValueCommand)
       if (res.isDefined) {
@@ -88,7 +88,7 @@ object TestLIA extends IApp('maxGenerations -> 25, 'printResults -> false, 'popu
         try {
           val output = LIA.apply(p)(cexampleRenamed.toMap)
           println(s"Output of best: $output")
-          val checkOnTestCmd = SMTLIBFormatter.checkOnInputAndKnownOutput(sygusProblem, cexample.toMap, output)
+          val checkOnTestCmd = SMTLIBFormatter.checkOnInputAndKnownOutput(synthTask, sygusProblem, cexample.toMap, output)
           println("Check output for counterexample (expected unsat): " + solver.solve(checkOnTestCmd))
         }
         catch {

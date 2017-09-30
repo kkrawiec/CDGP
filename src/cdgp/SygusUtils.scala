@@ -17,15 +17,28 @@ class UnsupportedFeatureException(message: String = "", cause: Throwable = null)
   * Class collecting the most important information about the synthesis task
   * read from the SyGuS file.
   * @param fname Name of the function being synthesized.
-  * @param grammar Grammar specifying the form of allowed programs.
+  * @param grammarSygus Grammar specifying the form of allowed programs.
   * @param arguments Arguments of the function.
   * @param outputType Output type of the function.
   */
 case class SygusSynthesisTask(fname: String,
-                              grammar: Seq[(Any, Seq[Any])],
+                              grammarSygus: Seq[(Any, Seq[Any])],
                               arguments: Seq[(String, SortExpr)],
                               outputType: SortExpr) {
   val argNames: Seq[String] = arguments.unzip._1
+  val grammar: Grammar = SygusUtils.getSwimGrammar(grammarSygus)
+  val canBeRecursive: Boolean = grammar.contains(Symbol(fname)) || grammar.contains(fname)
+
+  /**
+    * Returns code in SMTLIB of a synthesis function.
+    */
+  def getSynthFunCode(programBody: String): String = {
+    val isRecursive = canBeRecursive && programBody.split("\\(|\\)|\\s+").contains(fname)
+    val defFun = if (isRecursive) "define-fun-rec" else "define-fun"
+    val sfArgs = SMTLIBFormatter.synthFunArgsToString(arguments)
+    val body = if (isRecursive) s"(+ $programBody 0)" else programBody
+    f"($defFun $fname ($sfArgs) ${SMTLIBFormatter.sortToString(outputType)} $body)"
+  }
 }
 
 
@@ -279,6 +292,15 @@ object SygusUtils {
     }
     problem.cmds.foreach{ case ConstraintCmd(term) => checkExpr(term, Set()) case _ => () }
   }
+
+  /**
+    * Converts SySuS grammar into SWIM grammar.
+    */
+  def getSwimGrammar(grammarSygus: Seq[(Any, Seq[Any])]): Grammar = {
+    val grammarMap = grammarSygus.toMap
+    val start = if (!grammarMap.contains("Start")) grammarSygus.head._1 else "Start"
+    Grammar.fromMap(start, grammarMap)
+  }
 }
 
 
@@ -313,15 +335,6 @@ object LoadSygusBenchmark {
       case e: Throwable =>
         throw e
     }
-  }
-}
-
-
-object ExtractSygusGrammar {
-  def apply(synthTask: SygusSynthesisTask): Grammar = {
-    val grammarMap = synthTask.grammar.toMap
-    val start = if (!grammarMap.contains("Start")) synthTask.grammar.head._1 else "Start"
-    Grammar.fromMap(start, grammarMap)
   }
 }
 

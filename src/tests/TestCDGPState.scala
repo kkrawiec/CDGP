@@ -1,6 +1,6 @@
 package tests
 
-import cdgp.{CDGPState, GetValueParser, LoadSygusBenchmark, SMTLIBFormatter}
+import cdgp._
 import fuel.util.{CollectorStdout, Options, Rng}
 import org.junit.Test
 import org.junit.Assert._
@@ -221,7 +221,8 @@ final class TestCDGPState {
   def test_checkIfOnlySingleCorrectAnswer_unsat(): Unit = {
     val code = TestCDGPState.scriptMaxRenamedVars
     val problem = LoadSygusBenchmark.parseText(code)
-    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(problem)
+    val synthTask = ExtractSynthesisTasks(problem).head
+    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(synthTask, problem)
     println("query:\n" + query)
     val state = new CDGPState(problem)
     val (decision, output) = state.solver.runSolver(query)
@@ -233,7 +234,8 @@ final class TestCDGPState {
   def test_checkIfOnlySingleCorrectAnswer_sat(): Unit = {
     val code = TestCDGPState.scriptPsuedoMaxRenamedVars
     val problem = LoadSygusBenchmark.parseText(code)
-    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(problem)
+    val synthTask = ExtractSynthesisTasks(problem).head
+    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(synthTask, problem)
     println("query:\n" + query)
     val state = new CDGPState(problem)
     val (decision, output) = state.solver.runSolver(query)

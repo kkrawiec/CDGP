@@ -1,6 +1,6 @@
 package tests
 
-import cdgp.{LoadSygusBenchmark, SMTLIBFormatter, SygusUtils}
+import cdgp.{ExtractSynthesisTasks, LoadSygusBenchmark, SMTLIBFormatter, SygusUtils}
 import org.junit.Test
 import org.junit.Assert._
 
@@ -107,6 +107,47 @@ final class TestSygusUtils {
   }
 
   @Test
+  def testRecursiveSynthFun(): Unit = {
+    val code =
+      """(set-logic LIA)
+(synth-fun funSynth ((a Int) (b Int) (c Int)) Int ((Start Int (a b c (funSynth Start Start Start)))))
+      """
+    val problem = LoadSygusBenchmark.parseText(code)
+    val st = ExtractSynthesisTasks(problem).head
+    assertEquals(true, st.canBeRecursive)
+  }
+
+  @Test
+  def testRecursiveSynthFun2(): Unit = {
+    val code =
+      """(set-logic LIA)
+        |(synth-fun recfun ((a Int)) Int
+        |    ((Start Int (a 0
+        |        (+ Start Start)
+        |        (- Start Start)
+        |        (ite StartBool Start Start)
+        |        (recfun Start)))
+        |     (StartBool Bool (
+        |        (> Start Start)
+        |        (< Start Start)
+        |        (= Start Start)))
+        |    )
+        |)
+        |(declare-var a Int)
+        |(constraint (>= a 0))
+        |(constraint (= (recfun 0) 0))
+        |(constraint (= (recfun (+ a 1)) (+ 1 (recfun a)) ))
+        |(check-synth)
+      """.stripMargin
+    val problem = LoadSygusBenchmark.parseText(code)
+    val st = ExtractSynthesisTasks(problem).head
+    assertEquals(true, st.canBeRecursive)
+    assertEquals("(define-fun-rec recfun ((a Int)) Int (+ (recfun 1) 0))", st.getSynthFunCode("(recfun 1)"))
+    assertEquals("(define-fun recfun ((a Int)) Int (recfun2 1))", st.getSynthFunCode("(recfun2 1)"))
+    assertEquals("(define-fun recfun ((a Int)) Int (+ 1 1))", st.getSynthFunCode("(+ 1 1)"))
+  }
+
+  @Test
   def test_getPreconditions(): Unit = {
     val script =
       """
@@ -141,6 +182,8 @@ final class TestSygusUtils {
     assertEquals(Set("rsconf"), SygusUtils.getPostcondSymbols(problem))
     assertEquals(5, precond.size)
     assertEquals("(>= a 0)", SMTLIBFormatter.nestedProductToString(precond(0)))
+    val st = ExtractSynthesisTasks(problem).head
+    assertEquals(false, st.canBeRecursive)
   }
 
   @Test

@@ -68,7 +68,7 @@ object Main extends FApp {
 
 
     assume(bestOfRun.isDefined, "No solution (optimal or approximate) to the problem was found.")
-    val solutionCode = SMTLIBFormatter.synthTaskSolutionToString(cdgpState.synthTask, bestOfRun.get._1)
+    val solutionCode = SMTLIBFormatter.synthSolutionToString(cdgpState.synthTask, bestOfRun.get._1)
 
     println("\nOPTIMAL SOLUTION:")
     if (isOptimal(bestOfRun.get))

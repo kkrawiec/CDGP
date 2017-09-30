@@ -92,7 +92,7 @@ object MainGecco2017 extends FApp {
   if (synthTasks.size > 1)
     throw new Exception("SKIPPING: Multiple synth-fun commands detected. Cannot handle such problems.")
   val synthTask = synthTasks.head
-  val grammar = ExtractSygusGrammar(synthTask)
+  def grammar = synthTask.grammar
 
   val fv = sygusProblem.cmds.collect { case v: VarDeclCmd => v }
   val getValueCommand = f"(get-value (${fv.map(_.sym).mkString(" ")}))"
@@ -131,7 +131,7 @@ object MainGecco2017 extends FApp {
           if (output == testOutput.get) 0 else 1
         } else {
           // If the desired output is not known yet, use the solver:
-          val checkOnTestCmd = SMTLIBFormatter.checkOnInputAndKnownOutput(sygusProblem, testInputsMap, output,
+          val checkOnTestCmd = SMTLIBFormatter.checkOnInputAndKnownOutput(synthTask, sygusProblem, testInputsMap, output,
                                 solverTimeout=opt('solverTimeout, 0))
           println("\ncheckOnTestCmd:\n" + checkOnTestCmd)
           val (decision, outputData) = solver.runSolver(checkOnTestCmd)
@@ -148,7 +148,7 @@ object MainGecco2017 extends FApp {
   }
   
   def tryToFindOutputForTestCase(test: (I, Option[O])): (I, Option[O]) = {
-    val cmd: String = SMTLIBFormatter.findOutputForTestCase(sygusProblem, test._1,
+    val cmd: String = SMTLIBFormatter.findOutputForTestCase(synthTask, sygusProblem, test._1,
                         solverTimeout=opt('solverTimeout, 0))
     //println("\nSearch cmd:\n" + cmd)
     try {
@@ -189,7 +189,7 @@ object MainGecco2017 extends FApp {
   }
 
   def verify(s: Op): (String, Option[String]) = {
-    val verProblemCmds = SMTLIBFormatter.verifyProblem(sygusProblem, s, solverTimeout=opt('solverTimeout, 0))
+    val verProblemCmds = SMTLIBFormatter.verifyProblem(synthTask, sygusProblem, s, solverTimeout=opt('solverTimeout, 0))
     solver.runSolver(verProblemCmds, getValueCommand)
   }
 
@@ -391,7 +391,7 @@ object MainGecco2017 extends FApp {
 
 
   assume(bestOfRun.isDefined, "No solution (optimal or approximate) to the problem was found.")
-  val solutionCode = SMTLIBFormatter.synthTaskSolutionToString(synthTask, bestOfRun.get._1)
+  val solutionCode = SMTLIBFormatter.synthSolutionToString(synthTask, bestOfRun.get._1)
 
   println("\nOPTIMAL SOLUTION:")
   if (isOptimal(bestOfRun.get)) println(solutionCode) else println("unknown")
