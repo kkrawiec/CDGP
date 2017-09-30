@@ -174,7 +174,7 @@ class CDGPState(sygusProblem: SyGuS16)
     val (dec, model) = solver.runSolver(query, s"(get-value ($declVars res1__2 res2__2))")
     if (dec == "sat") {
       val values = GetValueParser(model.get)
-      if (!silent) println("Example of mulitple answers: " + values)
+      if (!silent) println("Example of multiple correct answers: " + values.mkString(" "))
       Some(false)
     }
     else if (dec == "unsat") Some(true)
