@@ -57,14 +57,16 @@ object Main extends FApp {
     }
 
     val passedTestsRatio = coll.getResult("best.passedTestsRatio").getOrElse("n/a")
-    println("\n\nBest program found:\t\t" + coll.getResult("best").getOrElse("n/a"))
-    println("Evaluation:\t\t\t\t" + coll.getResult("best.eval").getOrElse("n/a"))
-    println("Ratio of passed tests:\t" + passedTestsRatio)
-    println("Tests total:\t\t\t" + cdgpState.testsManager.getNumberOfTests)
-    println("Tests known outputs:\t" + cdgpState.testsManager.getNumberOfKnownOutputs)
-    println("Total solver calls:\t\t" + cdgpState.solver.getNumCalls)
-    println("Total time [s]:\t\t\t" + coll.getResult("totalTimeSystem").get.toString.toInt / 1000.0)
-    println("Log file:\t\t\t\t" + coll.get("thisFileName").get.toString)
+    val pn = 28
+    println("\n")
+    println("Best program found:".padTo(pn, ' ') + coll.getResult("best").getOrElse("n/a"))
+    println("Evaluation:".padTo(pn, ' ') + coll.getResult("best.eval").getOrElse("n/a"))
+    println("Ratio of passed tests:".padTo(pn, ' ') + passedTestsRatio)
+    println("Tests total:".padTo(pn, ' ') + cdgpState.testsManager.getNumberOfTests)
+    println("Tests known outputs:".padTo(pn, ' ') + cdgpState.testsManager.getNumberOfKnownOutputs)
+    println("Total solver calls:".padTo(pn, ' ') + cdgpState.solver.getNumCalls)
+    println("Total time [s]:".padTo(pn, ' ') + coll.getResult("totalTimeSystem").get.toString.toInt / 1000.0)
+    println("Log file:".padTo(pn, ' ') + coll.get("thisFileName").get.toString)
 
 
     assume(bestOfRun.isDefined, "No solution (optimal or approximate) to the problem was found.")

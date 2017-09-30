@@ -142,7 +142,7 @@ final class TestSygusUtils {
     val problem = LoadSygusBenchmark.parseText(code)
     val st = ExtractSynthesisTasks(problem).head
     assertEquals(true, st.canBeRecursive)
-    assertEquals("(define-fun-rec recfun ((a Int)) Int (+ (recfun 1) 0))", st.getSynthFunCode("(recfun 1)"))
+    assertEquals("(define-fun-rec recfun ((a Int)) Int (recfun 1))", st.getSynthFunCode("(recfun 1)"))
     assertEquals("(define-fun recfun ((a Int)) Int (recfun2 1))", st.getSynthFunCode("(recfun2 1)"))
     assertEquals("(define-fun recfun ((a Int)) Int (+ 1 1))", st.getSynthFunCode("(+ 1 1)"))
   }

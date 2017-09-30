@@ -36,8 +36,7 @@ case class SygusSynthesisTask(fname: String,
     val isRecursive = canBeRecursive && programBody.split("\\(|\\)|\\s+").contains(fname)
     val defFun = if (isRecursive) "define-fun-rec" else "define-fun"
     val sfArgs = SMTLIBFormatter.synthFunArgsToString(arguments)
-    val body = if (isRecursive) s"(+ $programBody 0)" else programBody
-    f"($defFun $fname ($sfArgs) ${SMTLIBFormatter.sortToString(outputType)} $body)"
+    f"($defFun $fname ($sfArgs) ${SMTLIBFormatter.sortToString(outputType)} $programBody)"
   }
 }
 
