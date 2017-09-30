@@ -172,7 +172,7 @@ object TestSolverOpenConnection extends FApp {
 
 class SolverManager(path: String, args: Option[String] = None, verbose: Boolean = false)
                    (implicit opt: Options, coll: Collector) {
-  private val maxSolverRestarts: Int = opt('maxSolverRestarts, 5)
+  private val maxSolverRestarts: Int = opt('maxSolverRestarts, 1)
   private val solverInteractive: Boolean = opt('solverInteractive, true)
   private val solverType: String = opt('solverType, "z3")
   assert(solverType == "z3" || solverType == "cvc4", "Invalid solver type! --solverType argument accepts values: 'z3', 'cvc4'.")

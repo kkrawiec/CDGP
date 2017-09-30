@@ -24,6 +24,12 @@ class TestGetValueParser {
     GetValueParser(""" ((x (- 7787))
       (y (- ERROR)))""")
   }
+
+  @Test
+  def testComplex(): Unit = {
+    val res = GetValueParser("""((a 15) (b 14) (c 3) (d 0) (res1__2a (- 16)) (res2__2a (- 32)))""")
+    assertEquals(Map("a"->15, "b"->14, "c"->3, "d"->0, "res1__2a"->(-16), "res2__2a"->(-32)), res.toMap)
+  }
 }
 
 

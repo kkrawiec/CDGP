@@ -57,7 +57,7 @@ object Main extends FApp {
     }
 
     val passedTestsRatio = coll.getResult("best.passedTestsRatio").getOrElse("n/a")
-    val pn = 28
+    val pn = 26
     println("\n")
     println("Best program found:".padTo(pn, ' ') + coll.getResult("best").getOrElse("n/a"))
     println("Evaluation:".padTo(pn, ' ') + coll.getResult("best.eval").getOrElse("n/a"))

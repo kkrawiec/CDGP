@@ -170,8 +170,13 @@ class CDGPState(sygusProblem: SyGuS16)
   def hasSingleAnswerForEveryInput(problem: SyGuS16): Option[Boolean] = {
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(synthTask, problem)
     // println("\nQuery checkIfSingleAnswerForEveryInput:\n" + query)
-    val (dec, _) = solver.runSolver(query)
-    if (dec == "sat") Some(false)
+    val declVars = SygusUtils.getDeclaredVarNames(problem).mkString(" ")
+    val (dec, model) = solver.runSolver(query, s"(get-value ($declVars res1__2 res2__2))")
+    if (dec == "sat") {
+      val values = GetValueParser(model.get)
+      if (!silent) println("Example of mulitple answers: " + values)
+      Some(false)
+    }
     else if (dec == "unsat") Some(true)
     else None
   }

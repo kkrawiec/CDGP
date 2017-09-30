@@ -148,6 +148,10 @@ object SygusUtils {
     problem.cmds.collect{ case FunDeclCmd(name, _, _) => name}.toSet
   }
 
+  def getDeclaredVarNames(problem: SyGuS16): Set[String] = {
+    problem.cmds.collect{ case VarDeclCmd(name, _) => name}.toSet
+  }
+
   /**
     * Returns a map assigning to each symbol symbols it is dependent on. This is later
     * used to establish, if a certain constraint belongs to preconditions or postconditions.

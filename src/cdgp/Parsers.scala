@@ -12,7 +12,7 @@ case class ValueParseException(msg: String) extends RuntimeException(msg)
  * TODO: Extend with other types (for now only Int)
  */
 object GetValueParser extends RegexParsers {
-  val varName: Parser[String] = """[A-Za-z]+[0-9]*""".r
+  val varName: Parser[String] = """[A-Za-z_]+[A-Za-z0-9_]*""".r
   
   def posNumber: Parser[Int] = """(0|[1-9]\d*)""".r ^^ { _.toInt }
   def negNumber: Parser[Int] = "(-" ~> number ~ ")" ^^ { case a ~ _ => -a }
