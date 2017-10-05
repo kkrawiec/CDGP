@@ -1,6 +1,6 @@
 package tests
 
-import cdgp.{PropertiesParser, Tools}
+import cdgp.Tools
 import org.junit.Test
 import org.junit.Assert._
 
