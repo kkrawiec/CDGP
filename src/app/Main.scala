@@ -3,7 +3,7 @@ package app
 import java.io.{File, PrintWriter, StringWriter}
 
 import fuel.func.RunExperiment
-import fuel.util.{CollectorFile, Options, Rng}
+import fuel.util.{CollectorFile, Options, OptionsMap, Rng}
 import swim.tree.Op
 import cdgp._
 
@@ -20,10 +20,11 @@ import cdgp._
 object Main {
   def getOptions(args: Array[String]): Options = {
     val opt = Options(args)
-    if (opt.getOption("loadOptionsFromLog").isDefined) {
-      println("Options loaded from log file: " + opt.paramString("loadOptionsFromLog"))
-      val text = scala.io.Source.fromFile(new File(opt.getOption("loadOptionsFromLog").get)).mkString
-      Tools.parsePropertiesFile(text)
+    if (opt.getOption("loadOptionsFromFile").isDefined) {
+      println("Options loaded from file: " + opt.paramString("loadOptionsFromFile"))
+      val text = scala.io.Source.fromFile(new File(opt.getOption("loadOptionsFromFile").get)).mkString
+      val opt2 = Tools.parsePropertiesFile(text)
+      new OptionsMap(opt2.allOptions.filter{ case (k, v) => !k.startsWith("result") })
     }
     else opt
   }
@@ -38,26 +39,25 @@ object Main {
       val cdgpState = CDGPState(benchmark)
 
       val (res, bestOfRun) = opt('searchAlgorithm) match {
-        case "GP" => {
+        case "GP" =>
           val alg = CDGPGenerational(cdgpState)
           val finalPop = RunExperiment(alg)
           (finalPop, alg.bsf.bestSoFar)
-        }
-        case "GPSteadyState" => {
+
+        case "GPSteadyState" =>
           val alg = CDGPSteadyState(cdgpState)
           val finalPop = RunExperiment(alg)
           (finalPop, alg.bsf.bestSoFar)
-        }
-        case "Lexicase" => {
+
+        case "Lexicase" =>
           val alg = CDGPGenerationalLexicase(cdgpState)
           val finalPop = RunExperiment(alg)
           (finalPop, alg.bsf.bestSoFar)
-        }
-        case "LexicaseSteadyState" => {
+
+        case "LexicaseSteadyState" =>
           val alg = CDGPSteadyStateLexicase(cdgpState)
           val finalPop = RunExperiment(alg)
           (finalPop, alg.bsf.bestSoFar)
-        }
       }
       coll.saveSnapshot("cdgp")
 
