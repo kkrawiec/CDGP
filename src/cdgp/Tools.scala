@@ -5,22 +5,8 @@ import java.io.File
 import fuel.util.{Options, OptionsMap}
 
 
-class ParseErrorException(message: String = "", cause: Throwable = null)
-  extends Exception(message, cause)
-
 
 object Tools {
-  def parsePropertiesFile(text: String): Options = {
-    val m = text.split("\n").collect{ case line if line.trim.nonEmpty =>
-        if (!line.contains('='))
-          throw new ParseErrorException("Wrong format of the properties file.")
-        val pos = line.indexOf('=')
-        val (name, value) = line.splitAt(pos)
-        (name.trim, value.drop(1).trim)
-    }.toMap
-    new OptionsMap(m)
-  }
-
   // From Jerry's library:
   def getRecursiveListOfFiles(dir: File): List[File] = {
     val these = dir.listFiles.toList

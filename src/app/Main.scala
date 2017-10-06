@@ -22,9 +22,8 @@ object Main {
     val opt = Options(args)
     if (opt.getOption("loadOptionsFromFile").isDefined) {
       println("Options loaded from file: " + opt.paramString("loadOptionsFromFile"))
-      val text = scala.io.Source.fromFile(new File(opt.getOption("loadOptionsFromFile").get)).mkString
-      val opt2 = Tools.parsePropertiesFile(text)
-      new OptionsMap(opt2.allOptions.filter{ case (k, v) => !k.startsWith("result") })
+      val tmp = Options.loadFromFile(new File(opt.getOption("loadOptionsFromFile").get))
+      new OptionsMap(tmp.allOptions.filter{ case (k, v) => !k.startsWith("result") })
     }
     else opt
   }
