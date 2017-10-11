@@ -241,4 +241,44 @@ final class TestCDGPState {
     val (decision, output) = state.solver.runSolver(query)
     assertEquals("sat", decision)
   }
+
+  @Test
+  def test_createRandomTest(): Unit = {
+    val code =
+      """(set-logic LIA)
+        |(synth-fun f ( (w Int)(x Int)(y Int)(z Int)) Int )
+        |(declare-var a Int)
+        |(constraint (= (f a a 4 4) (+ (* 2 a) 8)))
+        |(check-synth)
+      """.stripMargin
+    val problem = LoadSygusBenchmark.parseText(code)
+    val state = new CDGPState(problem)
+    val test = state.createRandomTest()
+    val test2 = (test._1.map{ case (k, v) => (k, if (k == "4") 4 else 1)}, test._2)
+    assertEquals(Map("a"->1), test2._1)
+    println(s"Test: $test")
+    val testInputs = state.modelToSynthFunInputs(test2._1)
+    assertEquals(Seq("a", "a", "4", "4"), state.invocations.head)
+    assertEquals(Map("w"->1, "x"->1, "y"->4, "z"->4), testInputs)
+  }
+
+  @Test
+  def test_createTestFromFailedVerification(): Unit = {
+    val code =
+      """(set-logic LIA)
+        |(synth-fun f ( (w Int)(x Int)(y Int)(z Int)) Int )
+        |(declare-var a Int)
+        |(constraint (= (f a a 4 4) (+ (* 2 a) 8)))
+        |(check-synth)
+      """.stripMargin
+    val problem = LoadSygusBenchmark.parseText(code)
+    val state = new CDGPState(problem)
+    val solverOut = "((a 1))"
+    val test = state.createTestFromFailedVerification(solverOut)
+    println(s"Test: $test")
+    val testModel = GetValueParser(solverOut).toMap
+    val testInputs = state.modelToSynthFunInputs(testModel)
+    assertEquals(Seq("a", "a", "4", "4"), state.invocations.head)
+    assertEquals(Map("w"->1, "x"->1, "y"->4, "z"->4), testInputs)
+  }
 }

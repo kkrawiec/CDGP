@@ -106,8 +106,8 @@ object SygusUtils {
     * will lead to the result:
     *   Map(x -> -54, y -> 300)
     */
-  def renameVars(testInputsMap: Map[String, Any], synFunArgNames: Seq[String],
-                 invNames: Seq[String]): Map[String, Any] = {
+  def renameVars(testInputsMap: Map[String, Any], invNames: Seq[String],
+                 synFunArgNames: Seq[String]): Map[String, Any] = {
     invNames.zip(synFunArgNames).map{
       case (invName, stName) =>  // invName potentially may be a constant
         (stName, testInputsMap.getOrElse(invName, ConstParser(invName)))
@@ -179,6 +179,15 @@ object SygusUtils {
       case LetTerm(list, term) => collectFreeVars(term, boundVars ++ list.map(_._1))
       case _ => Set()
     }
+  }
+
+  /**
+    * Collects names of all free variables in the constraint commands.
+    */
+  def collectFreeVars(cmds: Seq[Cmd]): Set[String] = {
+    cmds.collect {
+      case ConstraintCmd(t) => collectFreeVars(t)
+    }.foldRight(Set[String]()){ (a, b) => a ++ b }
   }
 
   /**

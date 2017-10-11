@@ -45,7 +45,7 @@ class CDGPState(sygusProblem: SyGuS16)
   val invocations: Seq[Seq[String]] = SygusUtils.getSynthFunsInvocationsInfo(sygusProblem, synthTask.fname)
   def grammar: Grammar = synthTask.grammar
   val varDecls: List[VarDeclCmd] = sygusProblem.cmds.collect { case v: VarDeclCmd => v }
-
+  val varDeclsNames: Set[String] = varDecls.map(_.sym).toSet
 
   /*
    * Depending on the properties of the problem, CDGPState will switch between using
@@ -129,8 +129,8 @@ class CDGPState(sygusProblem: SyGuS16)
     * single answer for the problem being solved in 'solver' mode.
     */
   def evalOnTestsSolver(s: Op, test: (I, Option[O])): Int = {
-    val testInputsMap: Map[String, Any] = test._1
-    val (dec, _) = checkOnInputOnly(s, testInputsMap)
+    val testModel: Map[String, Any] = test._1
+    val (dec, _) = checkOnInputOnly(s, testModel)
     if (dec == "sat") 0 else 1
   }
 
@@ -147,21 +147,27 @@ class CDGPState(sygusProblem: SyGuS16)
     * They will be renamed for those in the function's declaration.
     */
   def evalOnTestsDomain(s: Op, test: (I, Option[O])): Int = {
-    val testInputsMap: Map[String, Any] = test._1
+    val testModel: Map[String, Any] = test._1
     val testOutput: Option[Any] = test._2
-    val testInputsRenamed = SygusUtils.renameVars(testInputsMap, synthTask.argNames, invocations.head)
+    val testInputsRenamed = modelToSynthFunInputs(testModel)
     val output = LIA(s)(testInputsRenamed) // TODO: implement domains other than LIA
     if (testOutput.isDefined) {
       if (output == testOutput.get) 0 else 1
     }
     else {
-      val (dec, _) = checkOnInputAndKnownOutput(s, testInputsMap, output)
+      val (dec, _) = checkOnInputAndKnownOutput(s, testModel, output)
       if (dec == "sat")
-        testsManager.updateTest((testInputsMap, Some(output)))
+        testsManager.updateTest((testModel, Some(output)))
       if (dec == "sat") 0 else 1
     }
   }
 
+  /**
+    * Transforms a model returned by the solver to a mapping from synth-fun argument name
+    * to value derived from the model.
+    */
+  def modelToSynthFunInputs(testModel: Map[String, Any]): Map[String, Any] =
+    SygusUtils.renameVars(testModel, invocations.head, synthTask.argNames)
 
 
   ///////  Interactions with the solver  ///////
@@ -173,7 +179,7 @@ class CDGPState(sygusProblem: SyGuS16)
   def hasSingleAnswerForEveryInput(problem: SyGuS16): Option[Boolean] = {
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(synthTask, problem)
     // println("\nQuery checkIfSingleAnswerForEveryInput:\n" + query)
-    val declVars = SygusUtils.getDeclaredVarNames(problem).mkString(" ")
+    val declVars = varDeclsNames.mkString(" ")
     val (dec, model) = solver.runSolver(query, s"(get-value ($declVars res1__2 res2__2))")
     if (dec == "sat") {
       val values = GetValueParser(model.get)
@@ -194,8 +200,8 @@ class CDGPState(sygusProblem: SyGuS16)
   }
 
   def checkOnInputOnly(s: Op,
-                       testInputsMap: Map[String, Any]): (String, Option[String]) = {
-    val query = SMTLIBFormatter.checkOnInput(synthTask, sygusProblem, testInputsMap, s, timeout)
+                       testModel: Map[String, Any]): (String, Option[String]) = {
+    val query = SMTLIBFormatter.checkOnInput(synthTask, sygusProblem, testModel, s, timeout)
     // println("\nQuery checkOnInputOnly:\n" + query)
     solver.runSolver(query)
   }
@@ -203,7 +209,7 @@ class CDGPState(sygusProblem: SyGuS16)
   def verify(s: Op): (String, Option[String]) = {
     val query = SMTLIBFormatter.verify(synthTask, sygusProblem, s, pre, post, timeout)
     // println("\nQuery verify:\n" + query)
-    val getValueCommand = f"(get-value (${varDecls.map(_.sym).mkString(" ")}))"
+    val getValueCommand = f"(get-value (${varDeclsNames.mkString(" ")}))"
     solver.runSolver(query, getValueCommand)
   }
 
@@ -233,8 +239,8 @@ class CDGPState(sygusProblem: SyGuS16)
 
 
   def createTestFromFailedVerification(verOutput: String): (Map[String, Any], Option[Any]) = {
-    val counterExample = GetValueParser(verOutput) // returns the counterexample
-    val testNoOutput = (counterExample.toMap, None) // for this test currently the correct answer is not known
+    val testModel = GetValueParser(verOutput)  // parse model returned by solver
+    val testNoOutput = (testModel.toMap, None)  // for this test currently the correct answer is not known
     if (useDomainToComputeFitness)
       findOutputForTestCase(testNoOutput)
     else
@@ -242,8 +248,7 @@ class CDGPState(sygusProblem: SyGuS16)
   }
 
   def createRandomTest(): (Map[String, Any], Option[Any]) = {
-    def argNames = invocations.head
-    val example = argNames.map(a => (a, GPRminInt + rng.nextInt(GPRmaxInt+1-GPRminInt)))
+    val example = varDeclsNames.map(a => (a, GPRminInt + rng.nextInt(GPRmaxInt+1-GPRminInt)))
     val testNoOutput = (example.toMap, None) // for this test currently the correct answer is not known
     if (useDomainToComputeFitness)
       findOutputForTestCase(testNoOutput)

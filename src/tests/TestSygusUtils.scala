@@ -187,6 +187,44 @@ final class TestSygusUtils {
   }
 
   @Test
+  def test_collectFreeVars1(): Unit = {
+    val code = """(set-logic LIA)
+(synth-fun funSynth ((a Int) (b Int) (c Int)) Int ((Start Int (a b c))))
+(declare-var d Int)
+(declare-var c Int)
+(declare-var b Int)
+(declare-var a Int)
+(constraint (> d 0))
+(constraint (=> (= (- b a) (- c b)) (= (funSynth a b c) 1)))
+(constraint (=> (not (= (- b a) (- c b))) (= (funSynth a b c) 0)))
+(check-synth)"""
+    val problem = LoadSygusBenchmark.parseText(code)
+    val precond = SygusUtils.getPreconditions(problem)
+    val postcond = SygusUtils.getPostconditions(problem)
+    assertEquals(Set("a", "b", "c"), SygusUtils.collectFreeVars(postcond))
+    assertEquals(Set("d"), SygusUtils.collectFreeVars(precond))
+  }
+
+  @Test
+  def test_collectFreeVars2(): Unit = {
+    val code = """(set-logic LIA)
+(synth-fun funSynth ((a Int) (b Int) (c Int)) Int ((Start Int (a b c))))
+(declare-fun fun_d () Int)
+(define-fun fun_e () Int 5)
+(declare-var c Int)
+(declare-var b Int)
+(declare-var a Int)
+(constraint (=> (= (- b a) (- c b)) (= (funSynth a fun_e fun_d) 1)))
+(constraint (=> (not (= (- b a) (- c b))) (= (funSynth a fun_e fun_d) 0)))
+(check-synth)"""
+    val problem = LoadSygusBenchmark.parseText(code)
+    val precond = SygusUtils.getPreconditions(problem)
+    val postcond = SygusUtils.getPostconditions(problem)
+    assertEquals(Set("a", "b", "c", "fun_d", "fun_e"), SygusUtils.collectFreeVars(postcond))
+    assertEquals(Set(), SygusUtils.collectFreeVars(precond))
+  }
+
+  @Test
   def test_getPostcondSymbols(): Unit = {
     assertEquals(Set("a", "b", "f2", "f1"), SygusUtils.getPostcondSymbols(
       Set("a", "b"), Map("f1"->Set("x", "y", "f2"), "f2"->Set("a", "x", "+"))))
@@ -199,7 +237,7 @@ final class TestSygusUtils {
     val testInputsMap = Map("x" -> -54)
     val synFunArgNames = List("x", "y")
     val invNames = List("x")
-    assertEquals(Map("x" -> -54), SygusUtils.renameVars(testInputsMap, synFunArgNames, invNames))
+    assertEquals(Map("x" -> -54), SygusUtils.renameVars(testInputsMap, invNames, synFunArgNames))
   }
 
   @Test
@@ -207,6 +245,6 @@ final class TestSygusUtils {
     val testInputsMap = Map("a" -> -54, "b" -> 2)
     val synFunArgNames = List("x", "y")
     val invNames = List("a", "300")
-    assertEquals(Map("x" -> -54, "y" -> 300), SygusUtils.renameVars(testInputsMap, synFunArgNames, invNames))
+    assertEquals(Map("x" -> -54, "y" -> 300), SygusUtils.renameVars(testInputsMap, invNames, synFunArgNames))
   }
 }
