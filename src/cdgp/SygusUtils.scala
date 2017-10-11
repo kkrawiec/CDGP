@@ -98,10 +98,17 @@ object SygusUtils {
     *   (declare-var a Int)
     *   (declare-var b Int)
     *   (constraint (=> (= (- b a) (- c b)) (= (synthFun a b) 1)))
+    *
+    * For example:
+    *   testInputsMap: Map(a -> -54, b -> 2)
+    *   synFunArgNames: List(x, y)
+    *   invNames: List(a, 300)
+    * will lead to the result:
+    *   Map(x -> -54, y -> 300)
     */
   def renameVars(testInputsMap: Map[String, Any], synFunArgNames: Seq[String],
-                 inv: Seq[String]): Map[String, Any] = {
-    inv.zip(synFunArgNames).map{
+                 invNames: Seq[String]): Map[String, Any] = {
+    invNames.zip(synFunArgNames).map{
       case (invName, stName) =>  // invName potentially may be a constant
         (stName, testInputsMap.getOrElse(invName, ConstParser(invName)))
     }.toMap

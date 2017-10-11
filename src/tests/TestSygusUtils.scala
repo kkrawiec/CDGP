@@ -193,4 +193,20 @@ final class TestSygusUtils {
     assertEquals(Set("a", "b"), SygusUtils.getPostcondSymbols(
       Set("a", "b"), Map("f1"->Set("x", "y"))))
   }
+
+  @Test
+  def test_renameVars1(): Unit = {
+    val testInputsMap = Map("x" -> -54)
+    val synFunArgNames = List("x", "y")
+    val invNames = List("x")
+    assertEquals(Map("x" -> -54), SygusUtils.renameVars(testInputsMap, synFunArgNames, invNames))
+  }
+
+  @Test
+  def test_renameVars2(): Unit = {
+    val testInputsMap = Map("a" -> -54, "b" -> 2)
+    val synFunArgNames = List("x", "y")
+    val invNames = List("a", "300")
+    assertEquals(Map("x" -> -54, "y" -> 300), SygusUtils.renameVars(testInputsMap, synFunArgNames, invNames))
+  }
 }

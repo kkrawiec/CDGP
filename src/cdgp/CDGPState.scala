@@ -142,6 +142,9 @@ class CDGPState(sygusProblem: SyGuS16)
     * If test don't have defined expected answer, then the program's output is verified
     * by the solver for consistency with the specification. The test will be updated if
     * this output is deemed consistent by the solver.
+    *
+    * Names of variables in test should be the same as those as in the function's invocation.
+    * They will be renamed for those in the function's declaration.
     */
   def evalOnTestsDomain(s: Op, test: (I, Option[O])): Int = {
     val testInputsMap: Map[String, Any] = test._1
@@ -238,12 +241,14 @@ class CDGPState(sygusProblem: SyGuS16)
       testNoOutput
   }
 
-  def createRandomTest(verOutput: String): (Map[String, Any], Option[Any]) = {
-    // The only reason to call the parser here is to get the right argument names:
-    val argNames = GetValueParser(verOutput).unzip._1
-    val example = argNames.map(argName => (argName, GPRminInt + rng.nextInt(GPRmaxInt+1-GPRminInt)))
+  def createRandomTest(): (Map[String, Any], Option[Any]) = {
+    def argNames = invocations.head
+    val example = argNames.map(a => (a, GPRminInt + rng.nextInt(GPRmaxInt+1-GPRminInt)))
     val testNoOutput = (example.toMap, None) // for this test currently the correct answer is not known
-    findOutputForTestCase(testNoOutput)
+    if (useDomainToComputeFitness)
+      findOutputForTestCase(testNoOutput)
+    else
+      testNoOutput
   }
 
   /**
@@ -281,12 +286,19 @@ class CDGPState(sygusProblem: SyGuS16)
           (false, evalTests)
         else {
           val (decision, r) = verify(s)
-          if (decision == "unsat") (true, evalTests) // perfect program found; end of run
-          else {
+          if (decision == "unsat")
+            (true, evalTests)  // perfect program found; end of run
+          else if (decision == "sat") {
             if (!CDGPoneTestPerIter || testsManager.newTests.isEmpty) {
               val newTest = createTestFromFailedVerification(r.get)
               testsManager.addNewTest(newTest)
             }
+            (false, evalTests)
+          }
+          else {
+            // The 'unknown' or 'timeout' solver's decision. Program potentially may be the optimal
+            // solution, but solver is not able to verify this. We proceed by adding no new tests
+            // and treating the program as incorrect.
             (false, evalTests)
           }
         }
@@ -295,24 +307,35 @@ class CDGPState(sygusProblem: SyGuS16)
 
   def fitnessGPR: Op => (Boolean, Seq[Int]) = {
     new Function1[Op, (Boolean, Seq[Int])] {
-      def doVerify(evalTests: Seq[Int]): Boolean = {
+      def doSearchForCounterexample(evalTests: Seq[Int]): Boolean = {
         val numPassed = evalTests.count(_ == 0).asInstanceOf[Double]
         (numPassed / evalTests.size) >= GPRtestsRatio || evalTests.isEmpty
       }
+      def allTestsPassed(evalTests: Seq[Int]): Boolean =
+        evalTests.count(_ == 0) == evalTests.size
+      def generateAndAddRandomTest(): Unit = {
+        if (!GPRoneTestPerIter || testsManager.newTests.isEmpty) {
+          val newTest = createRandomTest()
+          testsManager.addNewTest(newTest)
+        }
+      }
       def apply(s: Op) = {
         val evalTests = evalOnTests(s, testsManager.getTests())
-        if (!doVerify(evalTests))
+        if (!doSearchForCounterexample(evalTests))
           (false, evalTests)
-        else {
-          val (decision, r) = verify(s)
-          if (decision == "unsat") (true, evalTests) // perfect program found; end of run
+        else if (allTestsPassed(evalTests)) {
+          // program passes all tests - verify if it is correct
+          val (decision, _) = verify(s)
+          if (decision == "unsat")
+            (true, evalTests)  // perfect program found; end of run
           else {
-            if (!GPRoneTestPerIter || testsManager.newTests.isEmpty) {
-              val newTest = createRandomTest(r.get)
-              testsManager.addNewTest(newTest)
-            }
+            generateAndAddRandomTest()  // program incorrect; generate random test
             (false, evalTests)
           }
+        }
+        else {  // program passes enough tests but not all - generate random counterexample
+          generateAndAddRandomTest()
+          (false, evalTests)
         }
       }
     }
