@@ -48,7 +48,7 @@ object CDGPGenerational {
   def apply(cdgpState: CDGPState)
            (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerational = {
     implicit val ordering = FIntOrdering
-    val moves = GPMoves(cdgpState.grammar, SimpleGP.defaultFeasible)
+    val moves = GPMoves(cdgpState.grammar, Common.isFeasible(cdgpState.synthTask.fname, opt))
     val cdgpEval = new CDGPEvaluation[Op, FInt](cdgpState, Common.evalInt(cdgpState.fitness))
     new CDGPGenerational(moves, cdgpEval)
   }
@@ -91,7 +91,7 @@ object CDGPSteadyState {
   def apply(cdgpState: CDGPState)
            (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyState = {
     implicit val ordering = FIntOrdering
-    val moves = GPMoves(cdgpState.grammar, SimpleGP.defaultFeasible)
+    val moves = GPMoves(cdgpState.grammar, Common.isFeasible(cdgpState.synthTask.fname, opt))
     val cdgpEval = new CDGPEvaluationSteadyState[Op, FInt](cdgpState, Common.evalInt(cdgpState.fitness),
       cdgpState.updateEvalInt)
     new CDGPSteadyState(moves, cdgpEval)
@@ -136,7 +136,7 @@ object CDGPGenerationalLexicase {
   def apply(cdgpState: CDGPState)
            (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalLexicase = {
     implicit val ordering = FSeqIntOrdering
-    val moves = GPMoves(cdgpState.grammar, SimpleGP.defaultFeasible)
+    val moves = GPMoves(cdgpState.grammar, Common.isFeasible(cdgpState.synthTask.fname, opt))
     val cdgpEval = new CDGPEvaluation[Op, FSeqInt](cdgpState, Common.evalSeqInt(cdgpState.fitness))
     new CDGPGenerationalLexicase(moves, cdgpEval)
   }
@@ -167,9 +167,9 @@ class CDGPSteadyStateLexicase(moves: GPMoves,
                              (implicit opt: Options, coll: Collector, rng: TRandom,
                               ordering: Ordering[FSeqInt])
       extends SteadyStateEA[Op, FSeqInt](moves, cdgpEval.eval,
-                                          Common.correctSeqInt,
-                                          CDGPSteadyStateLexicase.getSelection(),
-                                          CDGPSteadyStateLexicase.getDeselection()) {
+                                         Common.correctSeqInt,
+                                         CDGPSteadyStateLexicase.getSelection(),
+                                         CDGPSteadyStateLexicase.getDeselection()) {
   override def initialize  = super.initialize
   override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests
   override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalSeqInt(cdgpEval.state, bsf)
@@ -191,7 +191,7 @@ object CDGPSteadyStateLexicase {
   def apply(cdgpState: CDGPState)
            (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyStateLexicase = {
     implicit val ordering = FSeqIntOrdering
-    val moves = GPMoves(cdgpState.grammar, SimpleGP.defaultFeasible)
+    val moves = GPMoves(cdgpState.grammar, Common.isFeasible(cdgpState.synthTask.fname, opt))
     val cdgpEval = new CDGPEvaluationSteadyState[Op, FSeqInt](cdgpState, Common.evalSeqInt(cdgpState.fitness),
       cdgpState.updateEvalSeqInt)
     new CDGPSteadyStateLexicase(moves, cdgpEval)
@@ -206,6 +206,12 @@ object Common {
     (_: Any, e: FInt) => e.correct
   def correctSeqInt: (Any, FSeqInt) => Boolean =
     (_: Any, e: FSeqInt) => e.correct
+
+  def isFeasible(rootFunName: String, opt: Options)(op: Op): Boolean = {
+    if (op.count(rootFunName) <= opt.paramInt("maxRecursiveCalls", 1))
+      SimpleGP.defaultFeasible(opt)(op)
+    else false
+  }
 
   def evalInt(fitness: (Op) => (Boolean, Seq[Int]))(s: Op): FInt = {
     val (isPerfect, r) = fitness(s)
