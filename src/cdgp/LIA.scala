@@ -1,12 +1,12 @@
 package cdgp
 
-import swim.Domain
-import swim.tree.Op
-import scala.collection.immutable.Map
-import scala.collection.immutable.Seq
+import swim.RecursiveDomain
+import scala.collection.Seq
 
 
-case object LIA extends Domain[Map[String, Any], Any, Op] {
+class LIA(val funArgsNames: Seq[String], funName: String, recDepth: Int = 100)
+  extends RecursiveDomain[Any, Any](funArgsNames.size, recDepth, recSymbol = funName, iteSymbol = "ite") {
+
   def divide(m: Int, n: Int, smtlibSem: Boolean = true): Int = {
     if (n == 0) throw new Exception("Division by 0 during evaluation!")
     if (smtlibSem) {
@@ -46,39 +46,44 @@ case object LIA extends Domain[Map[String, Any], Any, Op] {
       m % n
   }
 
-  override def semantics(input: Map[String, Any]) = {
-    new Function1[Op, Any] {
-      def apply(op: Op): Any = {
-        // Needs toList (otherwise ArrayBuffer, which doesn't work with patter matching)
-        val childRes = op.args.toSeq.map(c => apply(c)).toList
-        childRes.+:(op.op) match {
-          case Seq("+", x: Int, y: Int)               => x + y
-          case Seq("-", x: Int)                       => -x
-          case Seq("-", x: Int, y: Int)               => x - y
-          case Seq("*", x: Int, y: Int)               => x * y  // in LIA x or y must be a constant
-          case Seq("div", x: Int, y: Int)             => divide(x, y)
-          case Seq("mod", x: Int, y: Int)             => modulo(x, y)
-          case Seq("abs", x: Int)                     => if (x >= 0) x else -x
-          case Seq("<", x: Int, y: Int)               => x < y
-          case Seq("<=", x: Int, y: Int)              => x <= y
-          case Seq(">", x: Int, y: Int)               => x > y
-          case Seq(">=", x: Int, y: Int)              => x >= y
-          case Seq("ite", b: Boolean, x: Int, y: Int) => if (b) x else y
-          case Seq("and", a: Boolean, b: Boolean)     => a && b
-          case Seq("or", a: Boolean, b: Boolean)      => a || b
-          case Seq("xor", a: Boolean, b: Boolean)     => a ^ b
-          case Seq("=>", a: Boolean, b: Boolean)      => !a || b
-          case Seq("not", b: Boolean)                 => !b
-          case Seq(s: String)                         => input(s)
-          case Seq(v: Int)                            => v
-          case Seq(v: Boolean)                        => v //?
-          case Seq("=", x: Any, y: Any)               => x == y
-          case Seq("distinct", a: Any, b: Any)        => a != b
-          case Seq(s: Symbol)                         => throw new Exception("In evaluation Symbols for op names are not supported. Use Strings instead. ")
-          case instr @ _                              => throw new Exception("Invalid instruction: " + instr)
-        }
-      }
+  override def operationalSemantics(input: Seq[Any])(childRes: Seq[Any]): Any = {
+    childRes match {
+      case Seq("+", x: Int, y: Int)                => x + y
+      case Seq("-", x: Int)                        => -x
+      case Seq("-", x: Int, y: Int)                => x - y
+      case Seq("*", x: Int, y: Int)                => x * y  // in LIA x or y must be a constant
+      case Seq("div", x: Int, y: Int)              => divide(x, y)
+      case Seq("mod", x: Int, y: Int)              => modulo(x, y)
+      case Seq("abs", x: Int)                      => if (x >= 0) x else -x
+      case Seq("<", x: Int, y: Int)                => x < y
+      case Seq("<=", x: Int, y: Int)               => x <= y
+      case Seq(">", x: Int, y: Int)                => x > y
+      case Seq(">=", x: Int, y: Int)               => x >= y
+      // ite is handled specially by the RecursiveDomain
+      // case Seq('ite, b: Boolean, x: Int, y: Int) => if (b) x else y
+      case Seq("and", a: Boolean, b: Boolean)      => a && b
+      case Seq("or", a: Boolean, b: Boolean)       => a || b
+      case Seq("xor", a: Boolean, b: Boolean)      => a ^ b
+      case Seq("=>", a: Boolean, b: Boolean)       => !a || b
+      case Seq("not", b: Boolean)                  => !b
+      case Seq(s: String) if funArgsNames.contains(s) =>
+        val i = funArgsNames.indexOf(s)
+        if (i == -1) throw new Exception("Unrecognized variable name!")
+        input(i)
+      case Seq(s: String)                          => s // String constant
+      case Seq(v: Int)                             => v
+      case Seq(v: Boolean)                         => v
+      case Seq("=", x: Any, y: Any)                => x == y
+      case Seq("distinct", a: Any, b: Any)         => a != b
+      case Seq(_: Symbol, xs@_*)                   =>
+        throw new Exception("In evaluation Symbols for op names are not supported. Use Strings instead. ")
+      case instr @ _                             => throw new Exception("Invalid instruction: " + instr)
     }
   }
 }
 
+
+object LIA {
+  def apply(funArgsNames: Seq[String], funName: String, recDepth: Int = 100) =
+    new LIA(funArgsNames, funName, recDepth)
+}

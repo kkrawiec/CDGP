@@ -18,14 +18,14 @@ class UnsupportedFeatureException(message: String = "", cause: Throwable = null)
   * read from the SyGuS file.
   * @param fname Name of the function being synthesized.
   * @param grammarSygus Grammar specifying the form of allowed programs.
-  * @param arguments Arguments of the function.
+  * @param args Arguments of the function.
   * @param outputType Output type of the function.
   */
 case class SygusSynthesisTask(fname: String,
                               grammarSygus: Seq[(Any, Seq[Any])],
-                              arguments: Seq[(String, SortExpr)],
+                              args: Seq[(String, SortExpr)],
                               outputType: SortExpr) {
-  val argNames: Seq[String] = arguments.unzip._1
+  val argNames: Seq[String] = args.unzip._1
   val grammar: Grammar = SygusUtils.getSwimGrammar(grammarSygus)
   val canBeRecursive: Boolean = grammar.contains(Symbol(fname)) || grammar.contains(fname)
 
@@ -38,7 +38,7 @@ case class SygusSynthesisTask(fname: String,
     // (define-fun f (args) sort t) is equivalent to the following formulas:
     // (declare-fun f (args) sort)
     // (assert (forall (args) (= (f args) t))
-    val sfArgs = SMTLIBFormatter.synthFunArgsToString(arguments)
+    val sfArgs = SMTLIBFormatter.synthFunArgsToString(args)
     f"($defFun $fname ($sfArgs) ${SMTLIBFormatter.sortToString(outputType)} $programBody)"
   }
 }

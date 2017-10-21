@@ -61,6 +61,8 @@ class CDGPState(sygusProblem: SyGuS16)
       " in comparison with GP test cases mode.")
 
 
+  val domain = LIA(synthTask.argNames, synthTask.fname, opt("recDepthLimit", 1000))
+
 
   // Pre- and post-conditions of the synthesis problem
   val pre: Seq[Cmd] = SygusUtils.getPreconditions(sygusProblem)
@@ -150,14 +152,17 @@ class CDGPState(sygusProblem: SyGuS16)
     val testModel: Map[String, Any] = test._1
     val testOutput: Option[Any] = test._2
     val testInputsRenamed = modelToSynthFunInputs(testModel)
-    val output = LIA(s)(testInputsRenamed) // TODO: implement domains other than LIA
-    if (testOutput.isDefined) {
-      if (output == testOutput.get) 0 else 1
+    val inputVector = synthTask.argNames.map(testInputsRenamed(_))
+    val output = domain(s)(inputVector)
+    if (output.isEmpty)
+      1  // None means that recurrence depth was exceeded
+    else if (testOutput.isDefined) {
+      if (output.get == testOutput.get) 0 else 1
     }
     else {
-      val (dec, _) = checkOnInputAndKnownOutput(s, testModel, output)
+      val (dec, _) = checkOnInputAndKnownOutput(s, testModel, output.get)
       if (dec == "sat")
-        testsManager.updateTest((testModel, Some(output)))
+        testsManager.updateTest((testModel, output))
       if (dec == "sat") 0 else 1
     }
   }

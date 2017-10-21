@@ -41,7 +41,7 @@ object ConstParser {
     val doublePattern = "[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?"
     if (s == "true") true
     else if (s == "false") false
-    else if (s.head == '\"' && s.last == '\"') s.substring(1, s.size-1)
+    else if (s.head == '\"' && s.last == '\"') s.substring(1, s.size-1)  // String
     else if (s.matches(intPattern)) s.toInt
     else if (s.matches(raw"\(-\s[0-9]+\)")) -s.substring(3, s.size-1).toInt
     else if (s.matches(doublePattern)) s.toDouble

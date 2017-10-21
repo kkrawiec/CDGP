@@ -39,7 +39,7 @@ object SMTLIBFormatter {
   }
 
   def synthFunArgsToString(sst: SygusSynthesisTask): String = {
-    sst.arguments.map { case (k, v) => f"($k ${sortToString(v)})" }.mkString
+    sst.args.map { case (k, v) => f"($k ${sortToString(v)})" }.mkString
   }
 
   def synthFunArgsToString(sfc: SynthFunCmd): String = {

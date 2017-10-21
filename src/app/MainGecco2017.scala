@@ -123,9 +123,10 @@ object MainGecco2017 extends FApp {
       val testInputsMap = test._1
       val testOutput = test._2
       // Solver requires proper renaming of variables
-      val cexampleRenamed = synthTask.argNames.zip(testInputsMap.unzip._2).toMap
+      val cexampleRenamed = synthTask.argNames.zip(testInputsMap.unzip._2)//.toMap
+      val domainLIA = LIA(synthTask.argNames, synthTask.fname, opt("recDepthLimit", 1000))
       try {
-        val output = LIA(s)(cexampleRenamed)
+        val output = domainLIA(s)(cexampleRenamed)
         // If the desired output for this test is already known, simply compare
         if (testOutput.isDefined) {
           if (output == testOutput.get) 0 else 1

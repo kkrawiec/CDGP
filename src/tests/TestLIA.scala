@@ -2,17 +2,32 @@ package tests
 
 import java.io.File
 
+import org.junit.Test
+import org.junit.Assert._
 import cdgp._
 import fuel.func.RunExperiment
 import fuel.util.IApp
-import swim.Test
-import swim.tree.{CodeFactory, SimpleGP}
+import swim.tree.{CodeFactory, Op, SimpleGP}
 import sygus.{BoolSortExpr, IntSortExpr, VarDeclCmd}
 
-import scala.collection.immutable.{Map, Seq}
 
 
-object TestLIA extends IApp('maxGenerations -> 25, 'printResults -> false, 'populationSize -> 25,
+final class TestLIA {
+  @Test
+  def test_LIA(): Unit = {
+    val domainLIA = LIA(List("x", "y", "z"), "rec")
+    val inputs = Seq(2, 10, 6)
+    val op = Op('nt, "x")
+    assertEquals(2, domainLIA(op)(inputs).get)
+    val op2 = Op('nt, "+", Op('nt, 3), Op('nt, "z"))
+    assertEquals(9, domainLIA(op2)(inputs).get)
+    val op3 = Op.fromStr("ite(<=(x 0) 0 +(2 rec(-(x 1) y z)))", useSymbols = false)
+    assertEquals(4, domainLIA(op3)(inputs).get)
+  }
+}
+
+
+object TestRunLIA extends IApp('maxGenerations -> 25, 'printResults -> false, 'populationSize -> 25,
   'initMaxTreeDepth -> 7, 'maxSubtreeDepth -> 5, 'parEval -> false) {
 
   val root = System.getProperty("user.dir")
@@ -41,25 +56,27 @@ object TestLIA extends IApp('maxGenerations -> 25, 'printResults -> false, 'popu
 
     ////////////////////////////////////////////////////////////////
     // Apply the programs to a random input
-    val input = synthTask.arguments.map {
+    val input = synthTask.args.map {
       case (name, IntSortExpr())  => name -> (rng.nextInt(21) - 10)
       case (name, BoolSortExpr()) => name -> rng.nextBoolean
     }
-    val inputAsMap = input.toMap
+    val inputAsMap: Map[String, Any] = input.toMap
+    val domainLIA = LIA(synthTask.argNames, synthTask.fname)
     for (p <- progs)
       try {
         println("Program " + p + " applied to " + input.unzip._2 +
-          " evaluates to " + LIA(p)(inputAsMap))
+          " evaluates to " + domainLIA(p)(inputAsMap.toSeq.map(_._2)))
       }
       catch { case e: Throwable => println(s"Error during evalution: ${e.getMessage}") }
 
     ////////////////////////////////////////////////////////////////
     // Run a naive GP with randomly generated input as the only test
     println("GP run:")
-    val tests = Seq(Test[Map[String, Any], Any](inputAsMap, 0))
+    val inValues: Seq[Any] = synthTask.argNames.map(inputAsMap(_))
+    val tests = Seq(swim.Test[Seq[Any], Option[Any]](inValues, Some(0)))
     try {
       println("Tests: " + tests)
-      val alg = SimpleGP.Discrete(gr, LIA, tests)
+      val alg = SimpleGP.Discrete(gr, domainLIA, tests)
       RunExperiment(alg)
       println("Best solution: " + alg.bsf.bestSoFar)
     }
@@ -82,11 +99,11 @@ object TestLIA extends IApp('maxGenerations -> 25, 'printResults -> false, 'popu
         // IMPORTANT: To run a program on the counterexample, need to rename the values of variables
         // IMPORTANT: This assumes that the free variables defined in the problem correspond one-to-one 
         // (order-preserving) to the arguments of synthesized function.
-        val cexampleRenamed = input.unzip._1.zip(cexample.unzip._2)
+        val cexampleRenamed = synthTask.argNames.zip(cexample.unzip._2)
         println("Counterexample: " + cexampleRenamed)
 
         try {
-          val output = LIA.apply(p)(cexampleRenamed.toMap)
+          val output = domainLIA.apply(p)(cexampleRenamed.map(_._2)).get
           println(s"Output of best: $output")
           val checkOnTestCmd = SMTLIBFormatter.checkOnInputAndKnownOutput(synthTask, sygusProblem, cexample.toMap, output)
           println("Check output for counterexample (expected unsat): " + solver.solve(checkOnTestCmd))
