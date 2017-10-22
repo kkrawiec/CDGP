@@ -79,7 +79,7 @@ class CDGPSteadyState(moves: GPMoves,
   override def initialize  = super.initialize
   override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests
   override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalInt(cdgpEval.state, bsf)
-  override def evaluate = Common.evalPopToDefaultValue(FInt(false, 0)) // used only for the initial population
+  override def evaluate = Common.evalPopToDefaultFInt(false, 0) // used only for the initial population
   override def report = s => s
 }
 
@@ -173,7 +173,7 @@ class CDGPSteadyStateLexicase(moves: GPMoves,
   override def initialize  = super.initialize
   override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests
   override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalSeqInt(cdgpEval.state, bsf)
-  override def evaluate = Common.evalPopToDefaultValue(FSeqInt(false, List())) // used only for the initial population
+  override def evaluate = Common.evalPopToDefaultFSeqInt(false, List()) // used only for the initial population
 }
 
 object CDGPSteadyStateLexicase {
@@ -215,11 +215,19 @@ object Common {
 
   def evalInt(fitness: (Op) => (Boolean, Seq[Int]))(s: Op): FInt = {
     val (isPerfect, r) = fitness(s)
-    FInt(isPerfect, r.sum)
+    FInt(isPerfect, r.sum, s.size)
   }
   def evalSeqInt(fitness: (Op) => (Boolean, Seq[Int]))(s: Op): FSeqInt = {
     val (isPerfect, r) = fitness(s)
-    FSeqInt(isPerfect, r)
+    FSeqInt(isPerfect, r, s.size)
+  }
+
+  def evalPopToDefaultFSeqInt(dec: Boolean, fit: Seq[Int])(s: StatePop[Op]): StatePop[(Op, FSeqInt)] = {
+    StatePop(s.map{ op => (op, FSeqInt(dec, fit, op.size))})
+  }
+
+  def evalPopToDefaultFInt(dec: Boolean, fit: Int)(s: StatePop[Op]): StatePop[(Op, FInt)] = {
+    StatePop(s.map{ op => (op, FInt(dec, fit, op.size))})
   }
 
   def evalPopToDefaultValue[S, E](value: E)(s: StatePop[S]): StatePop[(S, E)] = {
@@ -297,27 +305,33 @@ object Common {
 
 
 
-case class FSeqInt(correct: Boolean, value: Seq[Int]) extends Seq[Int] {
+case class FSeqInt(correct: Boolean, value: Seq[Int], progSize: Int) extends Seq[Int] {
   override def length = value.length
   override def apply(idx: Int) = value(idx)
   override def iterator = value.iterator
-  override def toString: String = f"Fit($correct, $value)"
+  override def toString: String = f"Fit($correct, $value, progSize=$progSize)"
 }
-case class FInt(correct: Boolean, value: Int) {
-  override def toString: String = f"Fit($correct, $value)"
+case class FInt(correct: Boolean, value: Int, progSize: Int) {
+  override def toString: String = f"Fit($correct, $value, progSize=$progSize)"
 }
 
 object FSeqIntOrdering extends Ordering[FSeqInt] {
-  def compare(a: FSeqInt, b: FSeqInt): Int = {
-    if (a.correct && !b.correct) -1
-    else if (!a.correct && b.correct) 1
-    else LongerOrMaxPassedOrdering.compare(a.value, b.value)
+  override def compare(a: FSeqInt, b: FSeqInt): Int = {
+    val c = if (a.correct && !b.correct) -1
+            else if (!a.correct && b.correct) 1
+            else LongerOrMaxPassedOrdering.compare(a.value, b.value)
+    // lexicographic parsimony pressure
+    if (c == 0) a.progSize compare b.progSize
+    else c
   }
 }
 object FIntOrdering extends Ordering[FInt] {
-  def compare(a: FInt, b: FInt): Int = {
-    if (a.correct && !b.correct) -1
-    else if (!a.correct && b.correct) 1
-    else a.value compare b.value
+  override def compare(a: FInt, b: FInt): Int = {
+    val c = if (a.correct && !b.correct) -1
+            else if (!a.correct && b.correct) 1
+            else a.value compare b.value
+    // lexicographic parsimony pressure
+    if (c == 0) a.progSize compare b.progSize
+    else c
   }
 }

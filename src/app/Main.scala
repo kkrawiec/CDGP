@@ -74,10 +74,12 @@ object Main {
       println("\n")
       println("Best program found:".padTo(pn, ' ') + coll.getResult("best").getOrElse("n/a"))
       println("Evaluation:".padTo(pn, ' ') + coll.getResult("best.eval").getOrElse("n/a"))
+      println("Program size:".padTo(pn, ' ') + coll.getResult("best.size").get)
       println("Ratio of passed tests:".padTo(pn, ' ') + passedTestsRatio)
       println("Tests total:".padTo(pn, ' ') + cdgpState.testsManager.getNumberOfTests)
       println("Tests known outputs:".padTo(pn, ' ') + cdgpState.testsManager.getNumberOfKnownOutputs)
       println("Total solver calls:".padTo(pn, ' ') + cdgpState.solver.getNumCalls)
+      println("Generations:".padTo(pn, ' ') + coll.getResult("best.generation").get)
       println("Total time [s]:".padTo(pn, ' ') + coll.getResult("totalTimeSystem").get.toString.toInt / 1000.0)
       println("Log file:".padTo(pn, ' ') + coll.get("thisFileName").get.toString)
 
