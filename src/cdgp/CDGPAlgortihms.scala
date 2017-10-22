@@ -75,7 +75,10 @@ object CDGPGenerational {
 class CDGPSteadyState(moves: GPMoves,
                       cdgpEval: CDGPEvaluationSteadyState[Op, FInt])
                      (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[FInt])
-      extends SimpleSteadyStateEA[Op, FInt](moves, cdgpEval.eval, Common.correctInt) {
+      extends SteadyStateEA[Op, FInt](moves, cdgpEval.eval,
+                                      Common.correctInt,
+                                      CDGPSteadyState.getSelection(),
+                                      CDGPSteadyState.getDeselection()) {
   override def initialize  = super.initialize
   override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests
   override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalInt(cdgpEval.state, bsf)
@@ -84,6 +87,14 @@ class CDGPSteadyState(moves: GPMoves,
 }
 
 object CDGPSteadyState {
+  def getSelection()(implicit opt: Options, rng: TRandom): Selection[Op, FInt] =
+    new TournamentSelection(FIntOrdering, opt('tournamentSize, 7, (_: Int) >= 2))
+
+  def getDeselection()(implicit opt: Options, rng: TRandom): Selection[Op, FInt] = {
+    val k = opt('tournamentSize, 7, (_: Int) >= 2)
+    new TournamentSelection(FIntOrdering.reverse, opt('tournamentDeselectSize, k, (_: Int) >= 2))
+  }
+
   def apply(benchmark: String)
            (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyState = {
     apply(Common.getCDGPState(benchmark))
@@ -182,7 +193,10 @@ object CDGPSteadyStateLexicase {
 
   def getDeselection()(implicit opt: Options, rng: TRandom): Selection[Op, FSeqInt] =
     if (opt('lexicaseDeselection, false)) new LexicaseSelectionMain[Op, Int, FSeqInt](Ordering[Int].reverse)
-    else new TournamentSelection[Op, FSeqInt](FSeqIntOrdering.reverse)
+    else {
+      val k = opt('tournamentSize, 7, (_: Int) >= 2)
+      new TournamentSelection[Op, FSeqInt](FSeqIntOrdering.reverse, opt('tournamentDeselectSize, k, (_: Int) >= 2))
+    }
 
   def apply(benchmark: String)
            (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyStateLexicase = {
