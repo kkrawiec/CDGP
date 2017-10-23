@@ -61,7 +61,7 @@ class CDGPState(sygusProblem: SyGuS16)
       " in comparison with GP test cases mode.")
 
 
-  val domain = LIA(synthTask.argNames, synthTask.fname, opt("recDepthLimit", 1000))
+  val domain = SLIA(synthTask.argNames, synthTask.fname, opt("recDepthLimit", 1000))
 
 
   // Pre- and post-conditions of the synthesis problem

@@ -15,7 +15,7 @@ import sygus.{BoolSortExpr, IntSortExpr, VarDeclCmd}
 final class TestLIA {
   @Test
   def test_LIA(): Unit = {
-    val domainLIA = LIA(List("x", "y", "z"), "rec")
+    val domainLIA = SLIA(List("x", "y", "z"), "rec")
     val inputs = Seq(2, 10, 6)
     val op = Op('nt, "x")
     assertEquals(2, domainLIA(op)(inputs).get)
@@ -23,6 +23,14 @@ final class TestLIA {
     assertEquals(9, domainLIA(op2)(inputs).get)
     val op3 = Op.fromStr("ite(<=(x 0) 0 +(2 rec(-(x 1) y z)))", useSymbols = false)
     assertEquals(4, domainLIA(op3)(inputs).get)
+
+    assertEquals(true, domainLIA.operationalSemantics(Seq())(Seq("str.contains", "asd", "")))
+    assertEquals(true, domainLIA.operationalSemantics(Seq())(Seq("str.contains", "", "")))
+    // In String logic empty string can be a prefix or suffix only of the nonempty string
+    assertEquals(true, domainLIA.operationalSemantics(Seq())(Seq("str.suffixof", "", "")))
+    assertEquals(false, domainLIA.operationalSemantics(Seq())(Seq("str.suffixof", "x", "")))
+    assertEquals(true, domainLIA.operationalSemantics(Seq())(Seq("str.prefixof", "", "")))
+    assertEquals(false, domainLIA.operationalSemantics(Seq())(Seq("str.prefixof", "x", "")))
   }
 }
 
@@ -61,7 +69,7 @@ object TestRunLIA extends IApp('maxGenerations -> 25, 'printResults -> false, 'p
       case (name, BoolSortExpr()) => name -> rng.nextBoolean
     }
     val inputAsMap: Map[String, Any] = input.toMap
-    val domainLIA = LIA(synthTask.argNames, synthTask.fname)
+    val domainLIA = SLIA(synthTask.argNames, synthTask.fname)
     for (p <- progs)
       try {
         println("Program " + p + " applied to " + input.unzip._2 +

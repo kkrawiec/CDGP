@@ -12,22 +12,22 @@ case class ValueParseException(msg: String) extends RuntimeException(msg)
  * TODO: Extend with other types (for now only Int)
  */
 object GetValueParser extends RegexParsers {
-  val varName: Parser[String] = """[A-Za-z_]+[A-Za-z0-9_]*""".r
+  val varName: Parser[String] = """[A-Za-z_\.-|][A-Za-z0-9_\.-|]*""".r
   
   def posNumber: Parser[Int] = """(0|[1-9]\d*)""".r ^^ { _.toInt }
   def negNumber: Parser[Int] = "(-" ~> number ~ ")" ^^ { case a ~ _ => -a }
   def negNumber2: Parser[Int] = "-" ~> number ^^ { a => -a }
   def number: Parser[Int] = posNumber | negNumber | negNumber2
+  def string: Parser[String] = """(\".*\")""".r ^^ { s =>  s.substring(1, s.size-1) }
   
-  def entry: Parser[(String, Int)] = "(" ~> varName ~ number <~ ")" ^^ {
-    case a ~ b => (a, b.toInt)
-  }
-  
-  def values: Parser[List[(String, Int)]] = "(" ~> rep1(entry) ~ ")" ^^ {
+  def entryAssigned: Parser[Any] = number | string
+  def entry: Parser[(String, Any)] = "(" ~> varName ~ entryAssigned <~ ")" ^^ { case a ~ b => (a, b) }
+
+  def values: Parser[List[(String, Any)]] = "(" ~> rep1(entry) ~ ")" ^^ {
     case list ~ _ => list
   }
   
-  def apply(s: String): List[(String, Int)] = GetValueParser.parse(GetValueParser.values, s) match {
+  def apply(s: String): List[(String, Any)] = GetValueParser.parse(GetValueParser.values, s) match {
     case m @ Failure(msg, next) => throw ValueParseException(s"Parse failure: $msg")
     case m @ Error(msg, next)   => throw ValueParseException(s"Parse error: $msg")
     case Success(result, next)  => result

@@ -17,6 +17,12 @@ class TestGetValueParser {
 
     assertEquals( Map( "x" -> -7787, "y" -> -2 ), GetValueParser(""" ((x -7787)
                (y -2))""").toMap)
+
+    assertEquals( Map( "x" -> "cdgp", "y" -> -2 ), GetValueParser(""" ((x "cdgp")
+               (y -2))""").toMap)
+
+    assertEquals( Map( "x" -> "cdgp", "y" -> -2, "z" -> "eps" ), GetValueParser(""" ((x "cdgp")
+               (y -2)(z "eps"))""").toMap)
   }
 
   @Test(expected=classOf[ValueParseException])
