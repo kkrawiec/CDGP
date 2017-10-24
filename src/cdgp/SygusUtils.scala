@@ -265,6 +265,8 @@ object SygusUtils {
         List(tup)
       case CompositeTerm(_, terms) => terms.flatMap{ x: Term => searchExpr(x) }
       case LetTerm(_, term) => searchExpr(term)
+      case ExistsTerm(_, term) => searchExpr(term)
+      case ForallTerm(_, term) => searchExpr(term)
       case _ => List()
     }
     val collected: Seq[(String, List[String])] = problem.cmds.collect {
