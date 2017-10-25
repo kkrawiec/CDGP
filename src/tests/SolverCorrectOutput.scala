@@ -37,7 +37,7 @@ object SolverCorrectOutput extends App {
     val inv: Seq[String] = SygusUtils.getSynthFunsInvocationsInfo(sygusProblem,
       synthTask.fname).head
     val inputsSortsMap = inv.map{ x => (x, varDeclsMap(x).sortExpr) }
-    val getValueCommand = f"(get-value (${inv.mkString(" ")} CorrectOutput))"
+    val getValueCommand = s"(get-value (${inv.mkString(" ")} CorrectOutput))"
 
     // Generate 100 random inputs and find correct outputs for them
     0.until(100).foreach { _ =>

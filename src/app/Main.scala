@@ -83,6 +83,11 @@ object Main {
       println("Total time [s]:".padTo(pn, ' ') + coll.getResult("totalTimeSystem").get.toString.toInt / 1000.0)
       println("Log file:".padTo(pn, ' ') + coll.get("thisFileName").get.toString)
 
+      if (opt("printTests", false)) {
+        println("\nCollected tests:")
+        cdgpState.testsManager.tests.foreach(println(_))
+        println("")
+      }
 
       assume(bestOfRun.isDefined, "No solution (optimal or approximate) to the problem was found.")
       val solutionCode = SMTLIBFormatter.synthSolutionToString(cdgpState.synthTask, bestOfRun.get._1)
@@ -92,7 +97,7 @@ object Main {
         println(solutionCode) else println("unknown")
 
       if (!isOptimal(bestOfRun.get)) {
-        println(f"\nAPPROXIMATED SOLUTION:\n(passedTestsRatio $passedTestsRatio)")
+        println(s"\nAPPROXIMATED SOLUTION:\n(passedTestsRatio $passedTestsRatio)")
         println(solutionCode)
       }
     }

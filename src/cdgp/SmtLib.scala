@@ -15,7 +15,7 @@ object SMTLIBFormatter {
     case BoolSortExpr()         => "Bool"
     case RealSortExpr()         => "Real"
     case StringSortExpr()       => "String"
-    case BitVecSortExpr(n: Int) => f"BV$n" // TODO:?
+    case BitVecSortExpr(n: Int) => s"BV$n" // TODO:?
   }
 
   def apply(op: Op): String = opToString(op)
@@ -28,30 +28,30 @@ object SMTLIBFormatter {
   def opToString(op: Op): String = {
     val opStr = if (op.op.isInstanceOf[Symbol]) op.op.toString.tail else op.op.toString
     if (op.args.isEmpty) normalizeTerminal(opStr)
-    else f"($opStr ${op.args.map(opToString(_)).mkString(" ")})"
+    else s"($opStr ${op.args.map(opToString(_)).mkString(" ")})"
   }
 
   def synthSolutionToString(sst: SygusSynthesisTask, solution: Op): String = {
     val bestBody = opToString(solution)
     val args = synthFunArgsToString(sst)
     val tpe = sortToString(sst.outputType)
-    f"(define-fun ${sst.fname} ($args) $tpe\n\t$bestBody)"
+    s"(define-fun ${sst.fname} ($args) $tpe\n\t$bestBody)"
   }
 
   def synthFunArgsToString(sst: SygusSynthesisTask): String = {
-    sst.args.map { case (k, v) => f"($k ${sortToString(v)})" }.mkString
+    sst.args.map { case (k, v) => s"($k ${sortToString(v)})" }.mkString
   }
 
   def synthFunArgsToString(sfc: SynthFunCmd): String = {
-    sfc.list.map { case (k, v) => f"($k ${sortToString(v)})" }.mkString
+    sfc.list.map { case (k, v) => s"($k ${sortToString(v)})" }.mkString
   }
 
   def synthFunArgsToString(sfc: Seq[(String, SortExpr)]): String = {
-    sfc.map { case (k, v) => f"($k ${sortToString(v)})" }.mkString
+    sfc.map { case (k, v) => s"($k ${sortToString(v)})" }.mkString
   }
 
   def getLogicName(problem: SyGuS16): String = {
-    f"${problem.setLogic.get.id}" match {
+    s"${problem.setLogic.get.id}" match {
       case "SLIA" => "ALL"// "QF_S"
       case s => s
     }
@@ -85,14 +85,14 @@ object SMTLIBFormatter {
     val constraintsPre = getCodeForConstraints(pre)
     val constraintsPost = getCodeForMergedConstraints(post)
     val auxiliaries = getCodeForAuxiliaries(problem)
-    f"(set-logic ${getLogicName(problem)})\n" +
-      (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
+    s"(set-logic ${getLogicName(problem)})\n" +
+      (if (solverTimeout > 0) s"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
       auxiliaries + "\n" +
-      f"${sf.getSynthFunCode(programBody)}\n" +
-      varsDecl.map(v => f"(declare-fun ${v.sym} () ${sortToString(v.sortExpr)})").mkString("", "\n", "\n") +
+      s"${sf.getSynthFunCode(programBody)}\n" +
+      varsDecl.map(v => s"(declare-fun ${v.sym} () ${sortToString(v.sortExpr)})").mkString("", "\n", "\n") +
       constraintsPre +
-      f"\n(assert (not $constraintsPost))\n" // 'and' works also for one argument
+      s"\n(assert (not $constraintsPost))\n" // 'and' works also for one argument
   }
 
 
@@ -122,14 +122,14 @@ object SMTLIBFormatter {
     val constraints = getCodeForMergedConstraints(problem.cmds)
     val auxiliaries = getCodeForAuxiliaries(problem)
     val textOutput = normalizeTerminal(output.toString)
-    f"(set-logic ${getLogicName(problem)})\n" +
-      (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
+    s"(set-logic ${getLogicName(problem)})\n" +
+      (if (solverTimeout > 0) s"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
       auxiliaries + "\n" +
-      f"${sf.getSynthFunCode(textOutput)}\n" +
-      varsDecl.map(v => f"(define-fun ${v.sym} ()" +
-        f" ${sortToString(v.sortExpr)} ${normalizeTerminal(input(v.sym).toString)})").mkString("\n") +
-      f"\n(assert $constraints)\n" // 'and' works also for one argument
+      s"${sf.getSynthFunCode(textOutput)}\n" +
+      varsDecl.map(v => s"(define-fun ${v.sym} ()" +
+        s" ${sortToString(v.sortExpr)} ${normalizeTerminal(input(v.sym).toString)})").mkString("\n") +
+      s"\n(assert $constraints)\n" // 'and' works also for one argument
   }
 
 
@@ -159,14 +159,14 @@ object SMTLIBFormatter {
     val programBody = opToString(program)
     val constraints = getCodeForMergedConstraints(problem.cmds)
     val auxiliaries = getCodeForAuxiliaries(problem)
-    f"(set-logic ${getLogicName(problem)})\n" +
-      (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
+    s"(set-logic ${getLogicName(problem)})\n" +
+      (if (solverTimeout > 0) s"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
       auxiliaries + "\n" +
-      f"${sf.getSynthFunCode(programBody)}\n" +
-      varsDecl.map(v => f"(define-fun ${v.sym} ()" +
-        f" ${sortToString(v.sortExpr)} ${normalizeTerminal(input(v.sym).toString)})").mkString("\n") +
-      f"\n(assert $constraints)\n"
+      s"${sf.getSynthFunCode(programBody)}\n" +
+      varsDecl.map(v => s"(define-fun ${v.sym} ()" +
+        s" ${sortToString(v.sortExpr)} ${normalizeTerminal(input(v.sym).toString)})").mkString("\n") +
+      s"\n(assert $constraints)\n"
   }
 
 
@@ -195,15 +195,15 @@ object SMTLIBFormatter {
     val varsDecl = problem.cmds.collect { case v: VarDeclCmd => v }
     val constraints = getCodeForMergedConstraints(problem.cmds)
     val auxiliaries = getCodeForAuxiliaries(problem)
-    f"(set-logic ${getLogicName(problem)})\n" +
-      (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
+    s"(set-logic ${getLogicName(problem)})\n" +
+      (if (solverTimeout > 0) s"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
       auxiliaries + "\n" +
-      f"(declare-fun CorrectOutput () ${sortToString(sf.outputType)})\n" +
-      f"${sf.getSynthFunCode("CorrectOutput")}\n" +
-      varsDecl.map(v => f"(define-fun ${v.sym} ()" +
-        f" ${sortToString(v.sortExpr)} ${normalizeTerminal(input(v.sym).toString)})").mkString("\n") +
-      f"\n(assert $constraints)\n"
+      s"(declare-fun CorrectOutput () ${sortToString(sf.outputType)})\n" +
+      s"${sf.getSynthFunCode("CorrectOutput")}\n" +
+      varsDecl.map(v => s"(define-fun ${v.sym} ()" +
+        s" ${sortToString(v.sortExpr)} ${normalizeTerminal(input(v.sym).toString)})").mkString("\n") +
+      s"\n(assert $constraints)\n"
   }
 
 
@@ -240,32 +240,32 @@ object SMTLIBFormatter {
                                        solverTimeout: Int = 0): String = {
     val sfArgs = synthFunArgsToString(sf)
     val varsDecl = problem.cmds.collect {
-      case v: VarDeclCmd => f"(declare-fun ${v.sym} () ${sortToString(v.sortExpr)})"
+      case v: VarDeclCmd => s"(declare-fun ${v.sym} () ${sortToString(v.sortExpr)})"
     }.mkString("", "\n", "\n")
     val vMap = Map(sf.fname -> (sf.fname+"__2"))
     val cmds1 = problem.cmds
     val cmds2 = problem.cmds.map(SygusUtils.renameNamesInCmd(_, vMap))
     val body1 = cmds1.collect {
-      case ConstraintCmd(t: Term) => f"(assert ${termToSmtlib(t)})"
+      case ConstraintCmd(t: Term) => s"(assert ${termToSmtlib(t)})"
     }.mkString("", "\n", "\n")
     val body2 = cmds2.collect {
-      case ConstraintCmd(t: Term) => f"(assert ${termToSmtlib(t)})"
+      case ConstraintCmd(t: Term) => s"(assert ${termToSmtlib(t)})"
     }.mkString("", "\n", "\n")
     val auxiliaries = getCodeForAuxiliaries(problem)
 
     val synthFunSort = sortToString(sf.outputType)
-    f"(set-logic ${getLogicName(problem)})\n" +
-      (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
+    s"(set-logic ${getLogicName(problem)})\n" +
+      (if (solverTimeout > 0) s"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
       auxiliaries + "\n" +
-      f"(declare-fun res1__2 () $synthFunSort)\n" +
-      f"(declare-fun res2__2 () $synthFunSort)\n" +
-      f"(define-fun ${sf.fname} ($sfArgs) $synthFunSort res1__2)\n" +
-      f"(define-fun ${sf.fname}__2 ($sfArgs) $synthFunSort res2__2)\n\n" +
+      s"(declare-fun res1__2 () $synthFunSort)\n" +
+      s"(declare-fun res2__2 () $synthFunSort)\n" +
+      s"(define-fun ${sf.fname} ($sfArgs) $synthFunSort res1__2)\n" +
+      s"(define-fun ${sf.fname}__2 ($sfArgs) $synthFunSort res2__2)\n\n" +
       varsDecl + "\n" +
       body1 + "\n" +
       body2 + "\n" +
-      f"(assert (distinct res1__2 res2__2))"
+      s"(assert (distinct res1__2 res2__2))"
   }
 
 
@@ -274,24 +274,24 @@ object SMTLIBFormatter {
       case FunDeclCmd(name, sortExprs, sortExpr) =>
         val argsSorts = sortExprs.map(sortToString(_)).mkString(" ")
         val retSort = sortToString(sortExpr)
-        f"(declare-fun $name ($argsSorts) $retSort)"
+        s"(declare-fun $name ($argsSorts) $retSort)"
       case FunDefCmd(name, sortExprs, sortExpr, term) =>
         val argsSorts = sortExprs.map{ case (n, s) => s"($n ${sortToString(s)})"}.mkString("")
         val retSort = sortToString(sortExpr)
         val body = termToSmtlib(term)
-        f"(define-fun $name ($argsSorts) $retSort $body)"
+        s"(define-fun $name ($argsSorts) $retSort $body)"
     }.mkString("\n")
   }
 
   def getCodeForConstraints(cmds: Seq[Cmd]): String = {
     cmds.collect {
-      case ConstraintCmd(t: Term) => f"(assert ${termToSmtlib(t)})"
+      case ConstraintCmd(t: Term) => s"(assert ${termToSmtlib(t)})"
     }.mkString("\n")
   }
 
   def getCodeForMergedConstraints(cmds: Seq[Cmd]): String = {
     val constraints = cmds.collect {
-      case ConstraintCmd(t: Term) => f"${termToSmtlib(t)}"
+      case ConstraintCmd(t: Term) => s"${termToSmtlib(t)}"
     }.mkString("\n  ")
     s"(and $constraints)"
   }

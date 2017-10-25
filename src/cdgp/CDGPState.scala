@@ -18,7 +18,7 @@ class CDGPState(sygusProblem: SyGuS16)
   // The types for input and output
   type I = Map[String, Any]
   type O = Any
-  val testsManager = new TestsManagerCDGP[I, O]()
+  val testsManager = new TestsManagerCDGP[I, O](printAddedTests = opt("printTests", false))
 
   val method = opt('method, "CDGP")
   val searchAlg = opt('searchAlgorithm)
@@ -54,7 +54,7 @@ class CDGPState(sygusProblem: SyGuS16)
   val testCasesMode: String = getTestCasesMode(sygusProblem)
   assert(testCasesMode == "solver" || testCasesMode == "gp")
   val useDomainToComputeFitness: Boolean = testCasesMode == "gp"
-  println(f"(testCasesMode $testCasesMode)")
+  println(s"(testCasesMode $testCasesMode)")
   coll.set("cdgp.testCasesMode", testCasesMode)
   if (!useDomainToComputeFitness)
     println("INFO: solver will be used to compute fitness. Expect major efficiency decrease" +
@@ -84,15 +84,15 @@ class CDGPState(sygusProblem: SyGuS16)
 
   def getTestCasesMode(problem: SyGuS16): String = {
     val singleInvoc = SygusUtils.hasSingleInvocationProperty(problem)
-    println(f"(singleInvocationProperty $singleInvoc)")
+    println(s"(singleInvocationProperty $singleInvoc)")
     coll.set("cdgp.singleInvocationProperty", singleInvoc)
     if (singleInvoc) {
       // Checking for the single answer property has sense only if the problem
       // has single invocation property.
       val singleAnswer = hasSingleAnswerForEveryInput(problem)
       val supportForAllTerms = !SygusUtils.containsUnsupportedComplexTerms(problem)
-      println(f"(singleAnswerForEveryInput ${singleAnswer.getOrElse("unknown")})")
-      println(f"(supportForAllTerms $supportForAllTerms)")
+      println(s"(singleAnswerForEveryInput ${singleAnswer.getOrElse("unknown")})")
+      println(s"(supportForAllTerms $supportForAllTerms)")
       coll.set("cdgp.singleAnswerForEveryInput", singleAnswer.getOrElse("unknown"))
       coll.set("cdgp.supportForAllTerms", supportForAllTerms)
       if (singleAnswer.getOrElse(false) && supportForAllTerms)
@@ -112,7 +112,7 @@ class CDGPState(sygusProblem: SyGuS16)
     */
   def evalOnTests(s: Op, tests: Seq[(I, Option[O])]): Seq[Int] = {
     def handleException(test: (I, Option[O]), message: String) {
-      val msg = f"Error during evalutation of $s and test $test: $message"
+      val msg = s"Error during evalutation of $s and test $test: $message"
       coll.set("error_evalOnTests", msg)
       println(msg)
     }
@@ -214,7 +214,7 @@ class CDGPState(sygusProblem: SyGuS16)
   def verify(s: Op): (String, Option[String]) = {
     val query = SMTLIBFormatter.verify(synthTask, sygusProblem, s, pre, post, timeout)
     // println("\nQuery verify:\n" + query)
-    val getValueCommand = f"(get-value (${varDeclsNames.mkString(" ")}))"
+    val getValueCommand = s"(get-value (${varDeclsNames.mkString(" ")}))"
     solver.runSolver(query, getValueCommand)
   }
 
@@ -222,7 +222,7 @@ class CDGPState(sygusProblem: SyGuS16)
     val query = SMTLIBFormatter.findOutputForTestCase(synthTask, sygusProblem, test._1, solverTimeout=timeout)
     // println("\nQuery findOutputForTestCase:\n" + query)
     try {
-      val getValueCommand = f"(get-value (CorrectOutput))"
+      val getValueCommand = s"(get-value (CorrectOutput))"
       val (dec, res) = solver.runSolver(query, getValueCommand)
       if (dec == "sat") {
         val values = GetValueParser(res.get)

@@ -45,6 +45,6 @@ object ConstParser {
     else if (s.matches(intPattern)) s.toInt
     else if (s.matches(raw"\(-\s[0-9]+\)")) -s.substring(3, s.size-1).toInt
     else if (s.matches(doublePattern)) s.toDouble
-    else throw ValueParseException(f"Trying to parse unknown constant: $s")
+    else throw ValueParseException(s"Trying to parse unknown constant: $s")
   }
 }

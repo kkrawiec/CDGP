@@ -39,7 +39,7 @@ case class SygusSynthesisTask(fname: String,
     // (declare-fun f (args) sort)
     // (assert (forall (args) (= (f args) t))
     val sfArgs = SMTLIBFormatter.synthFunArgsToString(args)
-    f"($defFun $fname ($sfArgs) ${SMTLIBFormatter.sortToString(outputType)} $programBody)"
+    s"($defFun $fname ($sfArgs) ${SMTLIBFormatter.sortToString(outputType)} $programBody)"
   }
 }
 

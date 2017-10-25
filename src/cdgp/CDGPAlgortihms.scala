@@ -249,7 +249,7 @@ object Common {
   }
 
   def printPop[S, E](s: StatePop[(S, E)]): StatePop[(S, E)] = {
-    println(f"\nPopulation (size=${s.size}):")
+    println(s"\nPopulation (size=${s.size}):")
     for (x <- s)
       println(x)
     println()
@@ -323,10 +323,10 @@ case class FSeqInt(correct: Boolean, value: Seq[Int], progSize: Int) extends Seq
   override def length = value.length
   override def apply(idx: Int) = value(idx)
   override def iterator = value.iterator
-  override def toString: String = f"Fit($correct, $value, progSize=$progSize)"
+  override def toString: String = s"Fit($correct, $value, progSize=$progSize)"
 }
 case class FInt(correct: Boolean, value: Int, progSize: Int) {
-  override def toString: String = f"Fit($correct, $value, progSize=$progSize)"
+  override def toString: String = s"Fit($correct, $value, progSize=$progSize)"
 }
 
 object FSeqIntOrdering extends Ordering[FSeqInt] {

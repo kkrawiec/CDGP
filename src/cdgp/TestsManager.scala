@@ -6,7 +6,7 @@ import scala.collection.mutable
 /**
   * Manages the set of test cases during evolution run.
   */
-class TestsManagerCDGP[I,O](testsHistory: Boolean = true) {
+class TestsManagerCDGP[I,O](testsHistory: Boolean = true, printAddedTests: Boolean = false) {
   // Set of counterexamples collected along the run.
   // The Option is None if the desired output for a given input is not known yet.
   val tests: mutable.LinkedHashMap[I, Option[O]] = mutable.LinkedHashMap[I, Option[O]]()
@@ -28,7 +28,7 @@ class TestsManagerCDGP[I,O](testsHistory: Boolean = true) {
   def addNewTest(t: (I, Option[O])) {
     //println("** Trying to add new test: " + t)
     if (!tests.contains(t._1)) {
-      //println("** ADDED")
+      if (printAddedTests) println("Added test: " + t)
       newTests.+=(t)
     }
   }

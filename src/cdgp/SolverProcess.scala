@@ -35,17 +35,17 @@ case class SolverFromScript(path: String, args: String = "-smt2 -file:", verbose
     save(tmpfile, input)
     var res: String = ""
     try {
-      res = f"$path $args${tmpfile.getAbsolutePath}" !! // strangely may require one empty line after
+      res = s"$path $args${tmpfile.getAbsolutePath}" !! // strangely may require one empty line after
     } catch {
-      case e: RuntimeException => throw new Exception(f"Solver failed for input:\n$input\nwith output:\n$res\n", e)
+      case e: RuntimeException => throw new Exception(s"Solver failed for input:\n$input\nwith output:\n$res\n", e)
     }
     tmpfile.delete
     res
   }
 
   override def solve(input: String, postCommands: String*): (String, Option[String]) = {
-    val inputStr = f"$input\n(check-sat)\n${postCommands.mkString}"
-    if (verbose) println(f"Input to the solver:\n$inputStr\n")
+    val inputStr = s"$input\n(check-sat)\n${postCommands.mkString}"
+    if (verbose) println(s"Input to the solver:\n$inputStr\n")
     val output = apply(inputStr).trim
     if (verbose) print("Solver output:\n" + output)
     val lines = output.split("\n").map(_.trim)
@@ -53,7 +53,7 @@ case class SolverFromScript(path: String, args: String = "-smt2 -file:", verbose
     val outputRest = if (lines.size == 1) None else Some(lines.tail.mkString("\n"))
     if (outputDec == "sat" || outputDec == "unsat" || outputDec == "unknown" || outputDec == "timeout")
       (outputDec, outputRest)
-    else throw new Exception(f"Solver did not return sat, unsat, nor unknown, but this: $output")
+    else throw new Exception(s"Solver did not return sat, unsat, nor unknown, but this: $output")
   }
 
   def save(file: File, s: String): Unit = {
@@ -82,7 +82,7 @@ case class SolverInteractive(path: String, args: String = "-in", verbose: Boolea
   private[this] var es: InputStream = _
 
   private def startProcess: Process = {
-    val pb = Process(f"$path $args")
+    val pb = Process(s"$path $args")
     val pio = new ProcessIO(this.is = _, this.os = _, this.es = _)
     val process = pb.run(pio) // don't wait
 
@@ -118,13 +118,13 @@ case class SolverInteractive(path: String, args: String = "-in", verbose: Boolea
   def solve(input: String, postCommands: String*): (String, Option[String]) = {
     this.synchronized {
       bis.println("(reset)")
-      val inputStr = f"$input(check-sat)"
-      if (verbose) println(f"Input to the solver:\n$inputStr\n")
+      val inputStr = s"$input(check-sat)"
+      if (verbose) println(s"Input to the solver:\n$inputStr\n")
       apply(inputStr)
       val output = scanner.nextLine
-      if (verbose) print(f"Solver output:\n$output\n")
+      if (verbose) print(s"Solver output:\n$output\n")
       if (es.available() > 0)
-        throw new Exception(f"Solver produced this on stderr: " + (new Scanner(es)).nextLine)
+        throw new Exception(s"Solver produced this on stderr: " + (new Scanner(es)).nextLine)
       if (output == "sat") {
         val outputData = Some(if (postCommands.isEmpty) "" else {
           apply(postCommands.mkString)
@@ -133,7 +133,7 @@ case class SolverInteractive(path: String, args: String = "-in", verbose: Boolea
         ("sat", outputData)
       }
       else if (output == "unsat" || output == "unknown" || output == "timeout") (output, None)
-      else throw new UnknownSolverOutputException(f"Solver did not return sat, unsat, nor unknown, but this: $output")
+      else throw new UnknownSolverOutputException(s"Solver did not return sat, unsat, nor unknown, but this: $output")
     }
   }
 
@@ -162,7 +162,7 @@ object TestSolverOpenConnection extends FApp {
       sum += s.getNumRestarts
       s.close()
     }
-    catch { case e: Throwable => println(f"Exception catched! Msg: ${e.getMessage()}"); sum += 5 }
+    catch { case e: Throwable => println(s"Exception catched! Msg: ${e.getMessage()}"); sum += 5 }
   }
   println(s"Overall restarts: $sum")
 }
@@ -232,7 +232,7 @@ class SolverManager(path: String, args: Option[String] = None, verbose: Boolean 
       case error: Throwable =>
         if (doneRestarts < maxSolverRestarts) {
           doneRestarts += 1
-          println(f"Restarting solver (retry no. $doneRestarts)")
+          println(s"Restarting solver (retry no. $doneRestarts)")
           createWithRetries()
         }
         else throwExceededMaxRestartsException(error)
@@ -275,8 +275,8 @@ class SolverManager(path: String, args: Option[String] = None, verbose: Boolean 
 
   protected def throwExceededMaxRestartsException(error: Throwable): Nothing = {
     error.printStackTrace()
-    val msg = f"Exceeded the maximum number of $maxSolverRestarts solver restarts. " +
-              f"Original message: ${error.getMessage}"
+    val msg = s"Exceeded the maximum number of $maxSolverRestarts solver restarts. " +
+              s"Original message: ${error.getMessage}"
     coll.set("solverError", error.getMessage)
     coll.set("solverError2", msg)
     coll.saveSnapshot("error_solver")

@@ -42,7 +42,7 @@ class CDGPEvaluation[S, E](val state: CDGPState,
       state.testsManager.flushHelpers()  // adds newTests to all tests; resets newTests
       if (!silent) {
         val numKnown = state.testsManager.tests.values.count(_.isDefined)
-        println(f"Tests: found: ${numNew}  total: ${state.testsManager.tests.size}  known outputs: $numKnown")
+        println(s"Tests: found: ${numNew}  total: ${state.testsManager.tests.size}  known outputs: $numKnown")
         // println(state.testsManager.tests.mkString("", "\n", "\n"))
       }
       s
