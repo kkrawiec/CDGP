@@ -28,7 +28,6 @@ class TestsManagerCDGP[I,O](testsHistory: Boolean = true, printAddedTests: Boole
   def addNewTest(t: (I, Option[O])) {
     //println("** Trying to add new test: " + t)
     if (!tests.contains(t._1)) {
-      if (printAddedTests) println("Added test: " + t)
       newTests.+=(t)
     }
   }
@@ -45,6 +44,7 @@ class TestsManagerCDGP[I,O](testsHistory: Boolean = true, printAddedTests: Boole
     for (test <- newTests)
       if (!tests.contains(test._1)) {
         tests.put(test._1, test._2)
+        if (printAddedTests) println("Added test: " + test)
       }
     if (testsHistory && newTests.nonEmpty)
       history.put(flushNo, newTests.size)
