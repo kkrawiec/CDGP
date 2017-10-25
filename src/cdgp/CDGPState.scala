@@ -32,8 +32,7 @@ class CDGPState(sygusProblem: SyGuS16)
   val GPRmaxInt: Int = opt('GPRmaxInt, 100)
   val CDGPtestsRatio: Double = opt('CDGPtestsRatio, 1.0, (x: Double) => x >= 0.0 && x <= 1.0)
   val GPRtestsRatio: Double = opt('GPRtestsRatio, 1.0, (x: Double) => x >= 0.0 && x <= 1.0)
-  val CDGPoneTestPerIter: Boolean = opt('CDGPoneTestPerIter, false)
-  val GPRoneTestPerIter: Boolean = opt('GPRoneTestPerIter, false)
+  val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, Int.MaxValue, (x: Int) => x > 0)
   val timeout: Int = opt('solverTimeout, 0)
   val silent = opt('silent, false)
 
@@ -299,7 +298,7 @@ class CDGPState(sygusProblem: SyGuS16)
           if (decision == "unsat")
             (true, evalTests)  // perfect program found; end of run
           else if (decision == "sat") {
-            if (!CDGPoneTestPerIter || testsManager.newTests.isEmpty) {
+            if (testsManager.newTests.size < maxNewTestsPerIter) {
               val newTest = createTestFromFailedVerification(r.get)
               testsManager.addNewTest(newTest)
             }
@@ -324,7 +323,7 @@ class CDGPState(sygusProblem: SyGuS16)
       def allTestsPassed(evalTests: Seq[Int]): Boolean =
         evalTests.count(_ == 0) == evalTests.size
       def generateAndAddRandomTest(): Unit = {
-        if (!GPRoneTestPerIter || testsManager.newTests.isEmpty) {
+        if (testsManager.newTests.size < maxNewTestsPerIter) {
           val newTest = createRandomTest()
           testsManager.addNewTest(newTest)
         }
