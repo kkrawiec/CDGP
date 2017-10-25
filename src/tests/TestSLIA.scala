@@ -24,13 +24,106 @@ final class TestLIA {
     val op3 = Op.fromStr("ite(<=(x 0) 0 +(2 rec(-(x 1) y z)))", useSymbols = false)
     assertEquals(4, domainLIA(op3)(inputs).get)
 
-    assertEquals(true, domainLIA.operationalSemantics(Seq())(Seq("str.contains", "asd", "")))
-    assertEquals(true, domainLIA.operationalSemantics(Seq())(Seq("str.contains", "", "")))
-    // In String logic empty string can be a prefix or suffix only of the nonempty string
-    assertEquals(true, domainLIA.operationalSemantics(Seq())(Seq("str.suffixof", "", "")))
-    assertEquals(false, domainLIA.operationalSemantics(Seq())(Seq("str.suffixof", "x", "")))
-    assertEquals(true, domainLIA.operationalSemantics(Seq())(Seq("str.prefixof", "", "")))
-    assertEquals(false, domainLIA.operationalSemantics(Seq())(Seq("str.prefixof", "x", "")))
+    val semantics = domainLIA.operationalSemantics(Seq()) _
+
+    // More information about String in CVC4: http://cvc4.cs.stanford.edu/wiki/Strings
+    // Script to verify below expected answers: resources/str_test.smt2
+
+    // str.prefixof
+    assertEquals(true, semantics(Seq("str.prefixof", "", "")))
+    assertEquals(true, semantics(Seq("str.prefixof", "", "asd")))
+    assertEquals(false, semantics(Seq("str.prefixof", "asd", "")))
+    assertEquals(true, semantics(Seq("str.prefixof", "asd", "asd")))
+    assertEquals(true, semantics(Seq("str.prefixof", "asd", "asda")))
+    assertEquals(false, semantics(Seq("str.prefixof", "da", "asda")))
+
+    // str.suffixof
+    assertEquals(true, semantics(Seq("str.suffixof", "", "")))
+    assertEquals(true, semantics(Seq("str.suffixof", "", "asd")))
+    assertEquals(false, semantics(Seq("str.suffixof", "asd", "")))
+    assertEquals(true, semantics(Seq("str.suffixof", "asd", "asd")))
+    assertEquals(false, semantics(Seq("str.suffixof", "asd", "asda")))
+    assertEquals(true, semantics(Seq("str.suffixof", "da", "asda")))
+
+    // str.at
+    assertEquals("", semantics(Seq("str.at", "", -1)))
+    assertEquals("", semantics(Seq("str.at", "", 0)))
+    assertEquals("", semantics(Seq("str.at", "", 1)))
+    assertEquals("", semantics(Seq("str.at", "a", -1)))
+    assertEquals("a", semantics(Seq("str.at", "a", 0)))
+    assertEquals("", semantics(Seq("str.at", "a", 1)))
+    assertEquals("b", semantics(Seq("str.at", "ab", 1)))
+
+    // str.contains
+    assertEquals(true, semantics(Seq("str.contains", "", "")))
+    assertEquals(true, semantics(Seq("str.contains", "asda", "")))
+    assertEquals(false, semantics(Seq("str.contains", "asda", "ad")))
+    assertEquals(true, semantics(Seq("str.contains", "aaa", "aa")))
+    assertEquals(false, semantics(Seq("str.contains", "asda", "z")))
+
+    // str.replace: in SMTLIB only the *first* occurrence is replaced
+    assertEquals("", semantics(Seq("str.replace", "", "", "")))
+    assertEquals("", semantics(Seq("str.replace", "", "", "5")))
+    assertEquals("x", semantics(Seq("str.replace", "x", "", "5")))
+    assertEquals("xx", semantics(Seq("str.replace", "xx", "", "5")))
+    assertEquals("5a", semantics(Seq("str.replace", "aaa", "aa", "5")))
+    assertEquals("5sda", semantics(Seq("str.replace", "asda", "a", "5")))
+
+    // str.indexof
+    assertEquals( 0, semantics(Seq("str.indexof", "", "", 0)))
+    assertEquals(-1, semantics(Seq("str.indexof", "", "", -1)))
+    assertEquals(-1, semantics(Seq("str.indexof", "", "", 1)))
+    assertEquals(-1, semantics(Seq("str.indexof", "a", "", -1)))
+    assertEquals( 0, semantics(Seq("str.indexof", "a", "", 0)))
+    assertEquals( 1, semantics(Seq("str.indexof", "a", "", 1)))
+    assertEquals(-1, semantics(Seq("str.indexof", "a", "", 2)))
+    assertEquals(-1, semantics(Seq("str.indexof", "aa", "", -1)))
+    assertEquals( 0, semantics(Seq("str.indexof", "aa", "", 0)))
+    assertEquals( 1, semantics(Seq("str.indexof", "aa", "", 1)))
+    assertEquals( 2, semantics(Seq("str.indexof", "aa", "", 2)))
+    assertEquals(-1, semantics(Seq("str.indexof", "aa", "", 3)))
+    assertEquals(-1, semantics(Seq("str.indexof", "a", "b", 0)))
+    assertEquals( 0, semantics(Seq("str.indexof", "a", "a", 0)))
+    assertEquals(-1, semantics(Seq("str.indexof", "aaa", "a", -1)))
+    assertEquals( 0, semantics(Seq("str.indexof", "aaa", "a", 0)))
+    assertEquals( 1, semantics(Seq("str.indexof", "aaa", "a", 1)))
+    assertEquals( 2, semantics(Seq("str.indexof", "aaa", "a", 2)))
+    assertEquals(-1, semantics(Seq("str.indexof", "aaa", "a", 3)))
+    assertEquals( 2, semantics(Seq("str.indexof", "ssaaa", "aa", 0)))
+    assertEquals( 0, semantics(Seq("str.indexof", "aaa", "aa", 0)))
+    assertEquals( 1, semantics(Seq("str.indexof", "aaa", "aa", 1)))
+    assertEquals(-1, semantics(Seq("str.indexof", "aaa", "aa", 2)))
+    assertEquals(-1, semantics(Seq("str.indexof", "asda", "aa", 0)))
+
+    // str.substr
+    assertEquals("", semantics(Seq("str.substr", "", -1, 2)))
+    assertEquals("", semantics(Seq("str.substr", "asd", -1, 2)))
+    assertEquals("", semantics(Seq("str.substr", "", 0, 0)))
+    assertEquals("", semantics(Seq("str.substr", "", 0, 1)))
+    assertEquals("", semantics(Seq("str.substr", "as", -1, -1)))
+    assertEquals("as", semantics(Seq("str.substr", "asdfgh", 0, 2)))
+    assertEquals("asdfgh", semantics(Seq("str.substr", "asdfgh", 0, 10)))
+    assertEquals("fgh", semantics(Seq("str.substr", "asdfgh", 3, 10)))
+    assertEquals("", semantics(Seq("str.substr", "asdfgh", 10, 10)))
+    assertEquals("asdfgh", semantics(Seq("str.substr", "asdfgh", 0, 100)))
+    assertEquals("", semantics(Seq("str.substr", "asdfgh", 0, -1)))
+    assertEquals("", semantics(Seq("str.substr", "asdfgh", 3, 0)))
+    assertEquals("f", semantics(Seq("str.substr", "asdfgh", 3, 1)))
+    assertEquals("fg", semantics(Seq("str.substr", "asdfgh", 3, 2)))
+
+    // str.to.int
+    assertEquals(-1, semantics(Seq("str.to.int", "")))
+    assertEquals(-1, semantics(Seq("str.to.int", "-123")))
+    assertEquals(-1, semantics(Seq("str.to.int", "(- 123)")))
+    assertEquals(1, semantics(Seq("str.to.int", "1")))
+    assertEquals(1234567, semantics(Seq("str.to.int", "1234567")))
+
+    // int.to.str
+    assertEquals("0", semantics(Seq("int.to.str", 0)))
+    assertEquals("", semantics(Seq("int.to.str", -123)))
+    assertEquals("", semantics(Seq("int.to.str", -12)))
+    assertEquals("1", semantics(Seq("int.to.str", 1)))
+    assertEquals("1234567", semantics(Seq("int.to.str", 1234567)))
   }
 }
 
@@ -64,7 +157,7 @@ object TestRunLIA extends IApp('maxGenerations -> 25, 'printResults -> false, 'p
 
     ////////////////////////////////////////////////////////////////
     // Apply the programs to a random input
-    val input = synthTask.args.map {
+    val input = synthTask.args.collect {
       case (name, IntSortExpr())  => name -> (rng.nextInt(21) - 10)
       case (name, BoolSortExpr()) => name -> rng.nextBoolean
     }
@@ -95,7 +188,7 @@ object TestRunLIA extends IApp('maxGenerations -> 25, 'printResults -> false, 'p
     println("Verifying programs:")
     val solver = SolverInteractive(solverPath, verbose = false)
     val fv = sygusProblem.cmds.collect { case v: VarDeclCmd => v }
-    val getValueCommand = f"(get-value (${fv.map(_.sym).mkString(" ")}))"
+    val getValueCommand = s"(get-value (${fv.map(_.sym).mkString(" ")}))"
 
     for (p <- progs) {
       // Prepare input to the solver

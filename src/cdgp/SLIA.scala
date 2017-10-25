@@ -86,14 +86,23 @@ class SLIA(val funArgsNames: Seq[String], funName: String, recDepth: Int = 100)
       case Seq("str.len", s: String) => s.size
       case Seq("str.++", s1: String, s2: String) => s1 + s2
       case Seq("str.at", s: String, i: Int) => if (i >= 0 && i < s.size) s.charAt(i).toString else ""
-      case Seq("str.replace", s: String, a: String, b: String) => ???
-      case Seq("str.substr", s: String, a: Int, b: Int) => ???
-      case Seq("str.indexof", s: String, k: String, i: Int) => ???
-      case Seq("str.prefixof", s: String, k: String) => if (k == "" && s != "") false else s.startsWith(k)
-      case Seq("str.suffixof", s: String, k: String) => if (k == "" && s != "") false else s.endsWith(k)
+      case Seq("str.replace", s: String, a: String, b: String) => if (a == "") s else s.replaceFirst(a, b)
+      case Seq("str.substr", s: String, a: Int, b: Int) =>
+        if (a < 0 || b <= 0 || a >= s.size) ""
+        else if (a+b >= s.size) s.substring(a, s.size)
+        else s.substring(a, a + b)
+      case Seq("str.indexof", s: String, k: String, i: Int) =>
+        if (i < 0 || i > s.size) -1  // indexOf in Scala is less strict about index
+        else s.indexOf(k, i)
+      case Seq("str.prefixof", s: String, k: String) => k.startsWith(s)
+      case Seq("str.suffixof", s: String, k: String) => k.endsWith(s)
       case Seq("str.contains", s: String, k: String) => s.contains(k)
-      case Seq("int.to.str", i: Int) => i.toString
-      case Seq("str.to.int", s: String) => try s.toInt catch {case _ => -1}
+      case Seq("int.to.str", i: Int) => if (i < 0) "" else i.toString
+      case Seq("str.to.int", s: String) =>
+        try {
+          val x = s.toInt
+          if (x < 0) -1 else x
+        } catch {case _ => -1}
 
       // Exceptions
       case Seq(_: Symbol, xs@_*) =>
