@@ -25,6 +25,16 @@ class TestGetValueParser {
                (y -2)(z "eps"))""").toMap)
   }
 
+
+  @Test
+  def testParserString(): Unit = {
+    val model = """((s "") (a 0) (b 0) (res1__2 "AAAAAAAAAA") (res2__2 "BAAAAAAAAA"))"""
+    val parsed = GetValueParser(model).toMap
+    assertEquals(Map("s" -> "", "a" -> 0, "b" -> 0, "res1__2" -> "AAAAAAAAAA", "res2__2" -> "BAAAAAAAAA"),
+      parsed)
+  }
+
+
   @Test(expected=classOf[ValueParseException])
   def testFail(): Unit = {
     GetValueParser(""" ((x (- 7787))

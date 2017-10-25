@@ -69,9 +69,9 @@ class CDGPState(sygusProblem: SyGuS16)
   val post: Seq[Cmd] = SygusUtils.getPostconditions(sygusProblem)
   if (!silent) {
     println("\nPRECONDITIONS:")
-    pre.foreach { case ConstraintCmd(t) => println(SMTLIBFormatter.nestedProductToString(t)) }
+    pre.foreach { case ConstraintCmd(t) => println(SMTLIBFormatter.termToSmtlib(t)) }
     println("\nPOSTCONDITIONS:")
-    post.foreach { case ConstraintCmd(t) => println(SMTLIBFormatter.nestedProductToString(t)) }
+    post.foreach { case ConstraintCmd(t) => println(SMTLIBFormatter.termToSmtlib(t)) }
     println("")
   }
 

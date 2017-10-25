@@ -18,8 +18,8 @@ object GetValueParser extends RegexParsers {
   def negNumber: Parser[Int] = "(-" ~> number ~ ")" ^^ { case a ~ _ => -a }
   def negNumber2: Parser[Int] = "-" ~> number ^^ { a => -a }
   def number: Parser[Int] = posNumber | negNumber | negNumber2
-  def string: Parser[String] = """(\".*\")""".r ^^ { s =>  s.substring(1, s.size-1) }
-  
+  def string: Parser[String] = """\"([^"]*)\"""".r ^^ { s =>  s.substring(1, s.size-1) }
+
   def entryAssigned: Parser[Any] = number | string
   def entry: Parser[(String, Any)] = "(" ~> varName ~ entryAssigned <~ ")" ^^ { case a ~ b => (a, b) }
 

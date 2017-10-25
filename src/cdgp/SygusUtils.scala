@@ -73,9 +73,10 @@ object SygusUtils {
     * (b) constants
     * (c) macros, which themselves contain only elements specified in (a), (b) or (c).
     */
-  def getPreconditions(problem: SyGuS16): Seq[Cmd] = {
+  def getPreconditions(problem: SyGuS16): Seq[ConstraintCmd] = {
     val postSymbols = getPostcondSymbols(problem)
-    problem.cmds.filter{case ConstraintCmd(term) => isPrecondition(term, postSymbols); case _ => false}
+    problem.cmds.filter{case ConstraintCmd(term) => isPrecondition(term, postSymbols); case _ => false}.
+      asInstanceOf[Seq[ConstraintCmd]]
   }
 
   /**
@@ -83,9 +84,10 @@ object SygusUtils {
     * Postconditions depends, directly or indirectly, on the result of the function being
     * synthesized.
     */
-  def getPostconditions(problem: SyGuS16): Seq[Cmd] = {
+  def getPostconditions(problem: SyGuS16): Seq[ConstraintCmd] = {
     val postSymbols = getPostcondSymbols(problem)
-    problem.cmds.filter{case ConstraintCmd(term) => !isPrecondition(term, postSymbols); case _ => false}
+    problem.cmds.filter{case ConstraintCmd(term) =>
+      !isPrecondition(term, postSymbols); case _ => false}.asInstanceOf[Seq[ConstraintCmd]]
   }
 
   private def isPrecondition(term: Term, postSymbols: Set[String]): Boolean = {
@@ -150,6 +152,8 @@ object SygusUtils {
       case CompositeTerm(name, terms) => CompositeTerm(name, terms.map(renameVarsInTerm(_, map)))
       case SymbolTerm(symb) => SymbolTerm(map.getOrElse(symb, symb))
       case LetTerm(list, term) => LetTerm(list, renameVarsInTerm(term, map))
+      case ExistsTerm(list, term) => ExistsTerm(list, renameVarsInTerm(term, map))
+      case ForallTerm(list, term) => ForallTerm(list, renameVarsInTerm(term, map))
       case x => x
     }
   }
@@ -180,6 +184,8 @@ object SygusUtils {
       case CompositeTerm(name, terms) => terms.flatMap(collectFreeVars(_, boundVars)).toSet -- boundVars
       case SymbolTerm(symb) => Set(symb) -- boundVars
       case LetTerm(list, term) => collectFreeVars(term, boundVars ++ list.map(_._1))
+      case ExistsTerm(list, term) => collectFreeVars(term, boundVars ++ list.map(_._1))
+      case ForallTerm(list, term) => collectFreeVars(term, boundVars ++ list.map(_._1))
       case _ => Set()
     }
   }
@@ -202,6 +208,8 @@ object SygusUtils {
       case CompositeTerm(name, terms) => (terms.flatMap(collectFreeSymbols(_, boundVars)).toSet + name) -- boundVars
       case SymbolTerm(symb) => Set(symb) -- boundVars
       case LetTerm(list, term) => collectFreeSymbols(term, boundVars ++ list.map(_._1))
+      case ExistsTerm(list, term) => collectFreeSymbols(term, boundVars ++ list.map(_._1))
+      case ForallTerm(list, term) => collectFreeSymbols(term, boundVars ++ list.map(_._1))
       case _ => Set()
     }
   }
@@ -214,6 +222,8 @@ object SygusUtils {
       case CompositeTerm(name, terms) => terms.flatMap(collectFunctionNames(_)).toSet + name
       case SymbolTerm(symb) => Set()
       case LetTerm(list, term) => collectFunctionNames(term)
+      case ExistsTerm(list, term) => collectFunctionNames(term)
+      case ForallTerm(list, term) => collectFunctionNames(term)
       case _ => Set()
     }
   }
@@ -228,6 +238,8 @@ object SygusUtils {
         CompositeTerm(map.getOrElse(name, name), terms.map(renameNamesInTerm(_, map)))
       case SymbolTerm(symb) => SymbolTerm(map.getOrElse(symb, symb))
       case LetTerm(list, term) => LetTerm(list, renameNamesInTerm(term, map))
+      case ExistsTerm(list, term) => ExistsTerm(list, renameNamesInTerm(term, map))
+      case ForallTerm(list, term) => ForallTerm(list, renameNamesInTerm(term, map))
       case x => x
     }
   }
@@ -370,18 +382,26 @@ object ExtractSynthesisTasks {
       SygusSynthesisTask(sym, grammar, args, se) // name, function syntax, args list, output type
     }
     case SynthFunCmd16(sym: String, args: List[(String, SortExpr)], se: SortExpr) => {
-      // Add the variables 
-      val bp = boolProd(args.filter(_._2 == BoolSortExpr()).map(_._1.toString))
-      val ip = intProd(args.filter(_._2 == IntSortExpr()).map(_._1.toString))
-      // The first symbol in the grammar is the initial symbol, and that symbol depends
-      // on the output type of the function:
-      val grammar = se match {
-        case BoolSortExpr() => List(bp, ip)
-        case IntSortExpr()  => List(ip, bp)
-      }
-      SygusSynthesisTask(sym, grammar, args, se)
+      val grammarSygus = createDefaultGrammar(args, se)
+      SygusSynthesisTask(sym, grammarSygus, args, se)
     }
-  } 
+  }
+
+  /**
+    * Creates a default grammar for Ints and Bools if it was not specified. Sort of the synth-fun is
+    * used to determine the initial symbol. of the grammar.
+    */
+  def createDefaultGrammar(args: List[(String, SortExpr)], se: SortExpr): Seq[(Any, Seq[Any])] = {
+    // Add the variables
+    val bp = boolProd(args.filter(_._2 == BoolSortExpr()).map(_._1.toString))
+    val ip = intProd(args.filter(_._2 == IntSortExpr()).map(_._1.toString))
+    // The first symbol in the grammar is the initial symbol, and that symbol depends
+    // on the output type of the function:
+    se match {
+      case BoolSortExpr() => List(bp, ip)
+      case IntSortExpr()  => List(ip, bp)
+    }
+  }
 
   // Default grammar for the language of entire LIA (called 'Conditional Linear Integer
   // arithmetic' in SygusComp16.pdf)

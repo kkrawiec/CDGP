@@ -181,7 +181,7 @@ final class TestSygusUtils {
     val precond = SygusUtils.getPreconditions(problem)
     assertEquals(Set("rsconf"), SygusUtils.getPostcondSymbols(problem))
     assertEquals(5, precond.size)
-    assertEquals("(>= a 0)", SMTLIBFormatter.nestedProductToString(precond(0)))
+    assertEquals("(>= a 0)", SMTLIBFormatter.termToSmtlib(precond(0)))
     val st = ExtractSynthesisTasks(problem).head
     assertEquals(false, st.canBeRecursive)
   }
@@ -222,6 +222,20 @@ final class TestSygusUtils {
     val postcond = SygusUtils.getPostconditions(problem)
     assertEquals(Set("a", "b", "c", "fun_d", "fun_e"), SygusUtils.collectFreeVars(postcond))
     assertEquals(Set(), SygusUtils.collectFreeVars(precond))
+  }
+
+  @Test
+  def test_forallExists(): Unit = {
+    val code = """(set-logic LIA)
+(synth-fun funSynth ((a Int)(b Int)) Int ((Start Int (a b))))
+(declare-var a Int)
+(constraint (forall ((i Int)) (>= (funSynth a 1) a)))
+(constraint (exists ((i Int)) (= (funSynth a i) 0)))
+(check-synth)"""
+    val problem = LoadSygusBenchmark.parseText(code)
+    val postcond = SygusUtils.getPostconditions(problem)
+    assertEquals("(forall ((i Int)) (>= (funSynth a 1) a))", SMTLIBFormatter.termToSmtlib(postcond(0).t))
+    assertEquals("(exists ((i Int)) (= (funSynth a i) 0))", SMTLIBFormatter.termToSmtlib(postcond(1).t))
   }
 
   @Test

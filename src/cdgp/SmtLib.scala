@@ -52,7 +52,7 @@ object SMTLIBFormatter {
 
   def getLogicName(problem: SyGuS16): String = {
     f"${problem.setLogic.get.id}" match {
-      case "SLIA" => "QF_S"
+      case "SLIA" => "ALL"// "QF_S"
       case s => s
     }
   }
@@ -246,13 +246,13 @@ object SMTLIBFormatter {
     val cmds1 = problem.cmds
     val cmds2 = problem.cmds.map(SygusUtils.renameNamesInCmd(_, vMap))
     val body1 = cmds1.collect {
-      case ConstraintCmd(t: Term) => f"(assert ${nestedProductToString(t)})"
+      case ConstraintCmd(t: Term) => f"(assert ${termToSmtlib(t)})"
     }.mkString("", "\n", "\n")
     val body2 = cmds2.collect {
-      case ConstraintCmd(t: Term) => f"(assert ${nestedProductToString(t)})"
+      case ConstraintCmd(t: Term) => f"(assert ${termToSmtlib(t)})"
     }.mkString("", "\n", "\n")
     val auxiliaries = getCodeForAuxiliaries(problem)
-    
+
     val synthFunSort = sortToString(sf.outputType)
     f"(set-logic ${getLogicName(problem)})\n" +
       (if (solverTimeout > 0) f"(set-option :timeout $solverTimeout)\n" else "") +
@@ -278,36 +278,43 @@ object SMTLIBFormatter {
       case FunDefCmd(name, sortExprs, sortExpr, term) =>
         val argsSorts = sortExprs.map{ case (n, s) => s"($n ${sortToString(s)})"}.mkString("")
         val retSort = sortToString(sortExpr)
-        val body = nestedProductToString(term)
+        val body = termToSmtlib(term)
         f"(define-fun $name ($argsSorts) $retSort $body)"
     }.mkString("\n")
   }
 
   def getCodeForConstraints(cmds: Seq[Cmd]): String = {
     cmds.collect {
-      case ConstraintCmd(t: Term) => f"(assert ${nestedProductToString(t)})"
+      case ConstraintCmd(t: Term) => f"(assert ${termToSmtlib(t)})"
     }.mkString("\n")
   }
 
   def getCodeForMergedConstraints(cmds: Seq[Cmd]): String = {
     val constraints = cmds.collect {
-      case ConstraintCmd(t: Term) => f"${nestedProductToString(t)}"
+      case ConstraintCmd(t: Term) => f"${termToSmtlib(t)}"
     }.mkString("\n  ")
     s"(and $constraints)"
   }
 
-  def nestedProductToString(p: Any): String = p match {
-    case seq: Seq[Any] => {
-      val s = seq.map(nestedProductToString(_))
+  def termToSmtlib(p: Any): String = p match {
+    case seq: Seq[Any] => { // in case seq of terms is provided
+      val s = seq.map(termToSmtlib(_))
       s.reduce(_ + " " + _)
     }
     case LetTerm(list, term) =>
-      val boundVars = list.map{ case (name, _, t) => s"($name ${nestedProductToString(t)})" }
-      s"(let (${boundVars.mkString("")}) ${nestedProductToString(term)})"
+      val boundVars = list.map{ case (name, _, t) => s"($name ${termToSmtlib(t)})" }
+      s"(let (${boundVars.mkString("")}) ${termToSmtlib(term)})"
+    case ExistsTerm(list, term) =>
+      val boundVars = list.map{ case (name, sort) => s"($name ${sortToString(sort)})" }
+      s"(exists (${boundVars.mkString("")}) ${termToSmtlib(term)})"
+    case ForallTerm(list, term) =>
+      val boundVars = list.map{ case (name, sort) => s"($name ${sortToString(sort)})" }
+      s"(forall (${boundVars.mkString("")}) ${termToSmtlib(term)})"
     case prod: Product => prod.productArity match {
-      case 1 => nestedProductToString(prod.productElement(0))
-      case _ => "(" + prod.productIterator.
-        map(nestedProductToString(_)).reduce(_ + " " + _) + ")"
+      // Product catches any case class
+      case 1 => termToSmtlib(prod.productElement(0))
+      case _ => "(" + prod.productIterator.   // iterate over all fields
+        map(termToSmtlib(_)).reduce(_ + " " + _) + ")"
     }
     case _ => p.toString
   }
