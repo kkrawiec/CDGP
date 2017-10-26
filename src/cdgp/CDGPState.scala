@@ -36,11 +36,12 @@ class CDGPState(sygusProblem: SyGuS16)
   val timeout: Int = opt('solverTimeout, 0)
   val silent = opt('silent, false)
 
-
+  
   val synthTasks = ExtractSynthesisTasks(sygusProblem)
   if (synthTasks.size > 1)
     throw new Exception("Multiple synth-fun commands detected. Cannot handle such problems.")
   val synthTask: SygusSynthesisTask = synthTasks.head
+  val sygusData = SygusBenchmarkConstraints(sygusProblem, synthTask)
   val invocations: Seq[Seq[String]] = SygusUtils.getSynthFunsInvocationsInfo(sygusProblem, synthTask.fname)
   def grammar: Grammar = synthTask.grammar
   val varDecls: List[VarDeclCmd] = sygusProblem.cmds.collect { case v: VarDeclCmd => v }

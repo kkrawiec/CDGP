@@ -44,6 +44,16 @@ case class SygusSynthesisTask(fname: String,
 }
 
 
+/**
+  * Stores information about constraints of the given Sygus benchmark.
+  */
+case class SygusBenchmarkConstraints(problem: SyGuS16, synthTask: SygusSynthesisTask) {
+  val precond: Seq[ConstraintCmd] = SygusUtils.getPreconditions(problem)
+  val postcond: Seq[ConstraintCmd] = SygusUtils.getPostconditions(problem)
+  val (testCasesConstr, formalConstr) = SygusUtils.divideOnTestsAndFormalConstr(problem, synthTask)
+}
+
+
 
 object SygusUtils {
   /**
@@ -94,6 +104,48 @@ object SygusUtils {
     val freeSymbs = collectFreeSymbols(term)
     !freeSymbs.exists{ v: String => postSymbols.contains(v) }
   }
+
+
+  /**
+    * For a given SyGuS problem finds all constraint that are a simple equality
+    * constraints, that is they are of the form CompositeTerm(=, sf(args), c),
+    * where sf is synth-function, args are constant arguments and c is a
+    * constant output.
+    *
+    * In the CompositeTerm arguments may be reversed. This function will return
+    * standardized ConstraintCmd with synthFun always on the left side.
+    */
+  def divideOnTestsAndFormalConstr(problem: SyGuS16, synthFun: SygusSynthesisTask): (Seq[ConstraintCmd], Seq[ConstraintCmd]) = {
+    def checkEqualityArgs(eqTerm: CompositeTerm): (Boolean, Option[CompositeTerm]) = {
+      assert(eqTerm.symbol == "=")
+      def args = eqTerm.terms
+      val (sfTerm, outTerm): (CompositeTerm, LiteralTerm) =
+        if (args(0).isInstanceOf[CompositeTerm] && args(1).isInstanceOf[LiteralTerm])
+          (args(0).asInstanceOf[CompositeTerm], args(1).asInstanceOf[LiteralTerm])
+        else if (args(1).isInstanceOf[CompositeTerm] && args(0).isInstanceOf[LiteralTerm])
+          (args(1).asInstanceOf[CompositeTerm], args(0).asInstanceOf[LiteralTerm])
+        else
+          return (false, None)
+
+      if (!(sfTerm.symbol == synthFun.fname && sfTerm.terms.forall(_.isInstanceOf[LiteralTerm])))
+        (false, None)
+      else
+        (true, Some(CompositeTerm("=", List(sfTerm, outTerm))))
+    }
+
+    val constrCmds = problem.cmds.collect { case c @ ConstraintCmd(t) => c }
+    val processedConstr = constrCmds.map { cmd => cmd.t match {
+        case c @ CompositeTerm("=", args) if args.size == 2 =>
+          val res = checkEqualityArgs(c)
+          if (res._1) (true, ConstraintCmd(res._2.get))
+          else (false, cmd)
+        case _ => (false, cmd)
+      }
+    }
+    val (tConstr, fConstr) = processedConstr.partition(_._1)
+    (tConstr.map(_._2), fConstr.map(_._2))
+  }
+
 
   /**
     * Solver requires renaming of the variables, so that it is able to handle cases
