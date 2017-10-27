@@ -82,8 +82,15 @@ class CDGPSteadyState(moves: GPMoves,
   override def initialize  = super.initialize
   override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests
   override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalInt(cdgpEval.state, bsf)
-  override def evaluate = Common.evalPopToDefaultFInt(false, 0) // used only for the initial population
   override def report = s => s
+  override def evaluate = // used only for the initial population
+    (s: StatePop[Op]) => {
+      cdgpEval.state.testsManager.flushHelpers()
+      if (cdgpEval.state.testsManager.tests.isEmpty)
+        Common.evalPopToDefaultFInt(false, 0)(s)
+      else
+        Common.evalPopNoVerificationFInt(cdgpEval.state)(s)
+    }
 }
 
 object CDGPSteadyState {
@@ -185,14 +192,12 @@ class CDGPSteadyStateLexicase(moves: GPMoves,
   override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests
   override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalSeqInt(cdgpEval.state, bsf)
   override def evaluate = // used only for the initial population
-    new Function1[StatePop[Op], StatePop[(Op, FSeqInt)]] {
-      def apply(s: StatePop[Op]): StatePop[(Op, FSeqInt)] = {
-        cdgpEval.state.testsManager.flushHelpers()
-        if (cdgpEval.state.testsManager.tests.isEmpty)
-          Common.evalPopToDefaultFSeqInt(false, List())(s)
-        else
-          Common.evalPopNoVerificationFSeqInt(cdgpEval.state)(s)
-      }
+    (s: StatePop[Op]) => {
+      cdgpEval.state.testsManager.flushHelpers()
+      if (cdgpEval.state.testsManager.tests.isEmpty)
+        Common.evalPopToDefaultFSeqInt(false, List())(s)
+      else
+        Common.evalPopNoVerificationFSeqInt(cdgpEval.state)(s)
     }
 }
 
