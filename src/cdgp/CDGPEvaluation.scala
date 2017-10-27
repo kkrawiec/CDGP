@@ -55,7 +55,7 @@ class CDGPEvaluation[S, E](val state: CDGPState,
   * A modified version of CDGPEvaluation which is specialized in accommodating steady state GP.
   * In steady state evaluated are, beside initial population, only single solutions selected in the
   * given iteration. In CDGP the number of test cases can increase, so updatePopulationEvalsAndTests
-  * must be invoked every after creation of a new individual.
+  * must be invoked after every creation of a new individual.
   *
   * @param state Object handling the state of the CDGP.
   * @param eval Function from a solution to its evaluation. It is also dependent on the cdgpState,
@@ -75,8 +75,14 @@ class CDGPEvaluationSteadyState[S, E](state: CDGPState,
                                      (implicit opt: Options, coll: Collector, rng: TRandom)
   extends CDGPEvaluation[S, E](state, eval) {
 
-  override def cdgpEvaluate = super.cdgpEvaluate andThen updatePopulationEvalsAndTests
+  override def cdgpEvaluate: StatePop[S] => StatePop[(S, E)] =
+    updateTestsManager andThen evaluate andThen updatePopulationEvalsAndTests
 
+  /**
+    * 1) For every program in the population adds to it's evaluation an evaluation on the
+    * newly generated tests.
+    * 2) Calls updateTestsManager so that set of new tests is reset.
+    */
   def updatePopulationEvalsAndTests(s: StatePop[(S, E)]): StatePop[(S, E)] = {
     val s2 =
       if (state.testsManager.newTests.nonEmpty)

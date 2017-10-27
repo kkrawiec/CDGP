@@ -43,6 +43,11 @@ class CDGPState(sygusProblem: SyGuS16)
   val synthTask: SygusSynthesisTask = synthTasks.head
   val sygusData = SygusBenchmarkConstraints(sygusProblem, synthTask, opt('mixedSpecAllowed, true))
   val invocations: Seq[Seq[String]] = sygusData.invocations
+
+  // Initializing population of test cases
+  testsManager.addNewTests(sygusData.testCasesConstrToTests)
+  // testsManager.flushHelpers()
+
   def grammar: Grammar = synthTask.grammar
   val varDecls: List[VarDeclCmd] = sygusProblem.cmds.collect { case v: VarDeclCmd => v }
   val varDeclsNames: Set[String] = varDecls.map(_.sym).toSet
@@ -73,12 +78,6 @@ class CDGPState(sygusProblem: SyGuS16)
     println("\nPOSTCONDITIONS:")
     post.foreach { case ConstraintCmd(t) => println(SMTLIBFormatter.termToSmtlib(t)) }
     println("")
-  }
-
-  def initializeTestCases(): Unit = {
-    if (sygusData.testCasesConstr.size > 0) {
-      val tests = sygusData.testCasesConstrToTests
-    }
   }
 
 
@@ -287,6 +286,11 @@ class CDGPState(sygusProblem: SyGuS16)
       case "GPR"      => fitnessGPR
     }
 
+  def fitnessNoVerification(s: Op): (Boolean, Seq[Int]) = {
+    (false, evalOnTests(s, testsManager.getTests()))
+  }
+
+  /** Fitness is always computed on the tests that were flushed. */
   def fitnessCDGPGeneral: Op => (Boolean, Seq[Int]) =
     new Function1[Op, (Boolean, Seq[Int])] {
       def doVerify(evalTests: Seq[Int]): Boolean = {

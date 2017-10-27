@@ -184,7 +184,16 @@ class CDGPSteadyStateLexicase(moves: GPMoves,
   override def initialize  = super.initialize
   override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests
   override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalSeqInt(cdgpEval.state, bsf)
-  override def evaluate = Common.evalPopToDefaultFSeqInt(false, List()) // used only for the initial population
+  override def evaluate = // used only for the initial population
+    new Function1[StatePop[Op], StatePop[(Op, FSeqInt)]] {
+      def apply(s: StatePop[Op]): StatePop[(Op, FSeqInt)] = {
+        cdgpEval.state.testsManager.flushHelpers()
+        if (cdgpEval.state.testsManager.tests.isEmpty)
+          Common.evalPopToDefaultFSeqInt(false, List())(s)
+        else
+          Common.evalPopNoVerificationFSeqInt(cdgpEval.state)(s)
+      }
+    }
 }
 
 object CDGPSteadyStateLexicase {
@@ -236,16 +245,24 @@ object Common {
     FSeqInt(isPerfect, r, s.size)
   }
 
+  def evalPopNoVerificationFSeqInt(state: CDGPState)(s: StatePop[Op]): StatePop[(Op, FSeqInt)] = {
+    StatePop(s.map { op =>
+      val f = state.fitnessNoVerification(op)
+      (op, FSeqInt(f._1, f._2, op.size))
+    })
+  }
   def evalPopToDefaultFSeqInt(dec: Boolean, fit: Seq[Int])(s: StatePop[Op]): StatePop[(Op, FSeqInt)] = {
     StatePop(s.map{ op => (op, FSeqInt(dec, fit, op.size))})
   }
 
+  def evalPopNoVerificationFInt(state: CDGPState)(s: StatePop[Op]): StatePop[(Op, FInt)] = {
+    StatePop(s.map{ op =>
+      val f = state.fitnessNoVerification(op)
+      (op, FInt(f._1, f._2.sum, op.size))
+    })
+  }
   def evalPopToDefaultFInt(dec: Boolean, fit: Int)(s: StatePop[Op]): StatePop[(Op, FInt)] = {
     StatePop(s.map{ op => (op, FInt(dec, fit, op.size))})
-  }
-
-  def evalPopToDefaultValue[S, E](value: E)(s: StatePop[S]): StatePop[(S, E)] = {
-    StatePop(s.map((_, value)))
   }
 
   def printPop[S, E](s: StatePop[(S, E)]): StatePop[(S, E)] = {
