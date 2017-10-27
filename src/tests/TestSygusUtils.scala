@@ -22,7 +22,7 @@ final class TestSygusUtils {
     assertEquals(false, SygusUtils.containsUnsupportedComplexTerms(problem))
     assertEquals(true, SygusUtils.hasSingleInvocationProperty(problem))
     assertEquals(Map("funSynth" -> List(List("a", "b", "c"), List("a", "b", "c"))),
-      SygusUtils.getSynthFunsInvocationsInfo(problem, Set("funSynth")))
+      SygusUtils.getSynthFunsInvocationsInfo(SygusUtils.getAllConstraints(problem), Set("funSynth")))
   }
 
   @Test
@@ -39,7 +39,7 @@ final class TestSygusUtils {
     val problem = LoadSygusBenchmark.parseText(code, checkSupport=false)
     assertEquals(false, SygusUtils.hasSingleInvocationProperty(problem))
     assertEquals(Map("funSynth" -> List(List("a", "1", "c"), List("a", "c", "1"))),
-      SygusUtils.getSynthFunsInvocationsInfo(problem, Set("funSynth")))
+      SygusUtils.getSynthFunsInvocationsInfo(SygusUtils.getAllConstraints(problem), Set("funSynth")))
     assertEquals(false, SygusUtils.containsUnsupportedComplexTerms(problem))
   }
 

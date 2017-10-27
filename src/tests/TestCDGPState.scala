@@ -281,4 +281,27 @@ final class TestCDGPState {
     assertEquals(Seq("a", "a", "4", "4"), state.invocations.head)
     assertEquals(Map("w"->1, "x"->1, "y"->4, "z"->4), testInputs)
   }
+
+  @Test
+  def test_createTestsFromConstraints(): Unit = {
+    val code =
+      """(set-logic SLIA)
+        |(synth-fun f ((s String)(a Int)(b Int)) String ((Start String (s))))
+        |(declare-var s String)
+        |(declare-var a Int)
+        |(declare-var b Int)
+        |(constraint (= (f "asd" 0 1) "sad"))
+        |(constraint (= (str.len (f s a b)) (str.len s)))
+        |(constraint (= (f "asd" 0 2) "das"))
+      """.stripMargin
+    val problem = LoadSygusBenchmark.parseText(code)
+    val synthTasks = ExtractSynthesisTasks(problem)
+    val data = SygusBenchmarkConstraints(problem, synthTasks.head, mixedSpecAllowed = true)
+    val tests = data.testCasesConstrToTests
+    assertEquals(2, tests.size)
+    assertEquals(Map("s"->"asd", "a"->0, "b"->1), tests(0)._1)
+    assertEquals(Some("sad"), tests(0)._2)
+    assertEquals(Map("s"->"asd", "a"->0, "b"->2), tests(1)._1)
+    assertEquals(Some("das"), tests(1)._2)
+  }
 }

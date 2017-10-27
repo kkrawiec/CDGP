@@ -36,13 +36,13 @@ class CDGPState(sygusProblem: SyGuS16)
   val timeout: Int = opt('solverTimeout, 0)
   val silent = opt('silent, false)
 
-  
+
   val synthTasks = ExtractSynthesisTasks(sygusProblem)
   if (synthTasks.size > 1)
     throw new Exception("Multiple synth-fun commands detected. Cannot handle such problems.")
   val synthTask: SygusSynthesisTask = synthTasks.head
-  val sygusData = SygusBenchmarkConstraints(sygusProblem, synthTask)
-  val invocations: Seq[Seq[String]] = SygusUtils.getSynthFunsInvocationsInfo(sygusProblem, synthTask.fname)
+  val sygusData = SygusBenchmarkConstraints(sygusProblem, synthTask, opt('mixedSpecAllowed, true))
+  val invocations: Seq[Seq[String]] = sygusData.invocations
   def grammar: Grammar = synthTask.grammar
   val varDecls: List[VarDeclCmd] = sygusProblem.cmds.collect { case v: VarDeclCmd => v }
   val varDeclsNames: Set[String] = varDecls.map(_.sym).toSet
@@ -65,8 +65,8 @@ class CDGPState(sygusProblem: SyGuS16)
 
 
   // Pre- and post-conditions of the synthesis problem
-  val pre: Seq[Cmd] = SygusUtils.getPreconditions(sygusProblem)
-  val post: Seq[Cmd] = SygusUtils.getPostconditions(sygusProblem)
+  val pre: Seq[ConstraintCmd] = SygusUtils.getPreconditions(sygusProblem)
+  val post: Seq[ConstraintCmd] = SygusUtils.getPostconditions(sygusProblem)
   if (!silent) {
     println("\nPRECONDITIONS:")
     pre.foreach { case ConstraintCmd(t) => println(SMTLIBFormatter.termToSmtlib(t)) }
@@ -74,6 +74,13 @@ class CDGPState(sygusProblem: SyGuS16)
     post.foreach { case ConstraintCmd(t) => println(SMTLIBFormatter.termToSmtlib(t)) }
     println("")
   }
+
+  def initializeTestCases(): Unit = {
+    if (sygusData.testCasesConstr.size > 0) {
+      val tests = sygusData.testCasesConstrToTests
+    }
+  }
+
 
 
   // Creating solver manager

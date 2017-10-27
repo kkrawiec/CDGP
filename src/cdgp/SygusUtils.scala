@@ -46,11 +46,41 @@ case class SygusSynthesisTask(fname: String,
 
 /**
   * Stores information about constraints of the given Sygus benchmark.
+  * The two main types of constraints are:
+  * - precond: constraints which are totally independent of the synthesis function.
+  *     Dependency can for example mean that a certain function called in
+  *     the constraints has in its body a call to synth-function.
+  * - postcond: constraints dependent or containing the call to synth-function.
+  *
+  * Further, postconditions divide into two subclasses of constraints:
+  * - testCasesConstr: constraints showing output of the synth-fun for a certain
+  *     input. All synth-fun arguments and expected value are constants.
+  * - formalConstr: Standard formal constraints, esp. containg calls to the synth-fun
+  *     with universally quantified arguments.
   */
-case class SygusBenchmarkConstraints(problem: SyGuS16, synthTask: SygusSynthesisTask) {
+case class SygusBenchmarkConstraints(problem: SyGuS16, synthTask: SygusSynthesisTask,
+                                     mixedSpecAllowed: Boolean = true) {
   val precond: Seq[ConstraintCmd] = SygusUtils.getPreconditions(problem)
   val postcond: Seq[ConstraintCmd] = SygusUtils.getPostconditions(problem)
-  val (testCasesConstr, formalConstr) = SygusUtils.divideOnTestsAndFormalConstr(problem, synthTask)
+  val (testCasesConstr, formalConstr) =
+    if (mixedSpecAllowed) SygusUtils.divideOnTestsAndFormalConstr(postcond, synthTask)
+    else (Seq(), postcond)
+  val invocations: Seq[Seq[String]] = SygusUtils.getSynthFunsInvocationsInfo(formalConstr, synthTask.fname)
+
+  /**
+    * Creates test cases for the found testCasesConstr.
+    */
+  def testCasesConstrToTests: Seq[(Map[String, Any], Option[Any])] = {
+    testCasesConstr.map { c =>
+      val ct = c.t.asInstanceOf[CompositeTerm]
+      val args = ct.terms(0).asInstanceOf[CompositeTerm].terms.map{ x=>
+        SygusUtils.getValueOfLiteral(x.asInstanceOf[LiteralTerm].literal)
+      }
+      val input = synthTask.argNames.zip(args).toMap
+      val output = SygusUtils.getValueOfLiteral(ct.terms(1).asInstanceOf[LiteralTerm].literal)
+      (input, Some(output))
+    }
+  }
 }
 
 
@@ -107,7 +137,7 @@ object SygusUtils {
 
 
   /**
-    * For a given SyGuS problem finds all constraint that are a simple equality
+    * For a given list of constraints finds all constraint that are a simple equality
     * constraints, that is they are of the form CompositeTerm(=, sf(args), c),
     * where sf is synth-function, args are constant arguments and c is a
     * constant output.
@@ -115,7 +145,7 @@ object SygusUtils {
     * In the CompositeTerm arguments may be reversed. This function will return
     * standardized ConstraintCmd with synthFun always on the left side.
     */
-  def divideOnTestsAndFormalConstr(problem: SyGuS16, synthFun: SygusSynthesisTask): (Seq[ConstraintCmd], Seq[ConstraintCmd]) = {
+  def divideOnTestsAndFormalConstr(constrCmds: Seq[ConstraintCmd], synthFun: SygusSynthesisTask): (Seq[ConstraintCmd], Seq[ConstraintCmd]) = {
     def checkEqualityArgs(eqTerm: CompositeTerm): (Boolean, Option[CompositeTerm]) = {
       assert(eqTerm.symbol == "=")
       def args = eqTerm.terms
@@ -133,7 +163,6 @@ object SygusUtils {
         (true, Some(CompositeTerm("=", List(sfTerm, outTerm))))
     }
 
-    val constrCmds = problem.cmds.collect { case c @ ConstraintCmd(t) => c }
     val processedConstr = constrCmds.map { cmd => cmd.t match {
         case c @ CompositeTerm("=", args) if args.size == 2 =>
           val res = checkEqualityArgs(c)
@@ -146,6 +175,17 @@ object SygusUtils {
     (tConstr.map(_._2), fConstr.map(_._2))
   }
 
+
+  def getValueOfLiteral(literal: Literal): Any = {
+    literal match {
+      case IntConst(v) => v
+      case RealConst(v) => v
+      case BoolConst(v) => v
+      case BVConst(v) => v
+      case StringConst(v) => v
+      case _ => throw new Exception("Unsupported literal type!")
+    }
+  }
 
   /**
     * Solver requires renaming of the variables, so that it is able to handle cases
@@ -309,7 +349,8 @@ object SygusUtils {
   def hasSingleInvocationProperty(problem: SyGuS16): Boolean = {
     val sfs = ExtractSynthesisTasks(problem)
     val setNames = sfs.map(_.fname).toSet
-    val invInfo = getSynthFunsInvocationsInfo(problem, setNames)
+    val constrCmds = getAllConstraints(problem)
+    val invInfo = getSynthFunsInvocationsInfo(constrCmds, setNames)
     invInfo.forall{ case (n, lst) => lst.toSet.size == 1}
   }
 
@@ -318,7 +359,7 @@ object SygusUtils {
     * this function was invoked with in the constraints. Each invocation is represented
     * as a distinct entry, so there may be duplicates.
     */
-  def getSynthFunsInvocationsInfo(problem: SyGuS16, setNames: Set[String]): Map[String, Seq[Seq[String]]] = {
+  def getSynthFunsInvocationsInfo(constrCmds: Seq[ConstraintCmd], setNames: Set[String]): Map[String, Seq[Seq[String]]] = {
     def searchExpr(p: Term): List[(String, List[String])] = p match {
       case c: CompositeTerm if setNames.contains(c.symbol) =>
         val tup = (c.symbol, c.terms.map{
@@ -333,14 +374,19 @@ object SygusUtils {
       case ForallTerm(_, term) => searchExpr(term)
       case _ => List()
     }
-    val collected: Seq[(String, List[String])] = problem.cmds.collect {
-      case ConstraintCmd(term) => searchExpr(term)
-    }.flatten
+    val collected: Seq[(String, List[String])] = constrCmds.flatMap { cmd => searchExpr(cmd.t) }
     collected.groupBy(_._1).map{ case (k, v) => (k, v.map(_._2)) }
   }
 
+  def getSynthFunsInvocationsInfo(constrCmds: Seq[ConstraintCmd], name: String): Seq[Seq[String]] = {
+    getSynthFunsInvocationsInfo(constrCmds, Set(name))(name)
+  }
   def getSynthFunsInvocationsInfo(problem: SyGuS16, name: String): Seq[Seq[String]] = {
-    getSynthFunsInvocationsInfo(problem, Set(name))(name)
+    getSynthFunsInvocationsInfo(getAllConstraints(problem), Set(name))(name)
+  }
+
+  def getAllConstraints(problem: SyGuS16): Seq[ConstraintCmd] = {
+    problem.cmds.collect {case c @ ConstraintCmd(_) => c}
   }
 
   /**
@@ -452,6 +498,7 @@ object ExtractSynthesisTasks {
     se match {
       case BoolSortExpr() => List(bp, ip)
       case IntSortExpr()  => List(ip, bp)
+      case _ => throw new Exception(s"Default grammar not supported for $se")
     }
   }
 
