@@ -93,7 +93,7 @@ object TestCDGPState {
 (synth-fun f ((x Int)) Int
    ((Start Int (x 3 7 10 (* Start Start) (mod Start Start)))))
 (declare-var x Int)
-(constraint (= (f x) (f (+ x 10))))
+(constraint (= (f x) (+ 10 (f x))))
 (constraint (= (f 1) 3))
 (constraint (= (f 2) 6))
 (constraint (= (f 3) 9))
@@ -218,12 +218,11 @@ final class TestCDGPState {
   }
 
   @Test
-  def test_checkIfOnlySingleCorrectAnswer_unsat(): Unit = {
+  def test_checkIfSingleCorrectAnswer_unsat(): Unit = {
     val code = TestCDGPState.scriptMaxRenamedVars
     val problem = LoadSygusBenchmark.parseText(code)
     val synthTask = ExtractSynthesisTasks(problem).head
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(synthTask, problem)
-    println("query:\n" + query)
     val state = new CDGPState(problem)
     val (decision, output) = state.solver.runSolver(query)
     assertEquals("unsat", decision)  // unsat, so there is only a single answer
@@ -231,12 +230,21 @@ final class TestCDGPState {
   }
 
   @Test
-  def test_checkIfOnlySingleCorrectAnswer_sat(): Unit = {
+  def test_checkIfSingleInvocation(): Unit = {
+    val code = TestCDGPState.scriptNotSingleInvocation
+    val problem = LoadSygusBenchmark.parseText(code)
+    val synthTask = ExtractSynthesisTasks(problem).head
+    val data = SygusBenchmarkConstraints(problem, synthTask, mixedSpecAllowed=true)
+    val singleInvoc = SygusUtils.hasSingleInvocationProperty(data)
+    assertEquals(true, singleInvoc)
+  }
+
+  @Test
+  def test_checkIfSingleCorrectAnswer_sat(): Unit = {
     val code = TestCDGPState.scriptPsuedoMaxRenamedVars
     val problem = LoadSygusBenchmark.parseText(code)
     val synthTask = ExtractSynthesisTasks(problem).head
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(synthTask, problem)
-    println("query:\n" + query)
     val state = new CDGPState(problem)
     val (decision, output) = state.solver.runSolver(query)
     assertEquals("sat", decision)
@@ -315,7 +323,7 @@ final class TestCDGPState {
         |(declare-var b Int)
         |(constraint (= (f s 0 0) s))
         |(constraint (= (str.len (f s a b)) (str.len s)))
-        |(constraint (= (f "asd" 0 2) "das"))
+        |(constraint (= "das" (f "asd" 0 2)))
       """.stripMargin
     val problem = LoadSygusBenchmark.parseText(code)
     val synthTasks = ExtractSynthesisTasks(problem)

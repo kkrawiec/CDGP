@@ -337,7 +337,7 @@ object SygusUtils {
   }
 
   /**
-    * Checks, if a set of constraints has single invocation property. This property
+    * Checks, if a given problem has the single invocation property. This property
     * states that if there is a function f, then every invocation of this function
     * in the constraints takes exactly the same arguments.
     *
@@ -346,13 +346,33 @@ object SygusUtils {
     * while this one does not:
     * f(x,y) == f(y,x)
     */
-  def hasSingleInvocationProperty(problem: SyGuS16): Boolean = {
+  def hasSingleInvocationPropertyAllConstr(problem: SyGuS16): Boolean = {
     val sfs = ExtractSynthesisTasks(problem)
     val setNames = sfs.map(_.fname).toSet
     val constrCmds = getAllConstraints(problem)
     val invInfo = getSynthFunsInvocationsInfo(constrCmds, setNames)
     invInfo.forall{ case (n, lst) => lst.toSet.size == 1}
   }
+
+
+  /**
+    * Checks, if a synthesis task has the single invocation property in the given
+    * set of constraints. This property states that if there is a function f,
+    * then every invocation of this function in the constraints takes exactly
+    * the same arguments.
+    *
+    * Consider function f(x,y). The following constraint has the property:
+    * f(x,y) >= x && f(x,y) >= y
+    * while this one does not:
+    * f(x,y) == f(y,x)
+    */
+  def hasSingleInvocationProperty(synthTask: SygusSynthesisTask,
+                                  constrCmds: Seq[ConstraintCmd]): Boolean = {
+    val invInfo = getSynthFunsInvocationsInfo(constrCmds, Set(synthTask.fname))
+    invInfo.forall{ case (n, lst) => lst.toSet.size == 1}
+  }
+  def hasSingleInvocationProperty(data: SygusBenchmarkConstraints): Boolean =
+    hasSingleInvocationProperty(data.synthTask, data.formalConstr)
 
   /**
     * Creates a map assigning to each provided synth function a list of arguments

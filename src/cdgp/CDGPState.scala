@@ -89,7 +89,7 @@ class CDGPState(sygusProblem: SyGuS16)
 
 
   def getTestCasesMode(problem: SyGuS16): String = {
-    val singleInvoc = SygusUtils.hasSingleInvocationProperty(problem)
+    val singleInvoc = SygusUtils.hasSingleInvocationProperty(sygusData)
     println(s"(singleInvocationProperty $singleInvoc)")
     coll.set("cdgp.singleInvocationProperty", singleInvoc)
     if (singleInvoc) {
