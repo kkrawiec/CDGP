@@ -146,7 +146,7 @@ object TestRunLIA extends IApp('maxGenerations -> 25, 'printResults -> false, 'p
     val sygusProblem = LoadSygusBenchmark(file)
 
     // Retrieve the grammar and signature of the function to be synthesized
-    val synthTask = ExtractSynthesisTasks(sygusProblem).head
+    val synthTask = SygusSynthesisTask(sygusProblem).head
     val sygusData = SygusBenchmarkConstraints(sygusProblem, synthTask)
 
     // Create the Swim grammar from it

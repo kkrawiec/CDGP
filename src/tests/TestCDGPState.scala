@@ -221,7 +221,7 @@ final class TestCDGPState {
   def test_checkIfSingleCorrectAnswer_unsat(): Unit = {
     val code = TestCDGPState.scriptMaxRenamedVars
     val problem = LoadSygusBenchmark.parseText(code)
-    val synthTask = ExtractSynthesisTasks(problem).head
+    val synthTask = SygusSynthesisTask(problem).head
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(synthTask, problem)
     val state = new CDGPState(problem)
     val (decision, output) = state.solver.runSolver(query)
@@ -233,7 +233,7 @@ final class TestCDGPState {
   def test_checkIfSingleInvocation(): Unit = {
     val code = TestCDGPState.scriptNotSingleInvocation
     val problem = LoadSygusBenchmark.parseText(code)
-    val synthTask = ExtractSynthesisTasks(problem).head
+    val synthTask = SygusSynthesisTask(problem).head
     val data = SygusBenchmarkConstraints(problem, synthTask, mixedSpecAllowed=true)
     val singleInvoc = SygusUtils.hasSingleInvocationProperty(data)
     assertEquals(true, singleInvoc)
@@ -243,7 +243,7 @@ final class TestCDGPState {
   def test_checkIfSingleCorrectAnswer_sat(): Unit = {
     val code = TestCDGPState.scriptPsuedoMaxRenamedVars
     val problem = LoadSygusBenchmark.parseText(code)
-    val synthTask = ExtractSynthesisTasks(problem).head
+    val synthTask = SygusSynthesisTask(problem).head
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(synthTask, problem)
     val state = new CDGPState(problem)
     val (decision, output) = state.solver.runSolver(query)
@@ -303,7 +303,7 @@ final class TestCDGPState {
         |(constraint (= (f "asd" 0 2) "das"))
       """.stripMargin
     val problem = LoadSygusBenchmark.parseText(code)
-    val synthTasks = ExtractSynthesisTasks(problem)
+    val synthTasks = SygusSynthesisTask(problem)
     val data = SygusBenchmarkConstraints(problem, synthTasks.head, mixedSpecAllowed = true)
     val tests = data.testCasesConstrToTests
     assertEquals(2, tests.size)
@@ -326,7 +326,7 @@ final class TestCDGPState {
         |(constraint (= "das" (f "asd" 0 2)))
       """.stripMargin
     val problem = LoadSygusBenchmark.parseText(code)
-    val synthTasks = ExtractSynthesisTasks(problem)
+    val synthTasks = SygusSynthesisTask(problem)
     val data = SygusBenchmarkConstraints(problem, synthTasks.head, mixedSpecAllowed = true)
     val tests = data.testCasesConstrToTests
     assertEquals(1, tests.size)

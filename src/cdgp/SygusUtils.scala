@@ -86,6 +86,87 @@ case class SygusBenchmarkConstraints(problem: SyGuS16, synthTask: SygusSynthesis
 
 
 
+
+
+object SygusSynthesisTask {
+  def apply(tree: SyGuS16): List[SygusSynthesisTask] = tree.cmds.collect {
+    case SynthFunCmd14(sym: String, args: List[(String, SortExpr)], se: SortExpr, ntDefs: List[NTDef]) => {
+      val grammar = retrieveGrammar(ntDefs)
+      SygusSynthesisTask(sym, grammar, args, se) // name, function syntax, args list, output type
+    }
+    case SynthFunCmd16(sym: String, args: List[(String, SortExpr)], se: SortExpr) => {
+      val grammarSygus = createDefaultGrammar(args, se)
+      SygusSynthesisTask(sym, grammarSygus, args, se)
+    }
+  }
+
+  /**
+    * Creates a default grammar for Ints and Bools if it was not specified. Sort of the synth-fun is
+    * used to determine the initial symbol. of the grammar.
+    */
+  def createDefaultGrammar(args: List[(String, SortExpr)], se: SortExpr): Seq[(Any, Seq[Any])] = {
+    // Add the variables
+    val bp = boolProd(args.filter(_._2 == BoolSortExpr()).map(_._1.toString))
+    val ip = intProd(args.filter(_._2 == IntSortExpr()).map(_._1.toString))
+    // The first symbol in the grammar is the initial symbol, and that symbol depends
+    // on the output type of the function:
+    se match {
+      case BoolSortExpr() => List(bp, ip)
+      case IntSortExpr()  => List(ip, bp)
+      case _ => throw new Exception(s"Default grammar not supported for $se")
+    }
+  }
+
+  // Default grammar for the language of entire LIA (called 'Conditional Linear Integer
+  // arithmetic' in SygusComp16.pdf)
+  // Constants are fixed for now:
+  def intProd(vars: Seq[Any]): (Any, Seq[Any]) = 'I -> (vars ++ Seq(
+    -1, 0, 1,
+    "+" -> ('I, 'I),
+    "-" -> ('I, 'I),
+    "ite" -> ('B, 'I, 'I)))
+  def boolProd(vars: Seq[Any]): (Any, Seq[Any]) = 'B -> (vars ++ Seq(
+    true, false,
+    "=" -> ('I, 'I),
+    "<" -> ('I, 'I),
+    "<=" -> ('I, 'I),
+    ">" -> ('I, 'I),
+    ">=" -> ('I, 'I),
+    "and" -> ('B, 'B),
+    "or" -> ('B, 'B),
+    "not" -> ('B)))
+
+  def retrieveGrammar(ntDefs: List[NTDef]): List[(Any, Seq[Any])] = ntDefs.map {
+    case NTDef(symbol: String, sortExpr: SortExpr, gterms: List[GTerm]) =>
+      symbol -> {
+        gterms.map({
+          case CompositeGTerm(symbol: String, terms: List[GTerm]) => symbol -> terms.map {
+            case CompositeGTerm(symbol: String, terms: List[GTerm])           => symbol
+            case LiteralGTerm(literal: Literal)                               => literal
+            case SymbolGTerm(symbol: String)                                  => symbol //Input(argNames.indexOf(symbol))
+            case LetGTerm(list: List[(String, SortExpr, GTerm)], term: GTerm) => 0 // TODO
+          }
+          case LiteralGTerm(literal: Literal) => literal match {
+            case IntConst(value: Int)          => value
+            case RealConst(value: Double)      => value
+            case BoolConst(value: Boolean)     => value
+            case BVConst(value: List[Boolean]) => value
+            case StringConst(value: String)    => value
+          }
+          case SymbolGTerm(symbol: String)                                  => symbol
+          case LetGTerm(list: List[(String, SortExpr, GTerm)], term: GTerm) => 0 // TODO: Not implemented yet
+          case GenericGTerm(identifier: String, sortExpr: SortExpr)         => 0 // TODO
+        }).toSeq
+      }
+  }
+}
+
+
+
+
+
+
+
 object SygusUtils {
   /**
     * Returns a set of fun-defined symbols which can be used only in postconditions.
@@ -102,7 +183,7 @@ object SygusUtils {
   }
 
   def getPostcondSymbols(problem: SyGuS16): Set[String] = {
-    val synthFunNames = ExtractSynthesisTasks(problem).map(_.fname)
+    val synthFunNames = SygusSynthesisTask(problem).map(_.fname)
     val dmap = getFunDefDependencyMap(problem)
     getPostcondSymbols(synthFunNames.toSet, dmap)
   }
@@ -348,7 +429,7 @@ object SygusUtils {
     * f(x,y) == f(y,x)
     */
   def hasSingleInvocationPropertyAllConstr(problem: SyGuS16): Boolean = {
-    val sfs = ExtractSynthesisTasks(problem)
+    val sfs = SygusSynthesisTask(problem)
     val setNames = sfs.map(_.fname).toSet
     val constrCmds = getAllConstraints(problem)
     val invInfo = getSynthFunsInvocationsInfo(constrCmds, setNames)
@@ -424,7 +505,7 @@ object SygusUtils {
   }
 
   def checkUnsupportedTermsForGPMode(problem: SyGuS16) {
-    val synthFunNames = ExtractSynthesisTasks(problem).map(_.fname).toSet
+    val synthFunNames = SygusSynthesisTask(problem).map(_.fname).toSet
     def checkExpr(term: Term, letVars: Set[String]): Unit = term match {
       case LetTerm(list, t) =>
         val newLetVars = list.map{case (name, _, _) => name}
@@ -490,79 +571,5 @@ object LoadSygusBenchmark {
       case e: Throwable =>
         throw e
     }
-  }
-}
-
-
-object ExtractSynthesisTasks {
-  def apply(tree: SyGuS16): List[SygusSynthesisTask] = tree.cmds.collect {
-    case SynthFunCmd14(sym: String, args: List[(String, SortExpr)], se: SortExpr, ntDefs: List[NTDef]) => {
-      val grammar = retrieveGrammar(ntDefs)
-      SygusSynthesisTask(sym, grammar, args, se) // name, function syntax, args list, output type
-    }
-    case SynthFunCmd16(sym: String, args: List[(String, SortExpr)], se: SortExpr) => {
-      val grammarSygus = createDefaultGrammar(args, se)
-      SygusSynthesisTask(sym, grammarSygus, args, se)
-    }
-  }
-
-  /**
-    * Creates a default grammar for Ints and Bools if it was not specified. Sort of the synth-fun is
-    * used to determine the initial symbol. of the grammar.
-    */
-  def createDefaultGrammar(args: List[(String, SortExpr)], se: SortExpr): Seq[(Any, Seq[Any])] = {
-    // Add the variables
-    val bp = boolProd(args.filter(_._2 == BoolSortExpr()).map(_._1.toString))
-    val ip = intProd(args.filter(_._2 == IntSortExpr()).map(_._1.toString))
-    // The first symbol in the grammar is the initial symbol, and that symbol depends
-    // on the output type of the function:
-    se match {
-      case BoolSortExpr() => List(bp, ip)
-      case IntSortExpr()  => List(ip, bp)
-      case _ => throw new Exception(s"Default grammar not supported for $se")
-    }
-  }
-
-  // Default grammar for the language of entire LIA (called 'Conditional Linear Integer
-  // arithmetic' in SygusComp16.pdf)
-  // Constants are fixed for now: 
-  def intProd(vars: Seq[Any]): (Any, Seq[Any]) = 'I -> (vars ++ Seq(
-    -1, 0, 1,
-    "+" -> ('I, 'I),
-    "-" -> ('I, 'I),
-    "ite" -> ('B, 'I, 'I)))
-  def boolProd(vars: Seq[Any]): (Any, Seq[Any]) = 'B -> (vars ++ Seq(
-    true, false,
-    "=" -> ('I, 'I),
-    "<" -> ('I, 'I),
-    "<=" -> ('I, 'I),
-    ">" -> ('I, 'I),
-    ">=" -> ('I, 'I),
-    "and" -> ('B, 'B),
-    "or" -> ('B, 'B),
-    "not" -> ('B)))
-
-  def retrieveGrammar(ntDefs: List[NTDef]): List[(Any, Seq[Any])] = ntDefs.map {
-    case NTDef(symbol: String, sortExpr: SortExpr, gterms: List[GTerm]) =>
-      symbol -> {
-        gterms.map({
-          case CompositeGTerm(symbol: String, terms: List[GTerm]) => symbol -> terms.map {
-            case CompositeGTerm(symbol: String, terms: List[GTerm])           => symbol
-            case LiteralGTerm(literal: Literal)                               => literal
-            case SymbolGTerm(symbol: String)                                  => symbol //Input(argNames.indexOf(symbol))
-            case LetGTerm(list: List[(String, SortExpr, GTerm)], term: GTerm) => 0 // TODO
-          }
-          case LiteralGTerm(literal: Literal) => literal match {
-            case IntConst(value: Int)          => value
-            case RealConst(value: Double)      => value
-            case BoolConst(value: Boolean)     => value
-            case BVConst(value: List[Boolean]) => value
-            case StringConst(value: String)    => value
-          }
-          case SymbolGTerm(symbol: String)                                  => symbol
-          case LetGTerm(list: List[(String, SortExpr, GTerm)], term: GTerm) => 0 // TODO: Not implemented yet
-          case GenericGTerm(identifier: String, sortExpr: SortExpr)         => 0 // TODO
-        }).toSeq
-      }
   }
 }

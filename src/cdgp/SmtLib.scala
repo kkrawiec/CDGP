@@ -193,9 +193,6 @@ class QueryTemplateFindOutput(problem: SyGuS16,
 
 
 
-
-
-
 /**
   * Functions for converting the SMTLIB and Sygus terms into input to
   * an SMT solver (represented as strings)
@@ -247,7 +244,6 @@ object SMTLIBFormatter {
       case s => s
     }
   }
-
 
 
   /**

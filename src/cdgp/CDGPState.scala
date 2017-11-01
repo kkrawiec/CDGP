@@ -37,7 +37,7 @@ class CDGPState(sygusProblem: SyGuS16)
   val silent = opt('silent, false)
 
 
-  val synthTasks = ExtractSynthesisTasks(sygusProblem)
+  val synthTasks = SygusSynthesisTask(sygusProblem)
   if (synthTasks.size > 1)
     throw new Exception("Multiple synth-fun commands detected. Cannot handle such problems.")
   val synthTask: SygusSynthesisTask = synthTasks.head
@@ -233,7 +233,7 @@ class CDGPState(sygusProblem: SyGuS16)
     val query = templateFindOutput(test._1)
     // println("\nQuery findOutputForTestCase:\n" + query)
     try {
-      val getValueCommand = s"(get-value (CorrectOutput))"
+      val getValueCommand = "(get-value (CorrectOutput))"
       val (dec, res) = solver.runSolver(query, getValueCommand)
       if (dec == "sat") {
         val values = GetValueParser(res.get)
