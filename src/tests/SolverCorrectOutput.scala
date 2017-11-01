@@ -33,6 +33,7 @@ object SolverCorrectOutput extends App {
 
     val sygusProblem = LoadSygusBenchmark(file)
     val synthTask = ExtractSynthesisTasks(sygusProblem).head
+    val sygusConstr = SygusBenchmarkConstraints(sygusProblem, synthTask)
     val varDeclsMap = sygusProblem.cmds.collect { case v: VarDeclCmd => (v.sym, v) }.toMap
     val inv: Seq[String] = SygusUtils.getSynthFunsInvocationsInfo(sygusProblem,
       synthTask.fname).head
@@ -40,10 +41,10 @@ object SolverCorrectOutput extends App {
     val getValueCommand = s"(get-value (${inv.mkString(" ")} CorrectOutput))"
 
     // Generate 100 random inputs and find correct outputs for them
+    val templateFindOutput = new QueryTemplateFindOutput(sygusProblem, sygusConstr)
     0.until(100).foreach { _ =>
       val input = getRandomInput(inputsSortsMap).toMap
-      val query = SMTLIBFormatter.findOutputForTestCase(synthTask, sygusProblem, input)
-      // println(query)
+      val query = templateFindOutput(input)
       val (dec, res) = solver.solve(query, getValueCommand)
       println(s"Decision: $dec, model: $res")
     }

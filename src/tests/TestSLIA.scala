@@ -147,6 +147,7 @@ object TestRunLIA extends IApp('maxGenerations -> 25, 'printResults -> false, 'p
 
     // Retrieve the grammar and signature of the function to be synthesized
     val synthTask = ExtractSynthesisTasks(sygusProblem).head
+    val sygusData = SygusBenchmarkConstraints(sygusProblem, synthTask)
 
     // Create the Swim grammar from it
     val gr = synthTask.grammar
@@ -190,9 +191,11 @@ object TestRunLIA extends IApp('maxGenerations -> 25, 'printResults -> false, 'p
     val fv = sygusProblem.cmds.collect { case v: VarDeclCmd => v }
     val getValueCommand = s"(get-value (${fv.map(_.sym).mkString(" ")}))"
 
+    val templateInputAndKnownOutput = new QueryTemplateInputAndKnownOutput(sygusProblem, sygusData)
+    val templateVerify = new QueryTemplateVerification(sygusProblem, sygusData)
     for (p <- progs) {
       // Prepare input to the solver
-      val verificationProblem = SMTLIBFormatter.verifyProblem(synthTask, sygusProblem, p)
+      val verificationProblem = templateVerify(p)
       // Run the solver:
       val (_, res) = solver.solve(verificationProblem, getValueCommand)
       if (res.isDefined) {
@@ -201,13 +204,12 @@ object TestRunLIA extends IApp('maxGenerations -> 25, 'printResults -> false, 'p
         // IMPORTANT: This assumes that the free variables defined in the problem correspond one-to-one 
         // (order-preserving) to the arguments of synthesized function.
         val cexampleRenamed = synthTask.argNames.zip(cexample.unzip._2)
-        println("Counterexample: " + cexampleRenamed)
-
+        println(s"Counterexample for $p: " + cexampleRenamed)
         try {
           val output = domainLIA.apply(p)(cexampleRenamed.map(_._2)).get
           println(s"Output of best: $output")
-          val checkOnTestCmd = SMTLIBFormatter.checkOnInputAndKnownOutput(synthTask, sygusProblem, cexample.toMap, output)
-          println("Check output for counterexample (expected unsat): " + solver.solve(checkOnTestCmd))
+          val checkOnInputCmd = templateInputAndKnownOutput(cexample.toMap, output)
+          println("Check output for counterexample (expected unsat): " + solver.solve(checkOnInputCmd))
         }
         catch {
           case e: Throwable => println(s"Error during evalution: ${e.getMessage}")

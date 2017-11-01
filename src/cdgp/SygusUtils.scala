@@ -60,6 +60,7 @@ case class SygusSynthesisTask(fname: String,
   */
 case class SygusBenchmarkConstraints(problem: SyGuS16, synthTask: SygusSynthesisTask,
                                      mixedSpecAllowed: Boolean = true) {
+  val varDecls: Seq[VarDeclCmd] = problem.cmds.collect { case v: VarDeclCmd => v }
   val precond: Seq[ConstraintCmd] = SygusUtils.getPreconditions(problem)
   val postcond: Seq[ConstraintCmd] = SygusUtils.getPostconditions(problem)
   val (testCasesConstr, formalConstr) =

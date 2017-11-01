@@ -6,6 +6,197 @@ import sygus16.SyGuS16
 
 
 /**
+  * Produces the input to the solver for verifying if program p is correct
+  * wrt the specification given by problem.
+  *
+  * An example of the query:
+  * <pre>{@code
+  *   (set-logic LIA)
+    *   (define-fun max2 ((x Int)(y Int)) Int (ite (>= x y) x 0))
+    *   (declare-fun x () Int)
+    *   (declare-fun y () Int)
+    *   (assert (not (and (>= (max2 x y) x)
+    *   (>= (max2 x y) y)
+    *   (or (= x (max2 x y)) (= y (max2 x y))))))
+    * }</pre>
+  * Sat means that there is a counterexample, unsat means perfect program was found.
+  */
+class QueryTemplateVerification(problem: SyGuS16,
+                                sygusConstr: SygusBenchmarkConstraints,
+                                timeout: Int = 0) extends Function1[Op, String] {
+  def createTemplate: String = {
+    val constraintsPre = SMTLIBFormatter.getCodeForConstraints(sygusConstr.precond)
+    val constraintsPost = SMTLIBFormatter.getCodeForMergedConstraints(sygusConstr.postcond)
+    val auxiliaries = SMTLIBFormatter.getCodeForAuxiliaries(problem)
+    s"(set-logic ${SMTLIBFormatter.getLogicName(problem)})\n" +
+      (if (timeout > 0) s"(set-option :timeout $timeout)\n" else "") +
+      "(set-option :produce-models true)\n" +
+      auxiliaries + "\n" +
+      "%1$s\n" +  // a place to insert target function definition given the program
+      sygusConstr.varDecls.map{v => s"(declare-fun ${v.sym} () ${SMTLIBFormatter.sortToString(v.sortExpr)})"}.mkString("", "\n", "\n") +
+      constraintsPre +
+      s"\n(assert (not $constraintsPost))\n"
+  }
+  val template: String = createTemplate
+
+  override def apply(program: Op): String = {
+    val programBody = SMTLIBFormatter.opToString(program)
+    template.format(sygusConstr.synthTask.getSynthFunCode(programBody))
+  }
+}
+
+
+
+
+/**
+  * Query for checking whether the given output produced by a program for a given
+  * input is correct wrt the specification given by the problem.
+  * This is done by copying most of the problem and defining a constant function
+  * that returns the output value.
+  *
+  * An example of the query:
+  * <pre>{@code
+  *   (set-logic LIA)
+    *   (define-fun max2 ((x Int)(y Int)) Int 5)
+    *   (define-fun x () Int 5)
+    *   (define-fun y () Int 1)
+    *   (assert (and (>= (max2 x y) x)
+    *   (>= (max2 x y) y)
+    *   (or (= x (max2 x y)) (= y (max2 x y)))))
+    * }</pre>
+  * The result is either sat or unsat, model usually will be empty.
+  * Sat means that the answer is correct.
+  */
+class QueryTemplateInputAndKnownOutput(problem: SyGuS16,
+                                       sygusConstr: SygusBenchmarkConstraints,
+                                       timeout: Int = 0) extends Function2[Map[String, Any], Any, String] {
+  def createTemplate: String = {
+    val constraints = SMTLIBFormatter.getCodeForMergedConstraints(problem.cmds)
+    val auxiliaries = SMTLIBFormatter.getCodeForAuxiliaries(problem)
+    s"(set-logic ${SMTLIBFormatter.getLogicName(problem)})\n" +
+      (if (timeout > 0) s"(set-option :timeout $timeout)\n" else "") +
+      "(set-option :produce-models true)\n" +
+      auxiliaries + "\n" +
+      s"${sygusConstr.synthTask.getSynthFunCode("%1$s")}\n" +
+      "%2$s\n" +
+      s"\n(assert $constraints)\n"
+  }
+  val template: String = createTemplate
+
+  def apply(input: Map[String, Any], output: Any): String = {
+    val textOutput = SMTLIBFormatter.normalizeTerminal(output.toString)
+    val textInputs = sygusConstr.varDecls.map { v =>
+      s"(define-fun ${v.sym} () " +
+        s"${SMTLIBFormatter.sortToString(v.sortExpr)} ${SMTLIBFormatter.normalizeTerminal(input(v.sym).toString)})"
+    }.mkString("\n")
+    template.format(textOutput, textInputs)
+  }
+}
+
+
+
+
+/**
+  * Query for checking whether the given output produced by a program for a given
+  * input is correct wrt the specification given by the problem.
+  * This is done by copying most of the problem and defining a constant function
+  * that returns the output value.
+  *
+  * An example of the query:
+  * <pre>{@code
+  *   (set-logic LIA)
+    *   (define-fun max2 ((x Int)(y Int)) Int (ite (>= x y) x 0))
+    *   (define-fun x () Int 5)
+    *   (define-fun y () Int 1)
+    *   (assert (and (>= (max2 x y) x)
+    *   (>= (max2 x y) y)
+    *   (or (= x (max2 x y)) (= y (max2 x y)))))
+    * }</pre>
+  * The result is either sat or unsat, model usually will be empty.
+  * Sat means that the answer is correct.
+  */
+class QueryTemplateInputAndUnknownOutput(problem: SyGuS16,
+                                         sygusConstr: SygusBenchmarkConstraints,
+                                         timeout: Int = 0) extends Function2[Op, Map[String, Any], String] {
+  def createTemplate: String = {
+    val constraints = SMTLIBFormatter.getCodeForMergedConstraints(problem.cmds)
+    val auxiliaries = SMTLIBFormatter.getCodeForAuxiliaries(problem)
+    s"(set-logic ${SMTLIBFormatter.getLogicName(problem)})\n" +
+      (if (timeout > 0) s"(set-option :timeout $timeout)\n" else "") +
+      "(set-option :produce-models true)\n" +
+      auxiliaries + "\n" +
+      s"${sygusConstr.synthTask.getSynthFunCode("%1$s")}\n" +
+      "%2$s" +
+      s"\n(assert $constraints)\n"
+  }
+  val template: String = createTemplate
+
+  def apply(program: Op, input: Map[String, Any]): String = {
+    val programBody = SMTLIBFormatter.opToString(program)
+    val textInputs = sygusConstr.varDecls.map{v =>
+      s"(define-fun ${v.sym} () " +
+      s"${SMTLIBFormatter.sortToString(v.sortExpr)} ${SMTLIBFormatter.normalizeTerminal(input(v.sym).toString)})"
+    }.mkString("\n")
+    template.format(programBody, textInputs)
+  }
+}
+
+
+
+
+/**
+  * Query for searching for the output correct wrt the specification and the
+  * specified inputs.
+  *
+  * An example of the query:
+  * <pre>{@code
+  *   (set-logic LIA)
+    *   (declare-fun CorrectOutput () Int)
+    *   (define-fun max2 ((x Int)(y Int)) Int CorrectOutput)
+    *   (define-fun x () Int 4)
+    *   (define-fun y () Int 3)
+    *   (assert (and (>= (max2 x y) x)
+    *   (>= (max2 x y) y)
+    *   (or (= x (max2 x y)) (= y (max2 x y)))))
+    * }</pre>
+  * Sat means that correct output was found, unsat that there is no output
+  * consistent with the specification (this probably means that problem was
+  * wrongly specified).
+  */
+class QueryTemplateFindOutput(problem: SyGuS16,
+                              sygusConstr: SygusBenchmarkConstraints,
+                              timeout: Int = 0) extends Function1[Map[String, Any], String] {
+  def createTemplate: String = {
+    val constraints = SMTLIBFormatter.getCodeForMergedConstraints(problem.cmds)
+    val auxiliaries = SMTLIBFormatter.getCodeForAuxiliaries(problem)
+    s"(set-logic ${SMTLIBFormatter.getLogicName(problem)})\n" +
+      (if (timeout > 0) s"(set-option :timeout $timeout)\n" else "") +
+      "(set-option :produce-models true)\n" +
+      auxiliaries + "\n" +
+      s"(declare-fun CorrectOutput () ${SMTLIBFormatter.sortToString(sygusConstr.synthTask.outputType)})\n" +
+      s"${sygusConstr.synthTask.getSynthFunCode("CorrectOutput")}\n" +
+      "%1$s" +
+      s"\n(assert $constraints)\n"
+  }
+  val template: String = createTemplate
+
+  def apply(input: Map[String, Any]): String = {
+    val textInputs = sygusConstr.varDecls.map{v =>
+      s"(define-fun ${v.sym} () " +
+      s"${SMTLIBFormatter.sortToString(v.sortExpr)} ${SMTLIBFormatter.normalizeTerminal(input(v.sym).toString)})"
+    }.mkString("\n")
+    template.format(textInputs)
+  }
+}
+
+
+
+
+
+
+
+
+/**
   * Functions for converting the SMTLIB and Sygus terms into input to
   * an SMT solver (represented as strings)
   */
@@ -57,154 +248,6 @@ object SMTLIBFormatter {
     }
   }
 
-  /**
-    * Produces the input to the solver for verifying if program p is correct
-    * wrt the specification given by problem.
-    *
-    * An example of the query:
-    * <pre>{@code
-    *   (set-logic LIA)
-    *   (define-fun max2 ((x Int)(y Int)) Int (ite (>= x y) x 0))
-    *   (declare-fun x () Int)
-    *   (declare-fun y () Int)
-    *   (assert (not (and (>= (max2 x y) x)
-    *   (>= (max2 x y) y)
-    *   (or (= x (max2 x y)) (= y (max2 x y))))))
-    * }</pre>
-    * Sat means that there is a counterexample, unsat means perfect program was found.
-    */
-  def verifyProblem(sf: SygusSynthesisTask, problem: SyGuS16, program: Op, solverTimeout: Int = 0): String = {
-    val pre = SygusUtils.getPreconditions(problem)
-    val post = SygusUtils.getPostconditions(problem)
-    verify(sf, problem, program, pre, post, solverTimeout)
-  }
-
-  def verify(sf: SygusSynthesisTask, problem: SyGuS16, program: Op, pre: Seq[Cmd], post: Seq[Cmd], solverTimeout: Int = 0): String = {
-    val programBody = opToString(program)
-    val varsDecl = problem.cmds.collect { case v: VarDeclCmd => v }
-    val constraintsPre = getCodeForConstraints(pre)
-    val constraintsPost = getCodeForMergedConstraints(post)
-    val auxiliaries = getCodeForAuxiliaries(problem)
-    s"(set-logic ${getLogicName(problem)})\n" +
-      (if (solverTimeout > 0) s"(set-option :timeout $solverTimeout)\n" else "") +
-      "(set-option :produce-models true)\n" +
-      auxiliaries + "\n" +
-      s"${sf.getSynthFunCode(programBody)}\n" +
-      varsDecl.map(v => s"(declare-fun ${v.sym} () ${sortToString(v.sortExpr)})").mkString("", "\n", "\n") +
-      constraintsPre +
-      s"\n(assert (not $constraintsPost))\n" // 'and' works also for one argument
-  }
-
-
-  /**
-    * Query for checking whether the given output produced by a program for a given
-    * input is correct wrt the specification given by the problem.
-    * This is done by copying most of the problem and defining a constant function
-    * that returns the output value.
-    *
-    * An example of the query:
-    * <pre>{@code
-    *   (set-logic LIA)
-    *   (define-fun max2 ((x Int)(y Int)) Int 5)
-    *   (define-fun x () Int 5)
-    *   (define-fun y () Int 1)
-    *   (assert (and (>= (max2 x y) x)
-    *   (>= (max2 x y) y)
-    *   (or (= x (max2 x y)) (= y (max2 x y)))))
-    * }</pre>
-    * The result is either sat or unsat, model usually will be empty.
-    * Sat means that the answer is correct.
-    */
-  def checkOnInputAndKnownOutput(sf: SygusSynthesisTask, problem: SyGuS16, input: Map[String, Any],
-                                 output: Any, solverTimeout: Int = 0): String = {
-    val sfArgs = synthFunArgsToString(sf)
-    val varsDecl = problem.cmds.collect { case v: VarDeclCmd => v }
-    val constraints = getCodeForMergedConstraints(problem.cmds)
-    val auxiliaries = getCodeForAuxiliaries(problem)
-    val textOutput = normalizeTerminal(output.toString)
-    s"(set-logic ${getLogicName(problem)})\n" +
-      (if (solverTimeout > 0) s"(set-option :timeout $solverTimeout)\n" else "") +
-      "(set-option :produce-models true)\n" +
-      auxiliaries + "\n" +
-      s"${sf.getSynthFunCode(textOutput)}\n" +
-      varsDecl.map(v => s"(define-fun ${v.sym} ()" +
-        s" ${sortToString(v.sortExpr)} ${normalizeTerminal(input(v.sym).toString)})").mkString("\n") +
-      s"\n(assert $constraints)\n" // 'and' works also for one argument
-  }
-
-
-  /**
-    * Query for checking whether the given output produced by a program for a given
-    * input is correct wrt the specification given by the problem.
-    * This is done by copying most of the problem and defining a constant function
-    * that returns the output value.
-    *
-    * An example of the query:
-    * <pre>{@code
-    *   (set-logic LIA)
-    *   (define-fun max2 ((x Int)(y Int)) Int (ite (>= x y) x 0))
-    *   (define-fun x () Int 5)
-    *   (define-fun y () Int 1)
-    *   (assert (and (>= (max2 x y) x)
-    *   (>= (max2 x y) y)
-    *   (or (= x (max2 x y)) (= y (max2 x y)))))
-    * }</pre>
-    * The result is either sat or unsat, model usually will be empty.
-    * Sat means that the answer is correct.
-    */
-  def checkOnInput(sf: SygusSynthesisTask, problem: SyGuS16, input: Map[String, Any],
-                   program: Op, solverTimeout: Int = 0): String = {
-    val sfArgs = synthFunArgsToString(sf)
-    val varsDecl = problem.cmds.collect { case v: VarDeclCmd => v }
-    val programBody = opToString(program)
-    val constraints = getCodeForMergedConstraints(problem.cmds)
-    val auxiliaries = getCodeForAuxiliaries(problem)
-    s"(set-logic ${getLogicName(problem)})\n" +
-      (if (solverTimeout > 0) s"(set-option :timeout $solverTimeout)\n" else "") +
-      "(set-option :produce-models true)\n" +
-      auxiliaries + "\n" +
-      s"${sf.getSynthFunCode(programBody)}\n" +
-      varsDecl.map(v => s"(define-fun ${v.sym} ()" +
-        s" ${sortToString(v.sortExpr)} ${normalizeTerminal(input(v.sym).toString)})").mkString("\n") +
-      s"\n(assert $constraints)\n"
-  }
-
-
-  /**
-    * Query for searching for the output correct wrt the specification and the
-    * specified inputs.
-    *
-    * An example of the query:
-    * <pre>{@code
-    *   (set-logic LIA)
-    *   (declare-fun CorrectOutput () Int)
-    *   (define-fun max2 ((x Int)(y Int)) Int CorrectOutput)
-    *   (define-fun x () Int 4)
-    *   (define-fun y () Int 3)
-    *   (assert (and (>= (max2 x y) x)
-    *   (>= (max2 x y) y)
-    *   (or (= x (max2 x y)) (= y (max2 x y)))))
-    * }</pre>
-    * Sat means that correct output was found, unsat that there is no output
-    * consistent with the specification (this probably means that problem was
-    * wrongly specified).
-    */
-  def findOutputForTestCase(sf: SygusSynthesisTask, problem: SyGuS16, input: Map[String, Any],
-                            solverTimeout: Int = 0): String = {
-    val sfArgs = synthFunArgsToString(sf)
-    val varsDecl = problem.cmds.collect { case v: VarDeclCmd => v }
-    val constraints = getCodeForMergedConstraints(problem.cmds)
-    val auxiliaries = getCodeForAuxiliaries(problem)
-    s"(set-logic ${getLogicName(problem)})\n" +
-      (if (solverTimeout > 0) s"(set-option :timeout $solverTimeout)\n" else "") +
-      "(set-option :produce-models true)\n" +
-      auxiliaries + "\n" +
-      s"(declare-fun CorrectOutput () ${sortToString(sf.outputType)})\n" +
-      s"${sf.getSynthFunCode("CorrectOutput")}\n" +
-      varsDecl.map(v => s"(define-fun ${v.sym} ()" +
-        s" ${sortToString(v.sortExpr)} ${normalizeTerminal(input(v.sym).toString)})").mkString("\n") +
-      s"\n(assert $constraints)\n"
-  }
 
 
   /**

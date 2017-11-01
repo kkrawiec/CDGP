@@ -87,6 +87,12 @@ class CDGPState(sygusProblem: SyGuS16)
   private def solverArgs = opt.getOption("solverArgs")
   lazy val solver = new SolverManager(solverPath, solverArgs, verbose=false)
 
+  // Templates for solver queries
+  val templateVerification = new QueryTemplateVerification(sygusProblem, sygusData, timeout = timeout)
+  val templateInputAndKnownOutput = new QueryTemplateInputAndKnownOutput(sygusProblem, sygusData, timeout = timeout)
+  val templateInputAndUnknownOutput = new QueryTemplateInputAndUnknownOutput(sygusProblem, sygusData, timeout = timeout)
+  val templateFindOutput = new QueryTemplateFindOutput(sygusProblem, sygusData, timeout = timeout)
+
 
   def getTestCasesMode(problem: SyGuS16): String = {
     val singleInvoc = SygusUtils.hasSingleInvocationProperty(sygusData)
@@ -201,31 +207,30 @@ class CDGPState(sygusProblem: SyGuS16)
     else None
   }
 
+  def verify(s: Op): (String, Option[String]) = {
+    val query = templateVerification(s)
+    // println("\nQuery verify:\n" + query)
+    val getValueCommand = s"(get-value (${varDeclsNames.mkString(" ")}))"
+    solver.runSolver(query, getValueCommand)
+  }
+
   def checkOnInputAndKnownOutput(s: Op,
                                  testInputsMap: Map[String, Any],
                                  output: Any): (String, Option[String]) = {
-    val query = SMTLIBFormatter.checkOnInputAndKnownOutput(synthTask, sygusProblem,
-      testInputsMap, output, timeout)
+    val query = templateInputAndKnownOutput(testInputsMap, output)
     // println("\nQuery checkOnInputAndKnownOutput:\n" + query)
     solver.runSolver(query)
   }
 
   def checkOnInputOnly(s: Op,
                        testModel: Map[String, Any]): (String, Option[String]) = {
-    val query = SMTLIBFormatter.checkOnInput(synthTask, sygusProblem, testModel, s, timeout)
+    val query = templateInputAndUnknownOutput(s, testModel)
     // println("\nQuery checkOnInputOnly:\n" + query)
     solver.runSolver(query)
   }
 
-  def verify(s: Op): (String, Option[String]) = {
-    val query = SMTLIBFormatter.verify(synthTask, sygusProblem, s, pre, post, timeout)
-    // println("\nQuery verify:\n" + query)
-    val getValueCommand = s"(get-value (${varDeclsNames.mkString(" ")}))"
-    solver.runSolver(query, getValueCommand)
-  }
-
   def findOutputForTestCase(test: (I, Option[O])): (I, Option[O]) = {
-    val query = SMTLIBFormatter.findOutputForTestCase(synthTask, sygusProblem, test._1, solverTimeout=timeout)
+    val query = templateFindOutput(test._1)
     // println("\nQuery findOutputForTestCase:\n" + query)
     try {
       val getValueCommand = s"(get-value (CorrectOutput))"
