@@ -63,12 +63,12 @@ case class SygusBenchmarkConstraints(problem: SyGuS16, synthTask: SygusSynthesis
   val varDecls: Seq[VarDeclCmd] = problem.cmds.collect { case v: VarDeclCmd => v }
   val precond: Seq[ConstraintCmd] = SygusUtils.getPreconditions(problem)
   val postcond: Seq[ConstraintCmd] = SygusUtils.getPostconditions(problem)
+  val allConstr: Seq[ConstraintCmd] = precond ++ postcond
   val (testCasesConstr, formalConstr) =
     if (mixedSpecAllowed) SygusUtils.divideOnTestsAndFormalConstr(postcond, synthTask)
     else (Seq(), postcond)
-  lazy val allConstr: Seq[ConstraintCmd] = testCasesConstr ++ formalConstr
   lazy val formalInvocations: Seq[Seq[String]] = SygusUtils.getSynthFunsInvocationsInfo(formalConstr, synthTask.fname)
-  lazy val allInvocations: Seq[Seq[String]] = SygusUtils.getSynthFunsInvocationsInfo(allConstr, synthTask.fname)
+  lazy val allInvocations: Seq[Seq[String]] = SygusUtils.getSynthFunsInvocationsInfo(postcond, synthTask.fname)
 
   /**
     * Creates test cases for the found testCasesConstr.

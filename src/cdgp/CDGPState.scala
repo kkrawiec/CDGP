@@ -88,10 +88,10 @@ class CDGPState(sygusProblem: SyGuS16)
   lazy val solver = new SolverManager(solverPath, solverArgs, verbose=false)
 
   // Templates for solver queries
-  val templateVerification = new QueryTemplateVerification(sygusProblem, sygusData, timeout = timeout)
-  val templateInputAndKnownOutput = new QueryTemplateInputAndKnownOutput(sygusProblem, sygusData, timeout = timeout)
-  val templateInputAndUnknownOutput = new QueryTemplateInputAndUnknownOutput(sygusProblem, sygusData, timeout = timeout)
-  val templateFindOutput = new QueryTemplateFindOutput(sygusProblem, sygusData, timeout = timeout)
+  val templateVerification = new TemplateVerification(sygusProblem, sygusData, timeout = timeout)
+  val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(sygusProblem, sygusData, timeout = timeout)
+  val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(sygusProblem, sygusData, timeout = timeout)
+  val templateFindOutput = new TemplateFindOutput(sygusProblem, sygusData, timeout = timeout)
 
 
   def getTestCasesMode(problem: SyGuS16): String = {
@@ -144,7 +144,7 @@ class CDGPState(sygusProblem: SyGuS16)
     */
   def evalOnTestsSolver(s: Op, test: (I, Option[O])): Int = {
     val testModel: Map[String, Any] = test._1
-    val (dec, _) = checkOnInputOnly(s, testModel)
+    val (dec, _) = checkIsProgramCorrectForInput(s, testModel)
     if (dec == "sat") 0 else 1
   }
 
@@ -172,7 +172,7 @@ class CDGPState(sygusProblem: SyGuS16)
       if (output.get == testOutput.get) 0 else 1
     }
     else {
-      val (dec, _) = checkOnInputAndKnownOutput(s, testModel, output.get)
+      val (dec, _) = checkIsOutputCorrectForInput(s, testModel, output.get)
       if (dec == "sat")
         testsManager.updateTest((testModel, output))
       if (dec == "sat") 0 else 1
@@ -214,17 +214,17 @@ class CDGPState(sygusProblem: SyGuS16)
     solver.runSolver(query, getValueCommand)
   }
 
-  def checkOnInputAndKnownOutput(s: Op,
-                                 testInputsMap: Map[String, Any],
-                                 output: Any): (String, Option[String]) = {
-    val query = templateInputAndKnownOutput(testInputsMap, output)
+  def checkIsOutputCorrectForInput(s: Op,
+                                   testInputsMap: Map[String, Any],
+                                   output: Any): (String, Option[String]) = {
+    val query = templateIsOutputCorrectForInput(testInputsMap, output)
     // println("\nQuery checkOnInputAndKnownOutput:\n" + query)
     solver.runSolver(query)
   }
 
-  def checkOnInputOnly(s: Op,
-                       testModel: Map[String, Any]): (String, Option[String]) = {
-    val query = templateInputAndUnknownOutput(s, testModel)
+  def checkIsProgramCorrectForInput(s: Op,
+                                    testModel: Map[String, Any]): (String, Option[String]) = {
+    val query = templateIsProgramCorrectForInput(s, testModel)
     // println("\nQuery checkOnInputOnly:\n" + query)
     solver.runSolver(query)
   }

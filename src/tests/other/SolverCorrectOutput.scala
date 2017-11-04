@@ -1,9 +1,11 @@
-package tests
+package tests.other
 
 import java.io.File
 
 import cdgp._
 import sygus.{BoolSortExpr, IntSortExpr, SortExpr, VarDeclCmd}
+import tests.Global
+
 import scala.util.Random
 
 
@@ -12,7 +14,7 @@ object SolverCorrectOutput extends App {
   rng.setSeed(0)
   val root = System.getProperty("user.dir")
   println(s"Working directory: $root")
-
+  
   val collection = "/resources/LIA/cdgp_paper17/"
   // val files = Tools.getRecursiveListOfFiles(new File(root + collection)).filter{ f => f.getName.endsWith(".sl")}
   val files = List(new File(root + "/resources/LIA/Median3_tests.sl"))
@@ -41,8 +43,7 @@ object SolverCorrectOutput extends App {
     val getValueCommand = s"(get-value (${inv.mkString(" ")} CorrectOutput))"
 
     // Generate 100 random inputs and find correct outputs for them
-    // TODO: fix QueryTemplateFindOutput
-    val templateFindOutput = new QueryTemplateFindOutput(sygusProblem, sygusConstr)
+    val templateFindOutput = new TemplateFindOutput(sygusProblem, sygusConstr)
     0.until(100).foreach { _ =>
       val input = getRandomInput(inputsSortsMap).toMap
       val query = templateFindOutput(input)

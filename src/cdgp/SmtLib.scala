@@ -21,12 +21,12 @@ import sygus16.SyGuS16
     * }</pre>
   * Sat means that there is a counterexample, unsat means perfect program was found.
   */
-class QueryTemplateVerification(problem: SyGuS16,
-                                sygusConstr: SygusBenchmarkConstraints,
-                                timeout: Int = 0) extends Function1[Op, String] {
+class TemplateVerification(problem: SyGuS16,
+                           sygusConstr: SygusBenchmarkConstraints,
+                           timeout: Int = 0) extends Function1[Op, String] {
   def createTemplate: String = {
     val constraintsPre = SMTLIBFormatter.getCodeForConstraints(sygusConstr.precond)
-    val constraintsPost = SMTLIBFormatter.getCodeForMergedConstraints(sygusConstr.postcond)
+    val constraintsPost = SMTLIBFormatter.getCodeForMergedConstraints(sygusConstr.formalConstr)
     val auxiliaries = SMTLIBFormatter.getCodeForAuxiliaries(problem)
     s"(set-logic ${SMTLIBFormatter.getLogicName(problem)})\n" +
       (if (timeout > 0) s"(set-option :timeout $timeout)\n" else "") +
@@ -34,7 +34,7 @@ class QueryTemplateVerification(problem: SyGuS16,
       auxiliaries + "\n" +
       "%1$s\n" +  // a place to insert target function definition given the program
       sygusConstr.varDecls.map{v => s"(declare-fun ${v.sym} () ${SMTLIBFormatter.sortToString(v.sortExpr)})"}.mkString("", "\n", "\n") +
-      constraintsPre +
+      constraintsPre + // TODO: Is this correct?
       s"\n(assert (not $constraintsPost))\n"
   }
   val template: String = createTemplate
@@ -49,12 +49,15 @@ class QueryTemplateVerification(problem: SyGuS16,
 
 
 /**
-  * Query for checking whether the given output produced by a program for a given
-  * input is correct wrt the specification given by the problem.
-  * This is done by copying most of the problem and defining a constant function
-  * that returns the output value.
+  * Query for checking whether the given constant output is correct wrt the specification
+  * for a given input.
+  * This is done by substituting provided constants for input values (var-decls) and
+  * synth-fun body (see the example below).
+  * Single-invocation property is assumed, because function's
+  * output is treated as a constant. Because of this, only formal constraints
+  * are used.
   *
-  * An example of the query:
+  * An example query:
   * <pre>{@code
   *   (set-logic LIA)
     *   (define-fun max2 ((x Int)(y Int)) Int 5)
@@ -67,11 +70,13 @@ class QueryTemplateVerification(problem: SyGuS16,
   * The result is either sat or unsat, model usually will be empty.
   * Sat means that the answer is correct.
   */
-class QueryTemplateInputAndKnownOutput(problem: SyGuS16,
-                                       sygusConstr: SygusBenchmarkConstraints,
-                                       timeout: Int = 0) extends Function2[Map[String, Any], Any, String] {
+class TemplateIsOutputCorrectForInput(problem: SyGuS16,
+                                      sygusConstr: SygusBenchmarkConstraints,
+                                      timeout: Int = 0) extends Function2[Map[String, Any], Any, String] {
   def createTemplate: String = {
-    val constraints = SMTLIBFormatter.getCodeForMergedConstraints(problem.cmds)
+    // Test-cases constraints are ignored
+    val preconditions = SMTLIBFormatter.getCodeForMergedConstraints(sygusConstr.precond)
+    val constraints = SMTLIBFormatter.getCodeForMergedConstraints(sygusConstr.formalConstr)
     val auxiliaries = SMTLIBFormatter.getCodeForAuxiliaries(problem)
     s"(set-logic ${SMTLIBFormatter.getLogicName(problem)})\n" +
       (if (timeout > 0) s"(set-option :timeout $timeout)\n" else "") +
@@ -79,6 +84,7 @@ class QueryTemplateInputAndKnownOutput(problem: SyGuS16,
       auxiliaries + "\n" +
       s"${sygusConstr.synthTask.getSynthFunCode("%1$s")}\n" +
       "%2$s\n" +
+      (if (preconditions.nonEmpty) s"\n(assert $preconditions)\n" else "") +
       s"\n(assert $constraints)\n"
   }
   val template: String = createTemplate
@@ -98,9 +104,10 @@ class QueryTemplateInputAndKnownOutput(problem: SyGuS16,
 
 /**
   * Query for checking whether the given output produced by a program for a given
-  * input is correct wrt the specification given by the problem.
-  * This is done by copying most of the problem and defining a constant function
-  * that returns the output value.
+  * input is correct wrt the specification.
+  * Test-cases constraints are *not* taken into account, because we only want information
+  * for the program's correctness in a single point. This must be carefully handled when
+  * program's behavior in the point is defined by test cases.
   *
   * An example of the query:
   * <pre>{@code
@@ -115,11 +122,13 @@ class QueryTemplateInputAndKnownOutput(problem: SyGuS16,
   * The result is either sat or unsat, model usually will be empty.
   * Sat means that the answer is correct.
   */
-class QueryTemplateInputAndUnknownOutput(problem: SyGuS16,
-                                         sygusConstr: SygusBenchmarkConstraints,
-                                         timeout: Int = 0) extends Function2[Op, Map[String, Any], String] {
+class TemplateIsProgramCorrectForInput(problem: SyGuS16,
+                                       sygusConstr: SygusBenchmarkConstraints,
+                                       timeout: Int = 0) extends Function2[Op, Map[String, Any], String] {
   def createTemplate: String = {
-    val constraints = SMTLIBFormatter.getCodeForMergedConstraints(problem.cmds)
+    // Test-cases constraints are ignored
+    val preconditions = SMTLIBFormatter.getCodeForMergedConstraints(sygusConstr.precond)
+    val constraints = SMTLIBFormatter.getCodeForMergedConstraints(sygusConstr.formalConstr)
     val auxiliaries = SMTLIBFormatter.getCodeForAuxiliaries(problem)
     s"(set-logic ${SMTLIBFormatter.getLogicName(problem)})\n" +
       (if (timeout > 0) s"(set-option :timeout $timeout)\n" else "") +
@@ -127,6 +136,7 @@ class QueryTemplateInputAndUnknownOutput(problem: SyGuS16,
       auxiliaries + "\n" +
       s"${sygusConstr.synthTask.getSynthFunCode("%1$s")}\n" +
       "%2$s" +
+      (if (preconditions.nonEmpty) s"\n(assert $preconditions)\n" else "") +
       s"\n(assert $constraints)\n"
   }
   val template: String = createTemplate
@@ -145,8 +155,10 @@ class QueryTemplateInputAndUnknownOutput(problem: SyGuS16,
 
 
 /**
-  * Query for searching for the output correct wrt the specification and the
-  * specified inputs.
+  * Query for searching for any output correct wrt the specification and the
+  * specified inputs. Single-invocation property is assumed, because function's
+  * output is treated as a constant. Because of this, only formal constraints
+  * are used.
   *
   * An example of the query:
   * <pre>{@code
@@ -163,11 +175,14 @@ class QueryTemplateInputAndUnknownOutput(problem: SyGuS16,
   * consistent with the specification (this probably means that problem was
   * wrongly specified).
   */
-class QueryTemplateFindOutput(problem: SyGuS16,
-                              sygusConstr: SygusBenchmarkConstraints,
-                              timeout: Int = 0) extends Function1[Map[String, Any], String] {
+class TemplateFindOutput(problem: SyGuS16,
+                         sygusConstr: SygusBenchmarkConstraints,
+                         timeout: Int = 0) extends Function1[Map[String, Any], String] {
   def createTemplate: String = {
-    val constraints = SMTLIBFormatter.getCodeForMergedConstraints(problem.cmds)
+    // Test-cases constraints are ignored
+    // TODO: something is off with this; either median or united unit test is failing.
+    val preconditions = SMTLIBFormatter.getCodeForMergedConstraints(sygusConstr.precond)
+    val constraints = SMTLIBFormatter.getCodeForMergedConstraints(sygusConstr.postcond)
     val auxiliaries = SMTLIBFormatter.getCodeForAuxiliaries(problem)
     s"(set-logic ${SMTLIBFormatter.getLogicName(problem)})\n" +
       (if (timeout > 0) s"(set-option :timeout $timeout)\n" else "") +
@@ -176,6 +191,7 @@ class QueryTemplateFindOutput(problem: SyGuS16,
       s"(declare-fun CorrectOutput () ${SMTLIBFormatter.sortToString(sygusConstr.synthTask.outputType)})\n" +
       s"${sygusConstr.synthTask.getSynthFunCode("CorrectOutput")}\n" +
       "%1$s" +
+      (if (preconditions.nonEmpty) s"\n(assert $preconditions)\n" else "") +
       s"\n(assert $constraints)\n"
   }
   val template: String = createTemplate
@@ -331,15 +347,17 @@ object SMTLIBFormatter {
   def getCodeForMergedConstraints(cmds: Seq[Cmd]): String = {
     val constraints = cmds.collect {
       case ConstraintCmd(t: Term) => s"${termToSmtlib(t)}"
-    }.mkString("\n  ")
-    s"(and $constraints)"
+    }
+    if (constraints.nonEmpty)
+      s"(and ${constraints.mkString("\n  ")})"
+    else
+      ""
   }
 
   def termToSmtlib(p: Any): String = p match {
-    case seq: Seq[Any] => { // in case seq of terms is provided
+    case seq: Seq[Any] => // in case seq of terms is provided
       val s = seq.map(termToSmtlib(_))
       s.reduce(_ + " " + _)
-    }
     case LetTerm(list, term) =>
       val boundVars = list.map{ case (name, _, t) => s"($name ${termToSmtlib(t)})" }
       s"(let (${boundVars.mkString("")}) ${termToSmtlib(term)})"
@@ -356,6 +374,79 @@ object SMTLIBFormatter {
         map(termToSmtlib(_)).reduce(_ + " " + _) + ")"
     }
     case _ => p.toString
+  }
+
+  /**
+    * Constructs Op given it's string encoding in the form: Op(ARG1, ARG2, ...).
+    * As nonterminal symbol assigned will be 'default.
+    * For example from "+(-(a, b), c)" will be created Op('+, Op('-, Op('a), Op('b)), Op('c)).
+    *
+    * @param s string encoding of op.
+    * @param delim delimiter which separates arguments of functions (default: " ").
+    * @param convertConsts if set to true (default), terminals detected as Boolean, Int, Double or
+    * String constants will be converted to instances of those types.
+    */
+  def smtlibToOp(s: String, delim: String = "\\s+", convertConsts: Boolean = true): Op = {
+    def isBoolean(s: String): Boolean = if (s == "true" || s == "false") true else false
+    def isInt(s: String): Boolean = try { val x = s.toInt; true } catch { case _:Throwable => false }
+    def isDouble(s: String): Boolean = try { val x = s.toDouble; true } catch { case _:Throwable => false }
+    def isString(s: String): Boolean = if (s.head == '\"' && s.last == '\"') true else false
+    def getTerminalOp(s: String): Any = {
+      if (convertConsts)
+        if (isBoolean(s)) s.toBoolean
+        else if (isInt(s)) s.toInt
+        else if (isDouble(s)) s.toDouble
+        else if (isString(s)) s.substring(1, s.size-1)
+        else Symbol(s)
+      else
+        Symbol(s)
+    }
+    def getNt(symb: Symbol): Symbol = 'default
+    def getNtForTerminal(value: Any): Symbol = 'default
+    def getMatchingParenthIndex(words: Array[String], begin: Int): Int = {
+      var parOpened = 1
+      for (i <- (begin+1) until words.size) {
+        if (words(i) == ")") parOpened -= 1
+        else if (words(i) == "(") parOpened += 1
+        if (parOpened == 0)
+          return i
+      }
+      words.size
+    }
+    def getArgs(words: Array[String]): List[Op] = {
+      var i = 0
+      var args = List[Op]()
+      while (i < words.size) {
+        if (words(i) != "(") {
+          val value = getTerminalOp(words(i))
+          val nt = getNtForTerminal(value)
+          args = args :+ Op(nt, value)
+          i += 1
+        }
+        else {
+          val matchParIndex = getMatchingParenthIndex(words, i)
+          val text = words.slice(i, matchParIndex+1).mkString(" ")
+          args = args :+ smtlibToOp(text, delim, convertConsts)
+          i = matchParIndex + 1
+        }
+      }
+      args
+    }
+    try {
+      val words = s.replace("(", " ( ").replace(")", " ) ").split(delim).filter(!_.isEmpty())
+      if (words.head != "(") {
+        val value = getTerminalOp(words.head)
+        val nt = getNtForTerminal(value)
+        Op(nt, value) // Returning terminal.
+      }
+      else {
+        val op = words(1)
+        val args = getArgs(words.slice(2, words.size-1))
+        Op(getNt(Symbol(op)), Symbol(op), args:_*)
+      }
+    } catch {
+      case _:Throwable => throw new Exception(s"Wrong encoding of Op instance: $s!")
+    }
   }
 }
  

@@ -3,17 +3,15 @@ package tests.other
 import java.io.File
 
 import cdgp._
-import fuel.func.RunExperiment
-import fuel.util.IApp
-import swim.tree.{CodeFactory, SimpleGP}
-import sygus.{BoolSortExpr, IntSortExpr, StringSortExpr, VarDeclCmd}
+import fuel.util.{Options, Rng}
+import swim.tree.{CodeFactory, Op}
 import tests.Global
-import tests.TestRunLIA.rng
+
+import scala.collection.mutable
 
 
 object VerificationExperiments extends App {
-  val root = System.getProperty("user.dir")
-  println(s"Working directory: $root")
+  implicit val rng = Rng(Options("--seed 0"))
 
   def randomString(length: Int) = {
     val r = new scala.util.Random
@@ -24,13 +22,22 @@ object VerificationExperiments extends App {
     sb.toString
   }
 
+  def generateRandomPrograms(synthTask: SygusSynthesisTask): Seq[Op] = {
+    val cf = new CodeFactory(synthTask.grammar, stoppingDepth = 4, maxDepth = 8)
+    for (i <- 0 until 100) yield cf.randomProgram
+  }
+
+
+  val root = System.getProperty("user.dir")
+  println(s"Working directory: $root")
+
   1.to(20).foreach{ x => println(randomString(6)) }
 
   val collection = "/resources/LIA/other"
   //val files = Tools.getRecursiveListOfFiles(new File(root + collection)).filter{ f =>
   //  !f.getName.matches(".+[0-9][0-9].+") && f.getName.endsWith(".sl")}
   val files = List(new File(root + "/resources/LIA/Median3_tests.sl"))
-  val solverPath = Global.solverPath
+  val solver = SolverInteractive(Global.solverPath, verbose = false)
 
   for (file <- files) {
     println("-" * 100)
@@ -39,26 +46,22 @@ object VerificationExperiments extends App {
     val sygusProblem = LoadSygusBenchmark(file)
     val synthTask = SygusSynthesisTask(sygusProblem).head
     val sygusConstr = SygusBenchmarkConstraints(sygusProblem, synthTask)
-
-    // Create the Swim grammar and generate a bunch of random programs using it
-    val gr = synthTask.grammar
-    val cf = new CodeFactory(gr, stoppingDepth = 4, maxDepth = 8)
-    val progs = for (i <- 0 until 100) yield cf.randomProgram
+    val tests = sygusConstr.testCasesConstrToTests
+    val testsSeq = tests.map{ test => test._1.toList.map(_._2)}
     val domainLIA = SLIA(synthTask.argNames, synthTask.fname)
 
 
-    // Verifying programs using SMT solver
-    println("Verifying programs:")
-    val solver = SolverInteractive(solverPath, verbose = false)
-    val fv = sygusProblem.cmds.collect { case v: VarDeclCmd => v }
+    val fv = sygusConstr.varDecls
     val getValueCommand = s"(get-value (${fv.map(_.sym).mkString(" ")}))"
+    val templateFindOutput = new TemplateFindOutput(sygusProblem, sygusConstr)
+    val templateVerify = new TemplateVerification(sygusProblem, sygusConstr)
 
-    val templateInputAndKnownOutput = new QueryTemplateInputAndKnownOutput(sygusProblem, sygusConstr)
-    val templateVerify = new QueryTemplateVerification(sygusProblem, sygusConstr)
+    val progs = generateRandomPrograms(synthTask)
+    val allCounterEx = mutable.MutableList[Map[String,Any]]()
     for (p <- progs) {
       println("Program: " + p)
-      // Prepare input to the solver
       val verificationProblem = templateVerify(p)
+      // println("verificationProblem:\n" + verificationProblem)
       val (_, res) = solver.solve(verificationProblem, getValueCommand)
       if (res.isDefined) {
         val cexample = GetValueParser(res.get)
@@ -66,19 +69,27 @@ object VerificationExperiments extends App {
         // IMPORTANT: This assumes that the free variables defined in the problem correspond one-to-one
         // (order-preserving) to the arguments of synthesized function.
         val cexampleRenamed = synthTask.argNames.zip(cexample.unzip._2)
-        println(s"Counterexample for $p: " + cexampleRenamed)
+        allCounterEx += cexampleRenamed.toMap
+        println("\tCounterexample: " + cexampleRenamed.mkString(", "))
         try {
           val output = domainLIA.apply(p)(cexampleRenamed.map(_._2)).get
-          println(s"Output of best: $output")
-          val checkOnInputCmd = templateInputAndKnownOutput(cexample.toMap, output)
-          println("Check output for counterexample (expected unsat): " + solver.solve(checkOnInputCmd))
+          println(s"\tProgram's output (LIA domain): $output")
+          testsSeq.foreach{ test =>
+            println(s"\tProgram's output for $test: " + domainLIA.apply(p)(test).get) }
+          val findOutputProblem = templateFindOutput(cexample.toMap)
+          // println("findOutputProblem:\n" + findOutputProblem)
+          val (_, res) = solver.solve(findOutputProblem, "(get-value (CorrectOutput))")
+          println("\tExpected output for counterex: " + GetValueParser(res.get).head._2)
         }
         catch {
-          case e: Throwable => println(s"Error during evalution: ${e.getMessage}")
+          case e: Throwable => println(s"	Error during evalution: ${e.getMessage}")
         }
       }
-      else { println("Correct program found") }
+      else { println("\tCorrect program found") }
     }
+
+    println(s"\nCollected ${allCounterEx.toSet.size} unique counterexamples (total: ${allCounterEx.size})")
+    allCounterEx.toSet.foreach{ x: Map[String, Any] => println(x) }
   }
 }
 

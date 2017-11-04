@@ -191,8 +191,8 @@ object TestRunLIA extends IApp('maxGenerations -> 25, 'printResults -> false, 'p
     val fv = sygusProblem.cmds.collect { case v: VarDeclCmd => v }
     val getValueCommand = s"(get-value (${fv.map(_.sym).mkString(" ")}))"
 
-    val templateInputAndKnownOutput = new QueryTemplateInputAndKnownOutput(sygusProblem, sygusData)
-    val templateVerify = new QueryTemplateVerification(sygusProblem, sygusData)
+    val templateInputAndKnownOutput = new TemplateIsOutputCorrectForInput(sygusProblem, sygusData)
+    val templateVerify = new TemplateVerification(sygusProblem, sygusData)
     for (p <- progs) {
       // Prepare input to the solver
       val verificationProblem = templateVerify(p)
