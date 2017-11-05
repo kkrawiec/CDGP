@@ -67,6 +67,7 @@ case class SolverFromScript(path: String, args: String = "-smt2 -file:", verbose
 object SolverFromScript {
   def ARGS_Z3: String = "-smt2 -file:"
   def ARGS_CVC4: String = "--lang=smt2.5 "
+  def ARGS_OTHER: String = ""
 }
 
 
@@ -148,6 +149,7 @@ case class SolverInteractive(path: String, args: String = "-in", verbose: Boolea
 object SolverInteractive {
   def ARGS_Z3: String = "-smt2 -in "
   def ARGS_CVC4: String = "--lang=smt2.5 --incremental "
+  def ARGS_OTHER: String = ""
 }
 
 
@@ -175,7 +177,8 @@ class SolverManager(path: String, args: Option[String] = None, verbose: Boolean 
   private val maxSolverRestarts: Int = opt('maxSolverRestarts, 1)
   private val solverInteractive: Boolean = opt('solverInteractive, true)
   private val solverType: String = opt('solverType, "z3")
-  assert(solverType == "z3" || solverType == "cvc4", "Invalid solver type! --solverType argument accepts values: 'z3', 'cvc4'.")
+  assert(solverType == "z3" || solverType == "cvc4" || solverType == "other",
+    "Invalid solver type! --solverType argument accepts values: 'z3', 'cvc4', 'other'.")
   private var doneRestarts: Int = 0
   private val solveTimes: mutable.Map[Double, Int] = mutable.Map[Double, Int]()
   private var numCalls: Int = 0
@@ -207,11 +210,13 @@ class SolverManager(path: String, args: Option[String] = None, verbose: Boolean 
     if (args.isDefined) args.get
     else if (solverInteractive) {
       if (solverType == "z3") SolverInteractive.ARGS_Z3
-      else SolverInteractive.ARGS_CVC4
+      else if (solverType == "cvc4") SolverInteractive.ARGS_CVC4
+      else SolverInteractive.ARGS_OTHER
     }
     else {
       if (solverType == "z3") SolverFromScript.ARGS_Z3
-      else SolverFromScript.ARGS_CVC4
+      else if (solverType == "cvc4") SolverFromScript.ARGS_CVC4
+      else SolverFromScript.ARGS_OTHER
     }
   }
 

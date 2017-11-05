@@ -188,7 +188,7 @@ class CDGPSteadyStateLexicase(moves: GPMoves,
                                          Common.correctSeqInt,
                                          CDGPSteadyStateLexicase.getSelection(),
                                          CDGPSteadyStateLexicase.getDeselection()) {
-  override def initialize  = super.initialize andThen Common.printPop
+  override def initialize  = super.initialize
   override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests
   override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalSeqInt(cdgpEval.state, bsf)
   override def evaluate = // used only for the initial population
