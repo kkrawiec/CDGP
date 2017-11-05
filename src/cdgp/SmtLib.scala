@@ -12,13 +12,13 @@ import sygus16.SyGuS16
   * An example of the query:
   * <pre>{@code
   *   (set-logic LIA)
-    *   (define-fun max2 ((x Int)(y Int)) Int (ite (>= x y) x 0))
-    *   (declare-fun x () Int)
-    *   (declare-fun y () Int)
-    *   (assert (not (and (>= (max2 x y) x)
-    *   (>= (max2 x y) y)
-    *   (or (= x (max2 x y)) (= y (max2 x y))))))
-    * }</pre>
+  *   (define-fun max2 ((x Int)(y Int)) Int (ite (>= x y) x 0))
+  *   (declare-fun x () Int)
+  *   (declare-fun y () Int)
+  *   (assert (not (and (>= (max2 x y) x)
+  *   (>= (max2 x y) y)
+  *   (or (= x (max2 x y)) (= y (max2 x y))))))
+  * }</pre>
   * Sat means that there is a counterexample, unsat means perfect program was found.
   */
 class TemplateVerification(problem: SyGuS16,
@@ -60,13 +60,13 @@ class TemplateVerification(problem: SyGuS16,
   * An example query:
   * <pre>{@code
   *   (set-logic LIA)
-    *   (define-fun max2 ((x Int)(y Int)) Int 5)
-    *   (define-fun x () Int 5)
-    *   (define-fun y () Int 1)
-    *   (assert (and (>= (max2 x y) x)
-    *   (>= (max2 x y) y)
-    *   (or (= x (max2 x y)) (= y (max2 x y)))))
-    * }</pre>
+  *   (define-fun max2 ((x Int)(y Int)) Int 5)
+  *   (define-fun x () Int 5)
+  *   (define-fun y () Int 1)
+  *   (assert (and (>= (max2 x y) x)
+  *   (>= (max2 x y) y)
+  *   (or (= x (max2 x y)) (= y (max2 x y)))))
+  * }</pre>
   * The result is either sat or unsat, model usually will be empty.
   * Sat means that the answer is correct.
   */
@@ -112,13 +112,13 @@ class TemplateIsOutputCorrectForInput(problem: SyGuS16,
   * An example of the query:
   * <pre>{@code
   *   (set-logic LIA)
-    *   (define-fun max2 ((x Int)(y Int)) Int (ite (>= x y) x 0))
-    *   (define-fun x () Int 5)
-    *   (define-fun y () Int 1)
-    *   (assert (and (>= (max2 x y) x)
-    *   (>= (max2 x y) y)
-    *   (or (= x (max2 x y)) (= y (max2 x y)))))
-    * }</pre>
+  *   (define-fun max2 ((x Int)(y Int)) Int (ite (>= x y) x 0))
+  *   (define-fun x () Int 5)
+  *   (define-fun y () Int 1)
+  *   (assert (and (>= (max2 x y) x)
+  *   (>= (max2 x y) y)
+  *   (or (= x (max2 x y)) (= y (max2 x y)))))
+  * }</pre>
   * The result is either sat or unsat, model usually will be empty.
   * Sat means that the answer is correct.
   */
@@ -163,14 +163,14 @@ class TemplateIsProgramCorrectForInput(problem: SyGuS16,
   * An example of the query:
   * <pre>{@code
   *   (set-logic LIA)
-    *   (declare-fun CorrectOutput () Int)
-    *   (define-fun max2 ((x Int)(y Int)) Int CorrectOutput)
-    *   (define-fun x () Int 4)
-    *   (define-fun y () Int 3)
-    *   (assert (and (>= (max2 x y) x)
-    *   (>= (max2 x y) y)
-    *   (or (= x (max2 x y)) (= y (max2 x y)))))
-    * }</pre>
+  *   (declare-fun CorrectOutput () Int)
+  *   (define-fun max2 ((x Int)(y Int)) Int CorrectOutput)
+  *   (define-fun x () Int 4)
+  *   (define-fun y () Int 3)
+  *   (assert (and (>= (max2 x y) x)
+  *   (>= (max2 x y) y)
+  *   (or (= x (max2 x y)) (= y (max2 x y)))))
+  * }</pre>
   * Sat means that correct output was found, unsat that there is no output
   * consistent with the specification (this probably means that problem was
   * wrongly specified).

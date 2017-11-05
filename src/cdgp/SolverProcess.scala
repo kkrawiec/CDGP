@@ -172,7 +172,8 @@ object TestSolverOpenConnection extends FApp {
 
 
 
-class SolverManager(path: String, args: Option[String] = None, verbose: Boolean = false)
+class SolverManager(val path: String, val args: Option[String] = None, val moreArgs: String = "",
+                    verbose: Boolean = false)
                    (implicit opt: Options, coll: Collector) {
   private val maxSolverRestarts: Int = opt('maxSolverRestarts, 1)
   private val solverInteractive: Boolean = opt('solverInteractive, true)
@@ -207,16 +208,17 @@ class SolverManager(path: String, args: Option[String] = None, verbose: Boolean 
   def solver: SolverSMT = _solver
 
   protected def getSolverArgs: String = {
-    if (args.isDefined) args.get
+    val ma = if (moreArgs == "") "" else s" $moreArgs "
+    if (args.isDefined) ma + args.get
     else if (solverInteractive) {
-      if (solverType == "z3") SolverInteractive.ARGS_Z3
+      ma + (if (solverType == "z3") SolverInteractive.ARGS_Z3
       else if (solverType == "cvc4") SolverInteractive.ARGS_CVC4
-      else SolverInteractive.ARGS_OTHER
+      else SolverInteractive.ARGS_OTHER)
     }
     else {
-      if (solverType == "z3") SolverFromScript.ARGS_Z3
+      ma + (if (solverType == "z3") SolverFromScript.ARGS_Z3
       else if (solverType == "cvc4") SolverFromScript.ARGS_CVC4
-      else SolverFromScript.ARGS_OTHER
+      else SolverFromScript.ARGS_OTHER)
     }
   }
 

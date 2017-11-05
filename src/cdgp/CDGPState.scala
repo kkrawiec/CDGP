@@ -85,7 +85,8 @@ class CDGPState(sygusProblem: SyGuS16)
   // Creating solver manager
   private def solverPath = opt('solverPath)
   private def solverArgs = opt.getOption("solverArgs")
-  lazy val solver = new SolverManager(solverPath, solverArgs, verbose=false)
+  private def moreSolverArgs = opt.getOption("moreSolverArgs", "")
+  lazy val solver = new SolverManager(solverPath, solverArgs, moreSolverArgs, verbose=false)
 
   // Templates for solver queries
   val templateVerification = new TemplateVerification(sygusProblem, sygusData, timeout = timeout)
