@@ -225,7 +225,6 @@ final class TestCDGPState {
     val state = new CDGPState(problem)
     val (decision, output) = state.solver.runSolver(query)
     assertEquals("unsat", decision)  // unsat, so there is only a single answer
-    assertEquals(None, output)
   }
 
   @Test

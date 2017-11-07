@@ -77,7 +77,6 @@ final class TestSmtlib {
     val query2 = templateVerification(op2)
     val (dec2, model2) = solver.runSolver(query2)
     assertEquals("unsat", dec2)
-    assertEquals(false, model2.isDefined)
   }
 
 
@@ -104,7 +103,6 @@ final class TestSmtlib {
     val query2 = templateIsOutputCorrectForInput(inputs, 2)
     val (dec2, model2) = solver.runSolver(query2)
     assertEquals("unsat", dec2)
-    assertEquals(false, model2.isDefined)
   }
 
 
@@ -116,7 +114,6 @@ final class TestSmtlib {
     val query = templateIsProgramCorrectForInput(op, inputs)
     val (dec, model) = solver.runSolver(query)
     assertEquals("unsat", dec)
-    assertEquals(false, model.isDefined)
 
     val op2 = Op.fromStr("ite(>=(x y) x y)", useSymbols = false)
     val query2 = templateIsProgramCorrectForInput(op2, inputs)
@@ -130,7 +127,6 @@ final class TestSmtlib {
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(maxSynthTask, maxProblem)
     val (dec, model) = solver.runSolver(query)
     assertEquals("unsat", dec)
-    assertEquals(false, model.isDefined)
     assertEquals(true, SygusUtils.hasSingleInvocationProperty(maxConstr))
   }
 
@@ -169,7 +165,6 @@ final class TestSmtlib {
     println("query2:\n" + query2)
     val (dec2, model2) = solver.runSolver(query2)
     assertEquals("unsat", dec2)
-    assertEquals(false, model2.isDefined)
   }
 
 
@@ -197,7 +192,6 @@ final class TestSmtlib {
     val query2 = templateIsOutputCorrectForInput(inputs, 5) // incorrect
     val (dec2, model2) = solver.runSolver(query2)
     assertEquals("unsat", dec2)
-    assertEquals(false, model2.isDefined)
   }
 
 
@@ -223,7 +217,6 @@ final class TestSmtlib {
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(medianSynthTask, medianProblem)
     val (dec, model) = solver.runSolver(query)
     assertEquals("unsat", dec)
-    assertEquals(false, model.isDefined)
     assertEquals(true, SygusUtils.hasSingleInvocationProperty(medianConstr))
   }
 
@@ -249,7 +242,6 @@ final class TestSmtlib {
     val query2 = templateVerification(op2)
     val (dec2, model2) = solver.runSolver(query2)
     assertEquals("unsat", dec2)
-    assertEquals(false, model2.isDefined)
   }
 
 
@@ -277,7 +269,6 @@ final class TestSmtlib {
     val query2 = templateIsOutputCorrectForInput(inputs, 2) // incorrect
     val (dec2, model2) = solver.runSolver(query2)
     assertEquals("unsat", dec2)
-    assertEquals(false, model2.isDefined)
   }
 
 
@@ -303,7 +294,6 @@ final class TestSmtlib {
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(unitedSynthTask, unitedProblem)
     val (dec, model) = solver.runSolver(query)
     assertEquals("unsat", dec)
-    assertEquals(false, model.isDefined)
     assertEquals(false, SygusUtils.hasSingleInvocationProperty(unitedConstr))
   }
 

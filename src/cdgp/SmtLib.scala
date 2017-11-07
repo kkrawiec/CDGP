@@ -35,7 +35,9 @@ class TemplateVerification(problem: SyGuS16,
       "%1$s\n" +  // a place to insert target function definition given the program
       sygusConstr.varDecls.map{v => s"(declare-fun ${v.sym} () ${SMTLIBFormatter.sortToString(v.sortExpr)})"}.mkString("", "\n", "\n") +
       constraintsPre + // TODO: Is this correct?
-      s"\n(assert (not $constraintsPost))\n"
+      s"\n(assert (not $constraintsPost))\n" +
+      "(check-sat)\n" +
+      s"(get-value (${sygusConstr.varDecls.map(_.sym).mkString(" ")}))\n"
   }
   val template: String = createTemplate
 
@@ -85,7 +87,9 @@ class TemplateIsOutputCorrectForInput(problem: SyGuS16,
       s"${sygusConstr.synthTask.getSynthFunCode("%1$s")}\n" +
       "%2$s\n" +
       (if (preconditions.nonEmpty) s"\n(assert $preconditions)\n" else "") +
-      s"\n(assert $constraints)\n"
+      s"\n(assert $constraints)\n" +
+      "(check-sat)\n" +
+      s"(get-value (${sygusConstr.varDecls.map(_.sym).mkString(" ")}))\n"
   }
   val template: String = createTemplate
 
@@ -137,7 +141,8 @@ class TemplateIsProgramCorrectForInput(problem: SyGuS16,
       s"${sygusConstr.synthTask.getSynthFunCode("%1$s")}\n" +
       "%2$s" +
       (if (preconditions.nonEmpty) s"\n(assert $preconditions)\n" else "") +
-      s"\n(assert $constraints)\n"
+      s"\n(assert $constraints)\n" +
+      "(check-sat)\n"
   }
   val template: String = createTemplate
 
@@ -192,7 +197,9 @@ class TemplateFindOutput(problem: SyGuS16,
       s"${sygusConstr.synthTask.getSynthFunCode("CorrectOutput")}\n" +
       "%1$s" +
       (if (preconditions.nonEmpty) s"\n(assert $preconditions)\n" else "") +
-      s"\n(assert $constraints)\n"
+      s"\n(assert $constraints)\n" +
+      "(check-sat)\n" +
+      s"(get-value (CorrectOutput))\n"
   }
   val template: String = createTemplate
 
@@ -337,8 +344,9 @@ object SMTLIBFormatter {
   def checkIfSingleAnswerForEveryInput(sf: SygusSynthesisTask, problem: SyGuS16,
                                        solverTimeout: Int = 0): String = {
     val sfArgs = synthFunArgsToString(sf)
-    val varsDecl = problem.cmds.collect {
-      case v: VarDeclCmd => s"(declare-fun ${v.sym} () ${sortToString(v.sortExpr)})"
+    val varDecls = problem.cmds.collect { case v: VarDeclCmd => v }
+    val varsDeclFunDefs = varDecls.map {
+      v: VarDeclCmd => s"(declare-fun ${v.sym} () ${sortToString(v.sortExpr)})"
     }.mkString("", "\n", "\n")
     val vMap = Map(sf.fname -> (sf.fname+"__2"))
     val cmds1 = problem.cmds
@@ -360,10 +368,12 @@ object SMTLIBFormatter {
       s"(declare-fun res2__2 () $synthFunSort)\n" +
       s"(define-fun ${sf.fname} ($sfArgs) $synthFunSort res1__2)\n" +
       s"(define-fun ${sf.fname}__2 ($sfArgs) $synthFunSort res2__2)\n\n" +
-      varsDecl + "\n" +
+      varsDeclFunDefs + "\n" +
       body1 + "\n" +
       body2 + "\n" +
-      s"(assert (distinct res1__2 res2__2))"
+      s"(assert (distinct res1__2 res2__2))" +
+      "(check-sat)\n" +
+      s"(get-value (${varDecls.map(_.sym).mkString(" ")} res1__2 res2__2))\n"
   }
 
 

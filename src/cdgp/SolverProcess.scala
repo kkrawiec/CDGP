@@ -2,10 +2,8 @@ package cdgp
 
 import java.io._
 import java.util.Scanner
-
 import scala.sys.process._
 import fuel.util.{Collector, FApp, Options}
-
 import scala.collection.mutable
 import scala.util.Random
 
@@ -32,34 +30,41 @@ case class SolverFromScript(path: String, args: String = SolverFromScript.ARGS_Z
 
   def apply(input: String): String = {
     val r = System.currentTimeMillis() + rng.nextInt(1000000000)
-    val tmpfile = new File(s"smtlib$r.tmp")
-    println("Absolute path: " + tmpfile.getAbsolutePath)
+    val tmpfile = new File(s"smtlib$r.smt2")
     save(tmpfile, input)
     var res: String = ""
-    val cmd = s"$path $args${tmpfile.getAbsolutePath}"
-    val process = Process(cmd)
+    val cmd = s"$path $args ${tmpfile.getAbsolutePath}"
+    val stdout = new StringBuilder
+    val stderr = new StringBuilder
+    val pl = ProcessLogger(stdout append _, stderr append _)
     try {
-      println(s"Command: $path $args${tmpfile.getAbsolutePath}")
-      println("Input:\n" + input)
-      //res = s"$path $args${tmpfile.getAbsolutePath}" !! // strangely may require one empty line after
-      lazy val contents = process.!!
-      //val contents = process.lineStream.mkString("\n")
-      Thread.sleep(10)
-      res = contents
+      val status = cmd ! pl
+      res = stdout.toString()
       println("res = " + res)
     } catch {
       case e: RuntimeException =>
-//        tmpfile.delete
-        throw new Exception(s"Solver failed for input:\n$input\nwith output:\n$res\n--\n${process.lineStream.mkString("\n")}\n", e)
+        tmpfile.delete
+        throw new Exception(s"Solver failed for input:\n$input\nwith output:\n$stdout\n--\n$stderr\n", e)
     }
     println("Deleting temporary file!")
-    //tmpfile.delete
+    tmpfile.delete
     res
   }
 
+  def normalizeOutput(output: String): String = {
+    val firstPar = output.indexOf("(")
+    if (firstPar == -1)
+      output
+    else
+      output.take(firstPar) + "\n" + output.drop(firstPar)
+  }
+
   override def solve(input: String, postCommands: String*): (String, Option[String]) = {
-    val inputStr = s"$input\n(check-sat)\n${postCommands.mkString}"
-    val output = executeQuery(inputStr)
+    val inputStr = s"$input\n${postCommands.mkString}"
+    val output = normalizeOutput(executeQuery(inputStr))
+    // Sometimes Z3 may return something like this:
+    //   "unsat(error "line 23 column 11: model is not available")"
+    // Normalization introduces \n before the first parenthesis.
     val lines = output.split("\n").map(_.trim)
     val outputDec = lines.head
     val outputRest = if (lines.size == 1) None else Some(lines.tail.mkString("\n"))
@@ -68,7 +73,7 @@ case class SolverFromScript(path: String, args: String = SolverFromScript.ARGS_Z
     else throw new Exception(s"Solver did not return sat, unsat, nor unknown, but this: $output")
   }
 
-  /** Simply executes a query and returns raw output. */
+  /** Executes a query and returns raw output as a String. */
   def executeQuery(inputStr: String): String = {
     if (verbose) println(s"Input to the solver:\n$inputStr\n")
     val output = apply(inputStr).trim
@@ -89,7 +94,7 @@ case class SolverFromScript(path: String, args: String = SolverFromScript.ARGS_Z
 
 object SolverFromScript {
   // pp.min-alias-size=1000000 pp.max_depth=1000000 are needed for simplification to not have let expressions
-  def ARGS_Z3: String = "-smt2 pp.min-alias-size=1000000 pp.max_depth=1000000 -file:" //-file:
+  def ARGS_Z3: String = "-smt2 pp.min-alias-size=1000000 pp.max_depth=1000000 " //-file:
   def ARGS_CVC4: String = "--lang=smt2.5 --default-dag-thresh=0 "
   def ARGS_OTHER: String = ""
 }
@@ -158,9 +163,8 @@ case class SolverInteractive(path: String, args: String = SolverInteractive.ARGS
   def solve(input: String, postCommands: String*): (String, Option[String]) = {
     this.synchronized {
       bis.println("(reset)")  // remove all earlier definitions and constraints
-      val inputStr = s"$input(check-sat)"
-      if (verbose) println(s"Input to the solver:\n$inputStr\n")
-      apply(inputStr)
+      if (verbose) println(s"Input to the solver:\n$input\n")
+      apply(input)
       val output = scanner.nextLine
       if (verbose) print(s"Solver output:\n$output\n")
       if (es.available() > 0)
