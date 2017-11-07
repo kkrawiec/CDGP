@@ -7,11 +7,11 @@ import fuel.util.{CollectorStdout, Options, Rng}
 import swim.tree.Op
 
 final class TestSmtlib {
-  implicit val emptyOpt = Options("--searchAlgorithm Lexicase --solverPath " +
-    s"${Global.solverPath}")
+  implicit val emptyOpt = Options(s"--searchAlgorithm Lexicase ${Global.solverConfig}")
   implicit val coll = CollectorStdout(emptyOpt)
   implicit val rng = Rng(emptyOpt)
-  val solver = new SolverManager(Global.solverPath, None, verbose=false)
+  println("Creating solver.")
+  val solver = SolverManager(emptyOpt, coll)
   val specMax =
     """(set-logic LIA)
       |(synth-fun max2 ((x Int) (y Int)) Int)
@@ -135,7 +135,13 @@ final class TestSmtlib {
   }
 
 
-
+  @Test
+  def test_simplify_max(): Unit = {
+    val templateSimplify = new TemplateSimplify(maxProblem, maxConstr)
+    val query = templateSimplify("(+ x (- 0 x))")
+    val res = solver.executeQuery(query)
+    assertEquals("0", res)
+  }
 
 
   ////////////////////////////////////////////////////////////////////////////////////

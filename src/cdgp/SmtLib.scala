@@ -210,6 +210,43 @@ class TemplateFindOutput(problem: SyGuS16,
 
 
 /**
+  * Query to simplify the synthesis function.
+  *
+  * An example of the query:
+  * <pre>{@code
+  *   (set-logic LIA)
+  *
+  * }</pre>
+  */
+class TemplateSimplify(problem: SyGuS16,
+                       sygusConstr: SygusBenchmarkConstraints,
+                       timeout: Int = 0) extends Function1[Op, String] {
+  def createTemplate: String = {
+    // Auxiliaries are added because they may contain function definitions which are
+    // used in the solution.
+    val auxiliaries = SMTLIBFormatter.getCodeForAuxiliaries(problem)
+    s"(set-logic ${SMTLIBFormatter.getLogicName(problem)})\n" +
+      (if (timeout > 0) s"(set-option :timeout $timeout)\n" else "") +
+      auxiliaries + "\n" +
+      SMTLIBFormatter.produceVarDecls(sygusConstr) +
+      "(simplify %1$s\n)\n"
+  }
+  val template: String = createTemplate
+
+  def apply(op: Op): String = {
+    apply(op.toString)
+  }
+  def apply(opSmtlib: String): String = {
+    template.format(opSmtlib)
+  }
+}
+
+
+
+
+
+
+/**
   * Functions for converting the SMTLIB and Sygus terms into input to
   * an SMT solver (represented as strings)
   */
@@ -240,6 +277,12 @@ object SMTLIBFormatter {
     val args = synthFunArgsToString(sst)
     val tpe = sortToString(sst.outputType)
     s"(define-fun ${sst.fname} ($args) $tpe\n\t$bestBody)"
+  }
+
+  def produceVarDecls(sygusConstr: SygusBenchmarkConstraints): String = {
+    sygusConstr.varDecls.map{v =>
+      s"(declare-fun ${v.sym} () ${SMTLIBFormatter.sortToString(v.sortExpr)})"
+    }.mkString("", "\n", "\n")
   }
 
   def synthFunArgsToString(sst: SygusSynthesisTask): String = {
