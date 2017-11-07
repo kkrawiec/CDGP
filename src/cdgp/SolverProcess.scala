@@ -13,14 +13,20 @@ class UnknownSolverOutputException(message: String = "", cause: Throwable = null
       extends Exception(message, cause)
 
 trait SolverSMT extends Closeable {
-  def solve(input: String, postCommands: String*): (String, Option[String])
+  /**
+    * Executes the query and preprocesses the result, returning decision and optional
+    * other content (e.g. model).
+    */
+  def solve(query: String, postCommands: String*): (String, Option[String])
+  /**
+    * Executes the query and returns raw output of the solver.
+    */
   def executeQuery(query: String): String
 }
 
 
 /**
-  * Saves each query on disk as a temporary file and then executes solver binaries
-  * for this query.
+  * Saves each query on disk as a temporary file and then executes solver binaries for this query.
   */
 case class SolverFromScript(path: String, args: String = SolverFromScript.ARGS_Z3, verbose: Boolean = false,
                             seed: Int = 0)
@@ -32,23 +38,19 @@ case class SolverFromScript(path: String, args: String = SolverFromScript.ARGS_Z
     val r = System.currentTimeMillis() + rng.nextInt(1000000000)
     val tmpfile = new File(s"smtlib$r.smt2")
     save(tmpfile, input)
-    var res: String = ""
-    val cmd = s"$path $args ${tmpfile.getAbsolutePath}"
     val stdout = new StringBuilder
     val stderr = new StringBuilder
     val pl = ProcessLogger(stdout append _, stderr append _)
+    val cmd = s"$path $args ${tmpfile.getAbsolutePath}"
     try {
       val status = cmd ! pl
-      res = stdout.toString()
-      println("res = " + res)
     } catch {
       case e: RuntimeException =>
         tmpfile.delete
-        throw new Exception(s"Solver failed for input:\n$input\nwith output:\n$stdout\n--\n$stderr\n", e)
+        throw new Exception(s"Solver failed for input:\n$input\nwith output:\n$stdout\n----- stderr -----\n$stderr\n", e)
     }
-    println("Deleting temporary file!")
     tmpfile.delete
-    res
+    stdout.toString()
   }
 
   def normalizeOutput(output: String): String = {
@@ -82,12 +84,9 @@ case class SolverFromScript(path: String, args: String = SolverFromScript.ARGS_Z
   }
 
   def save(file: File, s: String): Unit = {
-//    val pw = new PrintWriter(file)
-//    pw.print(s)
-//    pw.close()
-    val bw = new BufferedWriter(new FileWriter(file))
-    bw.write(s)
-    bw.close()
+    val pw = new PrintWriter(file)
+    pw.print(s)
+    pw.close()
   }
   override def close(): Unit = {}
 }
@@ -164,7 +163,7 @@ case class SolverInteractive(path: String, args: String = SolverInteractive.ARGS
     this.synchronized {
       bis.println("(reset)")  // remove all earlier definitions and constraints
       if (verbose) println(s"Input to the solver:\n$input\n")
-      apply(input)
+      apply(input) // TODO: postCommands are ignored!
       val output = scanner.nextLine
       if (verbose) print(s"Solver output:\n$output\n")
       if (es.available() > 0)
@@ -302,15 +301,15 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
 
   /**
     * Executes provided commands using the SMT solver.
-    * @param cmd Commands to be executed.
-    * @param postCommands Additional commands to be placed after (check-sat).
+    * @param query Commands to be executed. (check-sat) is expected to be a part of the query.
+    * @param postCommands Additional commands to be placed after the query.
     * @return Solver's decision ('sat', 'unsat', 'unknown', 'timeout') and optional content determined
     *         by postCommands.
     */
-  def runSolver(cmd: String, postCommands: String*): (String, Option[String]) = {
+  def runSolver(query: String, postCommands: String*): (String, Option[String]) = {
     try {
       val start = System.currentTimeMillis()
-      val res = solver.solve(cmd, postCommands:_*)
+      val res = solver.solve(query, postCommands:_*)
       updateRunStats((System.currentTimeMillis() - start) / 1000.0)
       res
     }
@@ -320,7 +319,7 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
         if (doneRestarts < maxSolverRestarts) {
           doneRestarts += 1
           _solver = createWithRetries()
-          runSolver(cmd, postCommands: _*)
+          runSolver(query, postCommands: _*)
         }
         else throwExceededMaxRestartsException(e)
       }

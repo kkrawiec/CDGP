@@ -18,6 +18,8 @@ import sygus16.SyGuS16
   *   (assert (not (and (>= (max2 x y) x)
   *   (>= (max2 x y) y)
   *   (or (= x (max2 x y)) (= y (max2 x y))))))
+  *   (check-sat)
+  *   (get-value (x y))
   * }</pre>
   * Sat means that there is a counterexample, unsat means perfect program was found.
   */
@@ -68,6 +70,7 @@ class TemplateVerification(problem: SyGuS16,
   *   (assert (and (>= (max2 x y) x)
   *   (>= (max2 x y) y)
   *   (or (= x (max2 x y)) (= y (max2 x y)))))
+  *   (check-sat)
   * }</pre>
   * The result is either sat or unsat, model usually will be empty.
   * Sat means that the answer is correct.
@@ -88,8 +91,7 @@ class TemplateIsOutputCorrectForInput(problem: SyGuS16,
       "%2$s\n" +
       (if (preconditions.nonEmpty) s"\n(assert $preconditions)\n" else "") +
       s"\n(assert $constraints)\n" +
-      "(check-sat)\n" +
-      s"(get-value (${sygusConstr.varDecls.map(_.sym).mkString(" ")}))\n"
+      "(check-sat)\n"
   }
   val template: String = createTemplate
 
@@ -122,6 +124,7 @@ class TemplateIsOutputCorrectForInput(problem: SyGuS16,
   *   (assert (and (>= (max2 x y) x)
   *   (>= (max2 x y) y)
   *   (or (= x (max2 x y)) (= y (max2 x y)))))
+  *   (check-sat)
   * }</pre>
   * The result is either sat or unsat, model usually will be empty.
   * Sat means that the answer is correct.
@@ -175,6 +178,8 @@ class TemplateIsProgramCorrectForInput(problem: SyGuS16,
   *   (assert (and (>= (max2 x y) x)
   *   (>= (max2 x y) y)
   *   (or (= x (max2 x y)) (= y (max2 x y)))))
+  *   (check-sat)
+  *   (get-value (CorrectOutput))
   * }</pre>
   * Sat means that correct output was found, unsat that there is no output
   * consistent with the specification (this probably means that problem was
@@ -337,6 +342,8 @@ object SMTLIBFormatter {
     *   (assert (or (= x (max2__2 x y)) (= y (max2__2 x y))))
     *
     *   (assert (distinct res1__2 res2__2))
+    *   (check-sat)
+    *   (get-value (x y res1__2 res2__2))
     * }</pre>
     * Sat means that there is at least one input for which there is more than
     * one correct output.

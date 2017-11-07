@@ -198,7 +198,7 @@ class CDGPState(sygusProblem: SyGuS16)
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(synthTask, problem)
     // println("\nQuery checkIfSingleAnswerForEveryInput:\n" + query)
     val declVars = varDeclsNames.mkString(" ")
-    val (dec, model) = solver.runSolver(query, s"(get-value ($declVars res1__2 res2__2))")
+    val (dec, model) = solver.runSolver(query)
     if (dec == "sat") {
       val values = GetValueParser(model.get)
       if (!silent) println("Example of multiple correct answers: " + values.mkString(" "))
@@ -211,8 +211,7 @@ class CDGPState(sygusProblem: SyGuS16)
   def verify(s: Op): (String, Option[String]) = {
     val query = templateVerification(s)
     // println("\nQuery verify:\n" + query)
-    val getValueCommand = s"(get-value (${varDeclsNames.mkString(" ")}))"
-    solver.runSolver(query, getValueCommand)
+    solver.runSolver(query)
   }
 
   def checkIsOutputCorrectForInput(s: Op,
