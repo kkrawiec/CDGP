@@ -164,9 +164,12 @@ class TemplateIsProgramCorrectForInput(problem: SyGuS16,
 
 /**
   * Query for searching for any output correct wrt the specification and the
-  * specified inputs. Single-invocation property is assumed, because function's
-  * output is treated as a constant. Because of this, only formal constraints
-  * are used.
+  * specified inputs.
+  *
+  * NOTE: Single-invocation property is assumed, because function's
+  * output is represented as a constant. Because of this, only formal constraints
+  * are used. Any test cases different than the provided input automatically lead
+  * to unsat (for the great majority of cases).
   *
   * An example of the query:
   * <pre>{@code
@@ -192,7 +195,7 @@ class TemplateFindOutput(problem: SyGuS16,
     // Test-cases constraints are ignored
     // TODO: something is off with this; either median or united unit test is failing.
     val preconditions = SMTLIBFormatter.getCodeForMergedConstraints(sygusConstr.precond)
-    val constraints = SMTLIBFormatter.getCodeForMergedConstraints(sygusConstr.postcond)
+    val constraints = SMTLIBFormatter.getCodeForMergedConstraints(sygusConstr.formalConstr)
     val auxiliaries = SMTLIBFormatter.getCodeForAuxiliaries(problem)
     s"(set-logic ${SMTLIBFormatter.getLogicName(problem)})\n" +
       (if (timeout > 0) s"(set-option :timeout $timeout)\n" else "") +
