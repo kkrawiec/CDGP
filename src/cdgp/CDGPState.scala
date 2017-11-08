@@ -37,11 +37,8 @@ class CDGPState(val sygusProblem: SyGuS16)
   val silent = opt('silent, false)
 
 
-  val synthTasks = SygusSynthesisTask(sygusProblem)
-  if (synthTasks.size > 1)
-    throw new Exception("Multiple synth-fun commands detected. Cannot handle such problems.")
-  val synthTask: SygusSynthesisTask = synthTasks.head
-  val sygusData = SygusBenchmarkConstraints(sygusProblem, synthTask, opt('mixedSpecAllowed, true))
+  val sygusData = SygusProblemData(sygusProblem, opt('mixedSpecAllowed, true))
+  def synthTask: SygusSynthesisTask = sygusData.synthTask
   val invocations: Seq[Seq[String]] = sygusData.formalInvocations
 
   // Initializing population of test cases

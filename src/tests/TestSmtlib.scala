@@ -24,8 +24,7 @@ final class TestSmtlib {
       |(check-synth)
     """.stripMargin
   val maxProblem = LoadSygusBenchmark.parseText(specMax)
-  val maxSynthTask = SygusSynthesisTask(maxProblem).head
-  val maxConstr = SygusBenchmarkConstraints(maxProblem, maxSynthTask)
+  val maxData = SygusProblemData(maxProblem)
   val specMedian =
     """(set-logic LIA)
       |(synth-fun median3 ((a Int) (b Int) (c Int)) Int)
@@ -45,8 +44,7 @@ final class TestSmtlib {
       |(check-synth)
     """.stripMargin
   val medianProblem = LoadSygusBenchmark.parseText(specMedian)
-  val medianSynthTask = SygusSynthesisTask(medianProblem).head
-  val medianConstr = SygusBenchmarkConstraints(medianProblem, medianSynthTask)
+  val medianData = SygusProblemData(medianProblem)
   val unitedMax =
     """(set-logic LIA)
       |(synth-fun united ((a Int)) Int)
@@ -56,8 +54,7 @@ final class TestSmtlib {
       |(check-synth)
     """.stripMargin
   val unitedProblem = LoadSygusBenchmark.parseText(unitedMax)
-  val unitedSynthTask = SygusSynthesisTask(unitedProblem).head
-  val unitedConstr = SygusBenchmarkConstraints(unitedProblem, unitedSynthTask)
+  val unitedData = SygusProblemData(unitedProblem)
 
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -65,7 +62,7 @@ final class TestSmtlib {
   ////////////////////////////////////////////////////////////////////////////////////
   @Test
   def test_templateVerification_max(): Unit = {
-    val templateVerification = new TemplateVerification(maxProblem, maxConstr)
+    val templateVerification = new TemplateVerification(maxProblem, maxData)
     val op = Op.fromStr("ite(=(x y) x y)", useSymbols = false)
     val query = templateVerification(op)
     val (dec, model) = solver.runSolver(query)
@@ -82,7 +79,7 @@ final class TestSmtlib {
 
   @Test
   def test_templateFindOutput_max(): Unit = {
-    val templateFindOutput = new TemplateFindOutput(maxProblem, maxConstr)
+    val templateFindOutput = new TemplateFindOutput(maxProblem, maxData)
     val inputs = Map("x" -> 5, "y" -> 2)
     val query = templateFindOutput(inputs)
     val (dec, model) = solver.runSolver(query)
@@ -94,7 +91,7 @@ final class TestSmtlib {
 
   @Test
   def test_templateIsOutputCorrectForInput_max(): Unit = {
-    val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(maxProblem, maxConstr)
+    val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(maxProblem, maxData)
     val inputs = Map("x" -> 5, "y" -> 2)
     val query = templateIsOutputCorrectForInput(inputs, 5)
     val (dec, model) = solver.runSolver(query)
@@ -108,7 +105,7 @@ final class TestSmtlib {
 
   @Test
   def test_templateIsProgramCorrectForInput_max(): Unit = {
-    val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(maxProblem, maxConstr)
+    val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(maxProblem, maxData)
     val op = Op.fromStr("ite(=(x y) x y)", useSymbols = false)
     val inputs = Map("x" -> 5, "y" -> 2)
     val query = templateIsProgramCorrectForInput(op, inputs)
@@ -124,16 +121,16 @@ final class TestSmtlib {
 
   @Test
   def test_singleAnswerProperty_max(): Unit = {
-    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(maxSynthTask, maxProblem)
+    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(maxData.synthTask, maxProblem)
     val (dec, model) = solver.runSolver(query)
     assertEquals("unsat", dec)
-    assertEquals(true, SygusUtils.hasSingleInvocationProperty(maxConstr))
+    assertEquals(true, SygusUtils.hasSingleInvocationProperty(maxData))
   }
 
 
   @Test
   def test_simplify_max(): Unit = {
-    val templateSimplify = new TemplateSimplify(maxProblem, maxConstr)
+    val templateSimplify = new TemplateSimplify(maxProblem, maxData)
     val query = templateSimplify("(+ x (- 0 x))")
     val res = solver.executeQuery(query)
     assertEquals("0", res)
@@ -145,7 +142,7 @@ final class TestSmtlib {
   ////////////////////////////////////////////////////////////////////////////////////
   @Test
   def test_templateVerification_median(): Unit = {
-    val templateVerification = new TemplateVerification(medianProblem, medianConstr)
+    val templateVerification = new TemplateVerification(medianProblem, medianData)
     val op = Op.fromStr("ite(>=(a b) a b)", useSymbols = false)
     val query = templateVerification(op)
     val (dec, model) = solver.runSolver(query)
@@ -170,7 +167,7 @@ final class TestSmtlib {
 
   @Test
   def test_templateFindOutput_median(): Unit = {
-    val templateFindOutput = new TemplateFindOutput(medianProblem, medianConstr)
+    val templateFindOutput = new TemplateFindOutput(medianProblem, medianData)
     val inputs = Map("a" -> 5, "b" -> 2, "c" -> 2)
     val query = templateFindOutput(inputs)
     val (dec, model) = solver.runSolver(query)
@@ -182,7 +179,7 @@ final class TestSmtlib {
 
   @Test
   def test_templateIsOutputCorrectForInput_median(): Unit = {
-    val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(medianProblem, medianConstr)
+    val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(medianProblem, medianData)
     val inputs = Map("a" -> 5, "b" -> 2, "c" -> 2)
     val query = templateIsOutputCorrectForInput(inputs, 2) // correct
     println("query:\n" + query)
@@ -197,7 +194,7 @@ final class TestSmtlib {
 
   @Test
   def test_templateIsProgramCorrectForInput_median(): Unit = {
-    val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(medianProblem, medianConstr)
+    val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(medianProblem, medianData)
     val op = Op.fromStr("ite(>=(a b) a b)", useSymbols = false) // incorrect
     val inputs = Map("a" -> 5, "b" -> 2,  "c" -> 2)
     val query = templateIsProgramCorrectForInput(op, inputs)
@@ -214,10 +211,10 @@ final class TestSmtlib {
 
   @Test
   def test_singleAnswerProperty_median(): Unit = {
-    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(medianSynthTask, medianProblem)
+    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(medianData.synthTask, medianProblem)
     val (dec, model) = solver.runSolver(query)
     assertEquals("unsat", dec)
-    assertEquals(true, SygusUtils.hasSingleInvocationProperty(medianConstr))
+    assertEquals(true, SygusUtils.hasSingleInvocationProperty(medianData))
   }
 
 
@@ -230,7 +227,7 @@ final class TestSmtlib {
   ////////////////////////////////////////////////////////////////////////////////////
   @Test
   def test_templateVerification_united(): Unit = {
-    val templateVerification = new TemplateVerification(unitedProblem, unitedConstr)
+    val templateVerification = new TemplateVerification(unitedProblem, unitedData)
     val op = Op.fromStr("a", useSymbols = false)
     val query = templateVerification(op)
     val (dec, model) = solver.runSolver(query)
@@ -247,7 +244,7 @@ final class TestSmtlib {
 
   @Test
   def test_templateFindOutput_united(): Unit = {
-    val templateFindOutput = new TemplateFindOutput(unitedProblem, unitedConstr)
+    val templateFindOutput = new TemplateFindOutput(unitedProblem, unitedData)
     val inputs = Map("x" -> 0)
     val query = templateFindOutput(inputs)
     println("query:\n" + query)
@@ -260,7 +257,7 @@ final class TestSmtlib {
 
   @Test
   def test_templateIsOutputCorrectForInput_united(): Unit = {
-    val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(unitedProblem, unitedConstr)
+    val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(unitedProblem, unitedData)
     val inputs = Map("x" -> 5)
     val query = templateIsOutputCorrectForInput(inputs, 5) // correct
     val (dec, model) = solver.runSolver(query)
@@ -274,7 +271,7 @@ final class TestSmtlib {
 
   @Test
   def test_templateIsProgramCorrectForInput_united(): Unit = {
-    val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(unitedProblem, unitedConstr)
+    val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(unitedProblem, unitedData)
     val op = Op.fromStr("a", useSymbols = false) // incorrect
     val inputs = Map("x" -> 3)
     val query = templateIsProgramCorrectForInput(op, inputs)
@@ -291,10 +288,10 @@ final class TestSmtlib {
 
   @Test
   def test_singleAnswerProperty_united(): Unit = {
-    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(unitedSynthTask, unitedProblem)
+    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(unitedData.synthTask, unitedProblem)
     val (dec, model) = solver.runSolver(query)
     assertEquals("unsat", dec)
-    assertEquals(false, SygusUtils.hasSingleInvocationProperty(unitedConstr))
+    assertEquals(false, SygusUtils.hasSingleInvocationProperty(unitedData))
   }
 
 

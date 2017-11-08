@@ -44,16 +44,16 @@ object VerificationExperiments extends App {
     println(s"File: ${file.getAbsolutePath}")
     println("-" * 100)
     val sygusProblem = LoadSygusBenchmark(file)
-    val synthTask = SygusSynthesisTask(sygusProblem).head
-    val sygusConstr = SygusBenchmarkConstraints(sygusProblem, synthTask)
-    val tests = sygusConstr.testCasesConstrToTests
+    val sygusData = SygusProblemData(sygusProblem)
+    def synthTask = sygusData.synthTask
+    val tests = sygusData.testCasesConstrToTests
     val testsSeq = tests.map{ test => test._1.toList.map(_._2)}
     val domainLIA = SLIA(synthTask.argNames, synthTask.fname)
 
 
-    val fv = sygusConstr.varDecls
-    val templateFindOutput = new TemplateFindOutput(sygusProblem, sygusConstr)
-    val templateVerify = new TemplateVerification(sygusProblem, sygusConstr)
+    val fv = sygusData.varDecls
+    val templateFindOutput = new TemplateFindOutput(sygusProblem, sygusData)
+    val templateVerify = new TemplateVerification(sygusProblem, sygusData)
 
     val progs = generateRandomPrograms(synthTask)
     val allCounterEx = mutable.MutableList[Map[String,Any]]()

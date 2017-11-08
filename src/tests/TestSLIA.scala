@@ -144,10 +144,8 @@ object TestRunLIA extends IApp('maxGenerations -> 25, 'printResults -> false, 'p
     println(s"File: ${file.getAbsolutePath}")
     println("-" * 100)
     val sygusProblem = LoadSygusBenchmark(file)
-
-    // Retrieve the grammar and signature of the function to be synthesized
-    val synthTask = SygusSynthesisTask(sygusProblem).head
-    val sygusData = SygusBenchmarkConstraints(sygusProblem, synthTask)
+    val sygusData = SygusProblemData(sygusProblem)
+    def synthTask = sygusData.synthTask
 
     // Create the Swim grammar from it
     val gr = synthTask.grammar

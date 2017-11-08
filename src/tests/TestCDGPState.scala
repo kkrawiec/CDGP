@@ -231,8 +231,7 @@ final class TestCDGPState {
   def test_checkIfSingleInvocation(): Unit = {
     val code = TestCDGPState.scriptNotSingleInvocation
     val problem = LoadSygusBenchmark.parseText(code)
-    val synthTask = SygusSynthesisTask(problem).head
-    val data = SygusBenchmarkConstraints(problem, synthTask, mixedSpecAllowed=true)
+    val data = SygusProblemData(problem, mixedSpecAllowed=true)
     val singleInvoc = SygusUtils.hasSingleInvocationProperty(data)
     assertEquals(true, singleInvoc)
   }
@@ -301,8 +300,7 @@ final class TestCDGPState {
         |(constraint (= (f "asd" 0 2) "das"))
       """.stripMargin
     val problem = LoadSygusBenchmark.parseText(code)
-    val synthTasks = SygusSynthesisTask(problem)
-    val data = SygusBenchmarkConstraints(problem, synthTasks.head, mixedSpecAllowed = true)
+    val data = SygusProblemData(problem, mixedSpecAllowed = true)
     val tests = data.testCasesConstrToTests
     assertEquals(2, tests.size)
     assertEquals(Map("s"->"asd", "a"->0, "b"->1), tests(0)._1)
@@ -324,8 +322,7 @@ final class TestCDGPState {
         |(constraint (= "das" (f "asd" 0 2)))
       """.stripMargin
     val problem = LoadSygusBenchmark.parseText(code)
-    val synthTasks = SygusSynthesisTask(problem)
-    val data = SygusBenchmarkConstraints(problem, synthTasks.head, mixedSpecAllowed = true)
+    val data = SygusProblemData(problem, mixedSpecAllowed = true)
     val tests = data.testCasesConstrToTests
     assertEquals(1, tests.size)
     assertEquals(Map("s"->"asd", "a"->0, "b"->2), tests(0)._1)

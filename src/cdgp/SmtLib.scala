@@ -20,7 +20,7 @@ class Query(val code: String, val mainCmd: String = "(check-sat)\n",
 
 
 class CheckSatQuery(code: String, satCmds: String, unsatCmds: String = "")
-  extends Query(code, "(check-sat)\n", satCmds, unsatCmds) {}
+  extends Query(code, "(check-sat)", satCmds, unsatCmds) {}
 
 object CheckSatQuery {
   def apply(code: String, satCmds: String, unsatCmds: String = ""): CheckSatQuery =
@@ -55,7 +55,7 @@ object SimplifyQuery {
   * Sat means that there is a counterexample, unsat means perfect program was found.
   */
 class TemplateVerification(problem: SyGuS16,
-                           sygusConstr: SygusBenchmarkConstraints,
+                           sygusConstr: SygusProblemData,
                            timeout: Int = 0) extends Function1[Op, CheckSatQuery] {
   def createTemplate: String = {
     val constraintsPre = SMTLIBFormatter.getCodeForConstraints(sygusConstr.precond)
@@ -107,7 +107,7 @@ class TemplateVerification(problem: SyGuS16,
   * Sat means that the answer is correct.
   */
 class TemplateIsOutputCorrectForInput(problem: SyGuS16,
-                                      sygusConstr: SygusBenchmarkConstraints,
+                                      sygusConstr: SygusProblemData,
                                       timeout: Int = 0) extends Function2[Map[String, Any], Any, CheckSatQuery] {
   def createTemplate: String = {
     // Test-cases constraints are ignored
@@ -161,7 +161,7 @@ class TemplateIsOutputCorrectForInput(problem: SyGuS16,
   * Sat means that the answer is correct.
   */
 class TemplateIsProgramCorrectForInput(problem: SyGuS16,
-                                       sygusConstr: SygusBenchmarkConstraints,
+                                       sygusConstr: SygusProblemData,
                                        timeout: Int = 0) extends Function2[Op, Map[String, Any], CheckSatQuery] {
   def createTemplate: String = {
     // Test-cases constraints are ignored
@@ -197,7 +197,7 @@ class TemplateIsProgramCorrectForInput(problem: SyGuS16,
   * Query for searching for any output correct wrt the specification and the
   * specified inputs.
   *
-  * NOTE: Single-invocation property is assumed, because function's
+  * NOTE: Single-invocation and single-answer properties are assumed, because function's
   * output is represented as a constant. Because of this, only formal constraints
   * are used. Any test cases different than the provided input automatically lead
   * to unsat (for the great majority of cases).
@@ -220,7 +220,7 @@ class TemplateIsProgramCorrectForInput(problem: SyGuS16,
   * wrongly specified).
   */
 class TemplateFindOutput(problem: SyGuS16,
-                         sygusConstr: SygusBenchmarkConstraints,
+                         sygusConstr: SygusProblemData,
                          timeout: Int = 0) extends Function1[Map[String, Any], CheckSatQuery] {
   def createTemplate: String = {
     // Test-cases constraints are ignored
@@ -265,7 +265,7 @@ class TemplateFindOutput(problem: SyGuS16,
   * }</pre>
   */
 class TemplateSimplify(problem: SyGuS16,
-                       sygusConstr: SygusBenchmarkConstraints,
+                       sygusConstr: SygusProblemData,
                        timeout: Int = 0) extends Function1[Op, SimplifyQuery] {
   def createTemplate: String = {
     // Auxiliaries are added because they may contain function definitions which are
@@ -329,7 +329,7 @@ object SMTLIBFormatter {
     s"(define-fun ${sst.fname} ($args) $tpe\n\t$solutionSmtlib)"
   }
 
-  def produceVarDecls(sygusConstr: SygusBenchmarkConstraints): String = {
+  def produceVarDecls(sygusConstr: SygusProblemData): String = {
     sygusConstr.varDecls.map{v =>
       s"(declare-fun ${v.sym} () ${SMTLIBFormatter.sortToString(v.sortExpr)})"
     }.mkString("", "\n", "\n")

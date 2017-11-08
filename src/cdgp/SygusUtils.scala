@@ -14,37 +14,6 @@ class UnsupportedFeatureException(message: String = "", cause: Throwable = null)
 
 
 /**
-  * Class collecting the most important information about the synthesis task
-  * read from the SyGuS file.
-  * @param fname Name of the function being synthesized.
-  * @param grammarSygus Grammar specifying the form of allowed programs.
-  * @param args Arguments of the function.
-  * @param outputType Output type of the function.
-  */
-case class SygusSynthesisTask(fname: String,
-                              grammarSygus: Seq[(Any, Seq[Any])],
-                              args: Seq[(String, SortExpr)],
-                              outputType: SortExpr) {
-  val argNames: Seq[String] = args.unzip._1
-  val grammar: Grammar = SygusUtils.getSwimGrammar(grammarSygus)
-  val canBeRecursive: Boolean = grammar.contains(Symbol(fname)) || grammar.contains(fname)
-
-  /**
-    * Returns code in SMTLIB of a synthesis function.
-    */
-  def getSynthFunCode(programBody: String): String = {
-    val isRecursive = canBeRecursive && programBody.split("\\(|\\)|\\s+").contains(fname)
-    val defFun = if (isRecursive) "define-fun-rec" else "define-fun"
-    // (define-fun f (args) sort t) is equivalent to the following formulas:
-    // (declare-fun f (args) sort)
-    // (assert (forall (args) (= (f args) t))
-    val sfArgs = SMTLIBFormatter.synthFunArgsToString(args)
-    s"($defFun $fname ($sfArgs) ${SMTLIBFormatter.sortToString(outputType)} $programBody)"
-  }
-}
-
-
-/**
   * Stores information about constraints of the given Sygus benchmark.
   * The two main types of constraints are:
   * - precond: constraints which are totally independent of the synthesis function.
@@ -58,8 +27,16 @@ case class SygusSynthesisTask(fname: String,
   * - formalConstr: Standard formal constraints, esp. containg calls to the synth-fun
   *     with universally quantified arguments.
   */
-case class SygusBenchmarkConstraints(problem: SyGuS16, synthTask: SygusSynthesisTask,
-                                     mixedSpecAllowed: Boolean = true) {
+case class SygusProblemData(problem: SyGuS16,
+                            mixedSpecAllowed: Boolean = true) {
+  private def getSynthTask = {
+    val synthTasks = SygusSynthesisTask(problem)
+    if (synthTasks.size > 1)
+      throw new Exception("Multiple synth-fun commands detected. Cannot handle such problems.")
+    synthTasks.head
+  }
+  val synthTask: SygusSynthesisTask = getSynthTask
+
   val varDecls: Seq[VarDeclCmd] = problem.cmds.collect { case v: VarDeclCmd => v }
   val precond: Seq[ConstraintCmd] = SygusUtils.getPreconditions(problem)
   val postcond: Seq[ConstraintCmd] = SygusUtils.getPostconditions(problem)
@@ -88,6 +65,37 @@ case class SygusBenchmarkConstraints(problem: SyGuS16, synthTask: SygusSynthesis
 
 
 
+
+
+/**
+  * Class collecting the most important information about the synthesis task
+  * read from the SyGuS file.
+  * @param fname Name of the function being synthesized.
+  * @param grammarSygus Grammar specifying the form of allowed programs.
+  * @param args Arguments of the function.
+  * @param outputType Output type of the function.
+  */
+case class SygusSynthesisTask(fname: String,
+                              grammarSygus: Seq[(Any, Seq[Any])],
+                              args: Seq[(String, SortExpr)],
+                              outputType: SortExpr) {
+  val argNames: Seq[String] = args.unzip._1
+  val grammar: Grammar = SygusUtils.getSwimGrammar(grammarSygus)
+  val canBeRecursive: Boolean = grammar.contains(Symbol(fname)) || grammar.contains(fname)
+
+  /**
+    * Returns code in SMTLIB of a synthesis function.
+    */
+  def getSynthFunCode(programBody: String): String = {
+    val isRecursive = canBeRecursive && programBody.split("\\(|\\)|\\s+").contains(fname)
+    val defFun = if (isRecursive) "define-fun-rec" else "define-fun"
+    // (define-fun f (args) sort t) is equivalent to the following formulas:
+    // (declare-fun f (args) sort)
+    // (assert (forall (args) (= (f args) t))
+    val sfArgs = SMTLIBFormatter.synthFunArgsToString(args)
+    s"($defFun $fname ($sfArgs) ${SMTLIBFormatter.sortToString(outputType)} $programBody)"
+  }
+}
 
 
 object SygusSynthesisTask {
@@ -162,9 +170,6 @@ object SygusSynthesisTask {
       }
   }
 }
-
-
-
 
 
 
@@ -455,7 +460,7 @@ object SygusUtils {
     val invInfo = getSynthFunsInvocationsInfo(constrCmds, Set(synthTask.fname))
     invInfo.forall{ case (n, lst) => lst.toSet.size == 1}
   }
-  def hasSingleInvocationProperty(data: SygusBenchmarkConstraints): Boolean =
+  def hasSingleInvocationProperty(data: SygusProblemData): Boolean =
     hasSingleInvocationProperty(data.synthTask, data.formalConstr)
 
   /**

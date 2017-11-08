@@ -164,7 +164,7 @@ case class SolverInteractive(path: String, args: String = SolverInteractive.ARGS
     this.synchronized {
       bis.println("(reset)")  // remove all earlier definitions and constraints
       if (verbose) println(s"Input to the solver:\n$query\n")
-      val script = s"${query.code}\n${query.mainCmd}"
+      val script = s"${query.code}\n${query.mainCmd}\n"
       apply(script)
       val output = scanner.nextLine
       if (verbose) print(s"Solver output:\n$output\n")

@@ -34,8 +34,7 @@ object SolverCorrectOutput extends App {
     println("-" * 100)
 
     val sygusProblem = LoadSygusBenchmark(file)
-    val synthTask = SygusSynthesisTask(sygusProblem).head
-    val sygusConstr = SygusBenchmarkConstraints(sygusProblem, synthTask)
+    val sygusConstr = SygusProblemData(sygusProblem)
     val varDeclsMap = sygusConstr.varDecls.map { v: VarDeclCmd => (v.sym, v) }.toMap
     val inv: Seq[String] = sygusConstr.formalInvocations.head
     println("varDeclsMap: " + varDeclsMap)
