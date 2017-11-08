@@ -69,10 +69,13 @@ object Main {
         }
       }
 
+
+      assume(bestOfRun.isDefined, "No solution (optimal or approximate) to the problem was found.")
       val passedTestsRatio = coll.getResult("best.passedTestsRatio").getOrElse("n/a")
       val pn = 26
       println("\n")
-      println("Best program found:".padTo(pn, ' ') + coll.getResult("best").getOrElse("n/a"))
+      println("Best program found:".padTo(pn, ' ') + coll.getResult("bestOrig.smtlib").getOrElse("n/a"))
+      println("Simplified:".padTo(pn, ' ') + coll.getResult("best.smtlib").getOrElse("n/a"))
       println("Evaluation:".padTo(pn, ' ') + coll.getResult("best.eval").getOrElse("n/a"))
       println("Program size:".padTo(pn, ' ') + coll.getResult("best.size").get)
       println("Ratio of passed tests:".padTo(pn, ' ') + passedTestsRatio)
@@ -89,16 +92,17 @@ object Main {
         println("")
       }
 
-      assume(bestOfRun.isDefined, "No solution (optimal or approximate) to the problem was found.")
-      val solutionCode = SMTLIBFormatter.synthSolutionToString(cdgpState.synthTask, bestOfRun.get._1)
+
+      val sol = coll.getResult("best.smtlib").get.toString
+      val solutionFull = SMTLIBFormatter.synthSolutionToString(cdgpState.synthTask, sol)
 
       println("\nOPTIMAL SOLUTION:")
       if (isOptimal(bestOfRun.get))
-        println(solutionCode) else println("unknown")
+        println(solutionFull) else println("unknown")
 
       if (!isOptimal(bestOfRun.get)) {
         println(s"\nAPPROXIMATED SOLUTION:\n(passedTestsRatio $passedTestsRatio)")
-        println(solutionCode)
+        println(solutionFull)
       }
     }
     catch {

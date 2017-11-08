@@ -13,7 +13,7 @@ import sygus16.SyGuS16
   * SYGUS problem to be solved, and from it extracted are all important information such
   * as grammar and logic to be used.
   */
-class CDGPState(sygusProblem: SyGuS16)
+class CDGPState(val sygusProblem: SyGuS16)
                (implicit opt: Options, coll: Collector, rng: TRandom) {
   // The types for input and output
   type I = Map[String, Any]
@@ -93,6 +93,7 @@ class CDGPState(sygusProblem: SyGuS16)
   val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(sygusProblem, sygusData, timeout = timeout)
   val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(sygusProblem, sygusData, timeout = timeout)
   val templateFindOutput = new TemplateFindOutput(sygusProblem, sygusData, timeout = timeout)
+  val templateSimplify = new TemplateSimplify(sygusProblem, sygusData)
 
 
   def getTestCasesMode(problem: SyGuS16): String = {
@@ -245,6 +246,15 @@ class CDGPState(sygusProblem: SyGuS16)
         println(s"Exception during executing query or parsing result, returning test with no output! ")
         test // in case solver returns unknown
     }
+  }
+
+  def simplifySolution(smtlib: String): Option[String] = {
+    try {
+      val query = templateSimplify(smtlib)
+      val res = solver.executeQuery(query)
+      if (res.trim.startsWith("(error")) None else Some(res)
+    }
+    catch { case _: Throwable => None }
   }
 
   ///////////////////////////////////////////////////////

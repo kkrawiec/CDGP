@@ -319,10 +319,20 @@ object Common {
                     (implicit opt: Options, coll: Collector): StatePop[(Op, E)] = {
     if (bsf.bestSoFar.isDefined) {
       val (bestOfRun, _) = bsf.bestSoFar.get
-      coll.set("result.best", bestOfRun)
-      coll.set("result.best.smtlib", SMTLIBFormatter.opToString(bestOfRun))
-      coll.set("result.best.size", bsf.bestSoFar.get._1.size)
-      coll.set("result.best.height", bsf.bestSoFar.get._1.height)
+      val solutionOriginal = SMTLIBFormatter.opToString(bestOfRun)
+      val solutionSimplified = cdgpState.simplifySolution(solutionOriginal)
+      val solution = solutionSimplified.getOrElse(solutionOriginal)
+      val solutionOp = SMTLIBFormatter.smtlibToOp(solution)
+
+      coll.set("result.bestOrig", bestOfRun)
+      coll.set("result.bestOrig.smtlib", solutionOriginal)
+      coll.set("result.bestOrig.size", bestOfRun.size)
+      coll.set("result.bestOrig.height", bestOfRun.height)
+
+      coll.set("result.best", solutionOp)
+      coll.set("result.best.smtlib", solution)
+      coll.set("result.best.size", solutionOp.size)
+      coll.set("result.best.height", solutionOp.height)
     }
     coll.set("cdgp.totalTests", cdgpState.testsManager.tests.size)
     coll.set("cdgp.testsHistory", cdgpState.testsManager.history.toList.sorted.mkString(", "))

@@ -320,9 +320,13 @@ object SMTLIBFormatter {
 
   def synthSolutionToString(sst: SygusSynthesisTask, solution: Op): String = {
     val bestBody = opToString(solution)
+    synthSolutionToString(sst, bestBody)
+  }
+
+  def synthSolutionToString(sst: SygusSynthesisTask, solutionSmtlib: String): String = {
     val args = synthFunArgsToString(sst)
     val tpe = sortToString(sst.outputType)
-    s"(define-fun ${sst.fname} ($args) $tpe\n\t$bestBody)"
+    s"(define-fun ${sst.fname} ($args) $tpe\n\t$solutionSmtlib)"
   }
 
   def produceVarDecls(sygusConstr: SygusBenchmarkConstraints): String = {
