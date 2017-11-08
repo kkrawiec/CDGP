@@ -27,7 +27,7 @@ class UnsupportedFeatureException(message: String = "", cause: Throwable = null)
   * - formalConstr: Standard formal constraints, esp. containg calls to the synth-fun
   *     with universally quantified arguments.
   */
-case class SygusProblemData(problem: SyGuS16,
+case class SygusProblemData(val problem: SyGuS16,
                             mixedSpecAllowed: Boolean = true) {
   private def getSynthTask = {
     val synthTasks = SygusSynthesisTask(problem)
@@ -38,6 +38,7 @@ case class SygusProblemData(problem: SyGuS16,
   val synthTask: SygusSynthesisTask = getSynthTask
 
   val varDecls: Seq[VarDeclCmd] = problem.cmds.collect { case v: VarDeclCmd => v }
+  val varDeclsNames: Seq[String] = varDecls.map(_.sym)
   val precond: Seq[ConstraintCmd] = SygusUtils.getPreconditions(problem)
   val postcond: Seq[ConstraintCmd] = SygusUtils.getPostconditions(problem)
   val allConstr: Seq[ConstraintCmd] = precond ++ postcond
@@ -62,7 +63,6 @@ case class SygusProblemData(problem: SyGuS16,
     }
   }
 }
-
 
 
 

@@ -38,16 +38,14 @@ class CDGPState(val sygusProblem: SyGuS16)
 
 
   val sygusData = SygusProblemData(sygusProblem, opt('mixedSpecAllowed, true))
-  def synthTask: SygusSynthesisTask = sygusData.synthTask
   val invocations: Seq[Seq[String]] = sygusData.formalInvocations
+  def synthTask: SygusSynthesisTask = sygusData.synthTask
+  def grammar: Grammar = synthTask.grammar
 
   // Initializing population of test cases
   testsManager.addNewTests(sygusData.testCasesConstrToTests)
-  // testsManager.flushHelpers()
+  // testsManager.flushHelpers() // This is done elsewhere
 
-  def grammar: Grammar = synthTask.grammar
-  val varDecls: List[VarDeclCmd] = sygusProblem.cmds.collect { case v: VarDeclCmd => v }
-  val varDeclsNames: Set[String] = varDecls.map(_.sym).toSet
 
   /*
    * Depending on the properties of the problem, CDGPState will switch between using
@@ -63,20 +61,19 @@ class CDGPState(val sygusProblem: SyGuS16)
       " in comparison with GP test cases mode.")
 
 
+  // Currently the domain is hardcoded. This matters only for problems which
+  // can be domain-evaluated.
   val domain = SLIA(synthTask.argNames, synthTask.fname, opt("recDepthLimit", 1000))
 
 
   // Pre- and post-conditions of the synthesis problem
-  val pre: Seq[ConstraintCmd] = SygusUtils.getPreconditions(sygusProblem)
-  val post: Seq[ConstraintCmd] = SygusUtils.getPostconditions(sygusProblem)
   if (!silent) {
     println("\nPRECONDITIONS:")
-    pre.foreach { case ConstraintCmd(t) => println(SMTLIBFormatter.termToSmtlib(t)) }
+    sygusData.precond.foreach { case ConstraintCmd(t) => println(SMTLIBFormatter.termToSmtlib(t)) }
     println("\nPOSTCONDITIONS:")
-    post.foreach { case ConstraintCmd(t) => println(SMTLIBFormatter.termToSmtlib(t)) }
+    sygusData.postcond.foreach { case ConstraintCmd(t) => println(SMTLIBFormatter.termToSmtlib(t)) }
     println("")
   }
-
 
 
   // Creating solver manager
@@ -93,6 +90,7 @@ class CDGPState(val sygusProblem: SyGuS16)
   val templateSimplify = new TemplateSimplify(sygusProblem, sygusData)
 
 
+
   def getTestCasesMode(problem: SyGuS16): String = {
     val singleInvoc = SygusUtils.hasSingleInvocationProperty(sygusData)
     println(s"(singleInvocationProperty $singleInvoc)")
@@ -107,7 +105,7 @@ class CDGPState(val sygusProblem: SyGuS16)
       coll.set("cdgp.singleAnswerForEveryInput", singleAnswer.getOrElse("unknown"))
       coll.set("cdgp.supportForAllTerms", supportForAllTerms)
       if (singleAnswer.getOrElse(false) && supportForAllTerms)
-        "gp"  // it may be considered to treat unknown singleAnswer as true, with the potential risk of losing "soundness" of the fitness
+        "gp"  // we may be consider treating unknown singleAnswer as true, with the potential risk of losing "soundness" of the fitness
       else
         "solver"
     }
@@ -269,7 +267,7 @@ class CDGPState(val sygusProblem: SyGuS16)
   }
 
   def createRandomTest(): (Map[String, Any], Option[Any]) = {
-    val example = varDeclsNames.map(a => (a, GPRminInt + rng.nextInt(GPRmaxInt+1-GPRminInt)))
+    val example = sygusData.varDeclsNames.map(a => (a, GPRminInt + rng.nextInt(GPRmaxInt+1-GPRminInt)))
     val testNoOutput = (example.toMap, None) // for this test currently the correct answer is not known
     if (useDomainToComputeFitness)
       findOutputForTestCase(testNoOutput)
