@@ -197,7 +197,6 @@ class CDGPState(sygusProblem: SyGuS16)
   def hasSingleAnswerForEveryInput(problem: SyGuS16): Option[Boolean] = {
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(synthTask, problem)
     // println("\nQuery checkIfSingleAnswerForEveryInput:\n" + query)
-    val declVars = varDeclsNames.mkString(" ")
     val (dec, model) = solver.runSolver(query)
     if (dec == "sat") {
       val values = GetValueParser(model.get)
@@ -233,8 +232,7 @@ class CDGPState(sygusProblem: SyGuS16)
     val query = templateFindOutput(test._1)
     // println("\nQuery findOutputForTestCase:\n" + query)
     try {
-      val getValueCommand = "(get-value (CorrectOutput))"
-      val (dec, res) = solver.runSolver(query, getValueCommand)
+      val (dec, res) = solver.runSolver(query)
       if (dec == "sat") {
         val values = GetValueParser(res.get)
         (test._1, Some(values.head._2))

@@ -40,7 +40,6 @@ object SolverCorrectOutput extends App {
     val inv: Seq[String] = sygusConstr.formalInvocations.head
     println("varDeclsMap: " + varDeclsMap)
     val inputsSortsMap = inv.map{ x => (x, varDeclsMap(x).sortExpr) }
-    val getValueCommand = s"(get-value (${inv.mkString(" ")} CorrectOutput))"
 
     // Generate 100 random inputs and find correct outputs for them
     val templateFindOutput = new TemplateFindOutput(sygusProblem, sygusConstr)
@@ -48,7 +47,7 @@ object SolverCorrectOutput extends App {
       val input = getRandomInput(inputsSortsMap).toMap
       val query = templateFindOutput(input)
       println("query: " + query)
-      val (dec, res) = solver.solve(query, getValueCommand)
+      val (dec, res) = solver.solve(query)
       println(s"Input: $input")
       println(s"Decision: $dec, model: $res")
     }

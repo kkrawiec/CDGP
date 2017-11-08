@@ -17,11 +17,14 @@ trait SolverSMT extends Closeable {
     * Executes the query and preprocesses the result, returning decision and optional
     * other content (e.g. model).
     */
-  def solve(query: String, postCommands: String*): (String, Option[String])
+  def solve(query: Query): (String, Option[String])
   /**
     * Executes the query and returns raw output of the solver.
     */
-  def executeQuery(query: String): String
+  def executeQuery(query: Query): String
+  def executeQuery(query: String, satCmds: String = "", unsatCmds: String = ""): String = {
+    executeQuery(CheckSatQuery(query, satCmds, unsatCmds))
+  }
 }
 
 
@@ -61,8 +64,8 @@ case class SolverFromScript(path: String, args: String = SolverFromScript.ARGS_Z
       output.take(firstPar) + "\n" + output.drop(firstPar)
   }
 
-  override def solve(input: String, postCommands: String*): (String, Option[String]) = {
-    val inputStr = s"$input\n${postCommands.mkString}"
+  override def solve(query: Query): (String, Option[String]) = {
+    val inputStr = s"${query.getScript}\n"
     val output = normalizeOutput(executeQuery(inputStr))
     // Sometimes Z3 may return something like this:
     //   "unsat(error "line 23 column 11: model is not available")"
@@ -76,7 +79,10 @@ case class SolverFromScript(path: String, args: String = SolverFromScript.ARGS_Z
   }
 
   /** Executes a query and returns raw output as a String. */
-  def executeQuery(inputStr: String): String = {
+  def executeQuery(query: Query): String = executeQuery(query.getScript)
+
+  /** Executes a query and returns raw output as a String. */
+  private def executeQuery(inputStr: String): String = {
     if (verbose) println(s"Input to the solver:\n$inputStr\n")
     val output = apply(inputStr).trim
     if (verbose) print("Solver output:\n" + output)
@@ -145,47 +151,53 @@ case class SolverInteractive(path: String, args: String = SolverInteractive.ARGS
   }
 
   private[this] def scanWholeOutput: String = {
+    // This method blocks forever...
     val sb = new StringBuilder
     do {
       val s = scanner.nextLine
       sb ++= s
     } while (scanner.hasNextLine)
     sb.toString
-//    var line: String = ""
-//    while (!((line = scanner.nextLine()).isEmpty())) {
-//      val s = scanner.nextLine
-//      sb ++= s
-//    }
-//    sb.toString
   }
 
-  def solve(input: String, postCommands: String*): (String, Option[String]) = {
+  def solve(query: Query): (String, Option[String]) = {
     this.synchronized {
       bis.println("(reset)")  // remove all earlier definitions and constraints
-      if (verbose) println(s"Input to the solver:\n$input\n")
-      apply(input) // TODO: postCommands are ignored!
+      if (verbose) println(s"Input to the solver:\n$query\n")
+      val script = s"${query.code}\n${query.mainCmd}"
+      apply(script)
       val output = scanner.nextLine
       if (verbose) print(s"Solver output:\n$output\n")
       if (es.available() > 0)
-        throw new Exception(s"Solver produced this on stderr: " + (new Scanner(es)).nextLine)
+        throw new Exception(s"Solver produced this on stderr: " + new Scanner(es).nextLine)
+
+      def secondQuery(cmds: String): Option[String] = {
+        if (cmds.isEmpty) None
+        else Some({ apply(query.satCmds); scanOutputInParentheses })
+      }
+
       if (output == "sat") {
-        val outputData = Some(if (postCommands.isEmpty) "" else {
-          apply(postCommands.mkString)
-          scanOutputInParentheses
-        })
+        val outputData = secondQuery(query.satCmds)
         ("sat", outputData)
       }
-      else if (output == "unsat" || output == "unknown" || output == "timeout") (output, None)
+      else if (output == "unsat") {
+        val outputData = secondQuery(query.unsatCmds)
+        ("unsat", outputData)
+      }
+      else if (output == "unknown" || output == "timeout") (output, None)
       else throw new UnknownSolverOutputException(s"Solver did not return sat, unsat, nor unknown, but this: $output")
     }
   }
+
+  /** Executes a query and returns raw output as a String. */
+  def executeQuery(query: Query): String = executeQuery(query.getScript)
 
   /** Simply executes a query and returns raw output. */
   def executeQuery(inputStr: String): String = {
     if (verbose) println(s"Input to the solver:\n$inputStr\n")
     bis.println("(reset)")  // remove all earlier definitions and constraints
     apply(inputStr)
-    val output = scanWholeOutput
+    val output = scanOutputInParentheses
     if (verbose) print("Solver output:\n" + output)
     output.trim
   }
@@ -301,15 +313,12 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
 
   /**
     * Executes provided commands using the SMT solver.
-    * @param query Commands to be executed. (check-sat) is expected to be a part of the query.
-    * @param postCommands Additional commands to be placed after the query.
-    * @return Solver's decision ('sat', 'unsat', 'unknown', 'timeout') and optional content determined
-    *         by postCommands.
+    * @param query Commands to be executed.
     */
-  def runSolver(query: String, postCommands: String*): (String, Option[String]) = {
+  def runSolver(query: Query): (String, Option[String]) = {
     try {
       val start = System.currentTimeMillis()
-      val res = solver.solve(query, postCommands:_*)
+      val res = solver.solve(query)
       updateRunStats((System.currentTimeMillis() - start) / 1000.0)
       res
     }
@@ -319,7 +328,7 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
         if (doneRestarts < maxSolverRestarts) {
           doneRestarts += 1
           _solver = createWithRetries()
-          runSolver(query, postCommands: _*)
+          runSolver(query)
         }
         else throwExceededMaxRestartsException(e)
       }
@@ -331,7 +340,7 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
     * @param query A full query for the solver. Nothing will be added to it except from
     *              the "(reset)" in the beginning in case of interactive solver.
     */
-  def executeQuery(query: String): String = {
+  def executeQuery(query: Query): String = {
     try {
       val start = System.currentTimeMillis()
       val res = solver.executeQuery(query)

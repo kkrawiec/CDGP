@@ -52,7 +52,6 @@ object VerificationExperiments extends App {
 
 
     val fv = sygusConstr.varDecls
-    val getValueCommand = s"(get-value (${fv.map(_.sym).mkString(" ")}))"
     val templateFindOutput = new TemplateFindOutput(sygusProblem, sygusConstr)
     val templateVerify = new TemplateVerification(sygusProblem, sygusConstr)
 
@@ -62,7 +61,7 @@ object VerificationExperiments extends App {
       println("Program: " + p)
       val verificationProblem = templateVerify(p)
       // println("verificationProblem:\n" + verificationProblem)
-      val (_, res) = solver.solve(verificationProblem, getValueCommand)
+      val (_, res) = solver.solve(verificationProblem)
       if (res.isDefined) {
         val cexample = GetValueParser(res.get)
         // IMPORTANT: To run a program on the counterexample, need to rename the values of variables
@@ -78,7 +77,7 @@ object VerificationExperiments extends App {
             println(s"\tProgram's output for $test: " + domainLIA.apply(p)(test).get) }
           val findOutputProblem = templateFindOutput(cexample.toMap)
           // println("findOutputProblem:\n" + findOutputProblem)
-          val (_, res) = solver.solve(findOutputProblem, "(get-value (CorrectOutput))")
+          val (_, res) = solver.solve(findOutputProblem)
           println("\tExpected output for counterex: " + GetValueParser(res.get).head._2)
         }
         catch {

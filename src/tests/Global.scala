@@ -7,7 +7,7 @@ object Global {
   val solverType: String = "z3"  // Possible values: z3, cvc4, other
   val solverArgs: Option[String] = None
   val moreSolverArgs: String = ""
-  val solverInteractive: String = "false"
+  val solverInteractive: String = "true"
 
   def solverConfig: String = {
     s"--solverPath ${Global.solverPath} " +

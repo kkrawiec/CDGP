@@ -189,7 +189,6 @@ object TestRunLIA extends IApp('maxGenerations -> 25, 'printResults -> false, 'p
     println("Verifying programs:")
     val solver = SolverInteractive(solverPath, verbose = false)
     val fv = sygusProblem.cmds.collect { case v: VarDeclCmd => v }
-    val getValueCommand = s"(get-value (${fv.map(_.sym).mkString(" ")}))"
 
     val templateInputAndKnownOutput = new TemplateIsOutputCorrectForInput(sygusProblem, sygusData)
     val templateVerify = new TemplateVerification(sygusProblem, sygusData)
@@ -197,7 +196,7 @@ object TestRunLIA extends IApp('maxGenerations -> 25, 'printResults -> false, 'p
       // Prepare input to the solver
       val verificationProblem = templateVerify(p)
       // Run the solver:
-      val (_, res) = solver.solve(verificationProblem, getValueCommand)
+      val (_, res) = solver.solve(verificationProblem)
       if (res.isDefined) {
         val cexample = GetValueParser(res.get)
         // IMPORTANT: To run a program on the counterexample, need to rename the values of variables

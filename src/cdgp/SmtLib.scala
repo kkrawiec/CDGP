@@ -5,6 +5,37 @@ import sygus._
 import sygus16.SyGuS16
 
 
+
+class Query(val code: String, val mainCmd: String = "(check-sat)\n",
+            val satCmds: String = "", val unsatCmds: String = "") {
+  def getScript: String = {
+    code +
+      (if (mainCmd != "") mainCmd + "\n" else "") +
+      (if (satCmds != "") satCmds + "\n" else "") +
+      (if (unsatCmds != "") unsatCmds + "\n" else "")
+  }
+
+  override def toString: String = getScript
+}
+
+
+class CheckSatQuery(code: String, satCmds: String, unsatCmds: String = "")
+  extends Query(code, "(check-sat)\n", satCmds, unsatCmds) {}
+
+object CheckSatQuery {
+  def apply(code: String, satCmds: String, unsatCmds: String = ""): CheckSatQuery =
+    new CheckSatQuery(code, satCmds, unsatCmds)
+}
+
+
+class SimplifyQuery(code: String) extends Query(code, "", "", "") {}
+
+object SimplifyQuery {
+  def apply(code: String): SimplifyQuery = new SimplifyQuery(code)
+}
+
+
+
 /**
   * Produces the input to the solver for verifying if program p is correct
   * wrt the specification given by problem.
@@ -25,7 +56,7 @@ import sygus16.SyGuS16
   */
 class TemplateVerification(problem: SyGuS16,
                            sygusConstr: SygusBenchmarkConstraints,
-                           timeout: Int = 0) extends Function1[Op, String] {
+                           timeout: Int = 0) extends Function1[Op, CheckSatQuery] {
   def createTemplate: String = {
     val constraintsPre = SMTLIBFormatter.getCodeForConstraints(sygusConstr.precond)
     val constraintsPost = SMTLIBFormatter.getCodeForMergedConstraints(sygusConstr.formalConstr)
@@ -37,15 +68,15 @@ class TemplateVerification(problem: SyGuS16,
       "%1$s\n" +  // a place to insert target function definition given the program
       sygusConstr.varDecls.map{v => s"(declare-fun ${v.sym} () ${SMTLIBFormatter.sortToString(v.sortExpr)})"}.mkString("", "\n", "\n") +
       constraintsPre + // TODO: Is this correct?
-      s"\n(assert (not $constraintsPost))\n" +
-      "(check-sat)\n" +
-      s"(get-value (${sygusConstr.varDecls.map(_.sym).mkString(" ")}))\n"
+      s"\n(assert (not $constraintsPost))\n"
   }
   val template: String = createTemplate
+  val satCmds = s"(get-value (${sygusConstr.varDecls.map(_.sym).mkString(" ")}))\n"
 
-  override def apply(program: Op): String = {
+  override def apply(program: Op): CheckSatQuery = {
     val programBody = SMTLIBFormatter.opToString(program)
-    template.format(sygusConstr.synthTask.getSynthFunCode(programBody))
+    val code = template.format(sygusConstr.synthTask.getSynthFunCode(programBody))
+    CheckSatQuery(code, satCmds)
   }
 }
 
@@ -77,7 +108,7 @@ class TemplateVerification(problem: SyGuS16,
   */
 class TemplateIsOutputCorrectForInput(problem: SyGuS16,
                                       sygusConstr: SygusBenchmarkConstraints,
-                                      timeout: Int = 0) extends Function2[Map[String, Any], Any, String] {
+                                      timeout: Int = 0) extends Function2[Map[String, Any], Any, CheckSatQuery] {
   def createTemplate: String = {
     // Test-cases constraints are ignored
     val preconditions = SMTLIBFormatter.getCodeForMergedConstraints(sygusConstr.precond)
@@ -90,18 +121,18 @@ class TemplateIsOutputCorrectForInput(problem: SyGuS16,
       s"${sygusConstr.synthTask.getSynthFunCode("%1$s")}\n" +
       "%2$s\n" +
       (if (preconditions.nonEmpty) s"\n(assert $preconditions)\n" else "") +
-      s"\n(assert $constraints)\n" +
-      "(check-sat)\n"
+      s"\n(assert $constraints)\n"
   }
   val template: String = createTemplate
 
-  def apply(input: Map[String, Any], output: Any): String = {
+  def apply(input: Map[String, Any], output: Any): CheckSatQuery = {
     val textOutput = SMTLIBFormatter.normalizeTerminal(output.toString)
     val textInputs = sygusConstr.varDecls.map { v =>
       s"(define-fun ${v.sym} () " +
         s"${SMTLIBFormatter.sortToString(v.sortExpr)} ${SMTLIBFormatter.normalizeTerminal(input(v.sym).toString)})"
     }.mkString("\n")
-    template.format(textOutput, textInputs)
+    val code = template.format(textOutput, textInputs)
+    CheckSatQuery(code, "")
   }
 }
 
@@ -131,7 +162,7 @@ class TemplateIsOutputCorrectForInput(problem: SyGuS16,
   */
 class TemplateIsProgramCorrectForInput(problem: SyGuS16,
                                        sygusConstr: SygusBenchmarkConstraints,
-                                       timeout: Int = 0) extends Function2[Op, Map[String, Any], String] {
+                                       timeout: Int = 0) extends Function2[Op, Map[String, Any], CheckSatQuery] {
   def createTemplate: String = {
     // Test-cases constraints are ignored
     val preconditions = SMTLIBFormatter.getCodeForMergedConstraints(sygusConstr.precond)
@@ -144,18 +175,18 @@ class TemplateIsProgramCorrectForInput(problem: SyGuS16,
       s"${sygusConstr.synthTask.getSynthFunCode("%1$s")}\n" +
       "%2$s" +
       (if (preconditions.nonEmpty) s"\n(assert $preconditions)\n" else "") +
-      s"\n(assert $constraints)\n" +
-      "(check-sat)\n"
+      s"\n(assert $constraints)\n"
   }
   val template: String = createTemplate
 
-  def apply(program: Op, input: Map[String, Any]): String = {
+  def apply(program: Op, input: Map[String, Any]): CheckSatQuery = {
     val programBody = SMTLIBFormatter.opToString(program)
     val textInputs = sygusConstr.varDecls.map{v =>
       s"(define-fun ${v.sym} () " +
       s"${SMTLIBFormatter.sortToString(v.sortExpr)} ${SMTLIBFormatter.normalizeTerminal(input(v.sym).toString)})"
     }.mkString("\n")
-    template.format(programBody, textInputs)
+    val code = template.format(programBody, textInputs)
+    CheckSatQuery(code, "")
   }
 }
 
@@ -190,7 +221,7 @@ class TemplateIsProgramCorrectForInput(problem: SyGuS16,
   */
 class TemplateFindOutput(problem: SyGuS16,
                          sygusConstr: SygusBenchmarkConstraints,
-                         timeout: Int = 0) extends Function1[Map[String, Any], String] {
+                         timeout: Int = 0) extends Function1[Map[String, Any], CheckSatQuery] {
   def createTemplate: String = {
     // Test-cases constraints are ignored
     // TODO: something is off with this; either median or united unit test is failing.
@@ -205,18 +236,18 @@ class TemplateFindOutput(problem: SyGuS16,
       s"${sygusConstr.synthTask.getSynthFunCode("CorrectOutput")}\n" +
       "%1$s" +
       (if (preconditions.nonEmpty) s"\n(assert $preconditions)\n" else "") +
-      s"\n(assert $constraints)\n" +
-      "(check-sat)\n" +
-      s"(get-value (CorrectOutput))\n"
+      s"\n(assert $constraints)\n"
   }
   val template: String = createTemplate
+  val satCmds: String = s"(get-value (CorrectOutput))\n"
 
-  def apply(input: Map[String, Any]): String = {
+  def apply(input: Map[String, Any]): CheckSatQuery = {
     val textInputs = sygusConstr.varDecls.map{v =>
       s"(define-fun ${v.sym} () " +
       s"${SMTLIBFormatter.sortToString(v.sortExpr)} ${SMTLIBFormatter.normalizeTerminal(input(v.sym).toString)})"
     }.mkString("\n")
-    template.format(textInputs)
+    val code = template.format(textInputs)
+    CheckSatQuery(code, satCmds)
   }
 }
 
@@ -235,7 +266,7 @@ class TemplateFindOutput(problem: SyGuS16,
   */
 class TemplateSimplify(problem: SyGuS16,
                        sygusConstr: SygusBenchmarkConstraints,
-                       timeout: Int = 0) extends Function1[Op, String] {
+                       timeout: Int = 0) extends Function1[Op, SimplifyQuery] {
   def createTemplate: String = {
     // Auxiliaries are added because they may contain function definitions which are
     // used in the solution.
@@ -248,11 +279,11 @@ class TemplateSimplify(problem: SyGuS16,
   }
   val template: String = createTemplate
 
-  def apply(op: Op): String = {
+  def apply(op: Op): SimplifyQuery = {
     apply(op.toString)
   }
-  def apply(opSmtlib: String): String = {
-    template.format(opSmtlib)
+  def apply(opSmtlib: String): SimplifyQuery = {
+    SimplifyQuery(template.format(opSmtlib))
   }
 }
 
@@ -352,7 +383,7 @@ object SMTLIBFormatter {
     * one correct output.
     */
   def checkIfSingleAnswerForEveryInput(sf: SygusSynthesisTask, problem: SyGuS16,
-                                       solverTimeout: Int = 0): String = {
+                                       solverTimeout: Int = 0): CheckSatQuery = {
     val sfArgs = synthFunArgsToString(sf)
     val varDecls = problem.cmds.collect { case v: VarDeclCmd => v }
     val varsDeclFunDefs = varDecls.map {
@@ -370,7 +401,7 @@ object SMTLIBFormatter {
     val auxiliaries = getCodeForAuxiliaries(problem)
 
     val synthFunSort = sortToString(sf.outputType)
-    s"(set-logic ${getLogicName(problem)})\n" +
+    val code = s"(set-logic ${getLogicName(problem)})\n" +
       (if (solverTimeout > 0) s"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
       auxiliaries + "\n" +
@@ -381,9 +412,9 @@ object SMTLIBFormatter {
       varsDeclFunDefs + "\n" +
       body1 + "\n" +
       body2 + "\n" +
-      s"(assert (distinct res1__2 res2__2))" +
-      "(check-sat)\n" +
-      s"(get-value (${varDecls.map(_.sym).mkString(" ")} res1__2 res2__2))\n"
+      s"(assert (distinct res1__2 res2__2))"
+    val satCmds = s"(get-value (${varDecls.map(_.sym).mkString(" ")} res1__2 res2__2))\n"
+    CheckSatQuery(code, satCmds)
   }
 
 
