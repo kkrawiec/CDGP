@@ -27,7 +27,7 @@ class UnsupportedFeatureException(message: String = "", cause: Throwable = null)
   * - formalConstr: Standard formal constraints, esp. containg calls to the synth-fun
   *     with universally quantified arguments.
   */
-case class SygusProblemData(val problem: SyGuS16,
+case class SygusProblemData(problem: SyGuS16,
                             mixedSpecAllowed: Boolean = true) {
   private def getSynthTask = {
     val synthTasks = SygusSynthesisTask(problem)
@@ -45,8 +45,12 @@ case class SygusProblemData(val problem: SyGuS16,
   val (testCasesConstr, formalConstr) =
     if (mixedSpecAllowed) SygusUtils.divideOnTestsAndFormalConstr(postcond, synthTask)
     else (Seq(), postcond)
-  lazy val formalInvocations: Seq[Seq[String]] = SygusUtils.getSynthFunsInvocationsInfo(formalConstr, synthTask.fname)
-  lazy val allInvocations: Seq[Seq[String]] = SygusUtils.getSynthFunsInvocationsInfo(postcond, synthTask.fname)
+  val formalInvocations: Seq[Seq[String]] = SygusUtils.getSynthFunsInvocationsInfo(formalConstr, synthTask.fname)
+  val allInvocations: Seq[Seq[String]] = SygusUtils.getSynthFunsInvocationsInfo(postcond, synthTask.fname)
+
+  lazy val singleInvocFormal: Boolean = SygusUtils.singleInvocationProp(formalInvocations)
+  lazy val singleInvocAll: Boolean = SygusUtils.singleInvocationProp(allInvocations)
+
 
   /**
     * Creates test cases for the found testCasesConstr.
@@ -458,10 +462,11 @@ object SygusUtils {
   def hasSingleInvocationProperty(synthTask: SygusSynthesisTask,
                                   constrCmds: Seq[ConstraintCmd]): Boolean = {
     val invInfo = getSynthFunsInvocationsInfo(constrCmds, Set(synthTask.fname))
-    invInfo.forall{ case (n, lst) => lst.toSet.size == 1}
+    invInfo.forall{ case (n, lst) => singleInvocationProp(lst) }
   }
-  def hasSingleInvocationProperty(data: SygusProblemData): Boolean =
-    hasSingleInvocationProperty(data.synthTask, data.formalConstr)
+
+  def singleInvocationProp(inv: Seq[Seq[String]]): Boolean = inv.toSet.size == 1
+
 
   /**
     * Creates a map assigning to each provided synth function a list of arguments

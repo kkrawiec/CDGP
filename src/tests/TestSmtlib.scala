@@ -124,7 +124,8 @@ final class TestSmtlib {
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(maxData.synthTask, maxProblem)
     val (dec, model) = solver.runSolver(query)
     assertEquals("unsat", dec)
-    assertEquals(true, SygusUtils.hasSingleInvocationProperty(maxData))
+    assertEquals(true, maxData.singleInvocFormal)
+    assertEquals(true, maxData.singleInvocAll)
   }
 
 
@@ -214,7 +215,8 @@ final class TestSmtlib {
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(medianData.synthTask, medianProblem)
     val (dec, model) = solver.runSolver(query)
     assertEquals("unsat", dec)
-    assertEquals(true, SygusUtils.hasSingleInvocationProperty(medianData))
+    assertEquals(true, medianData.singleInvocFormal)
+    assertEquals(false, medianData.singleInvocAll)
   }
 
 
@@ -291,7 +293,8 @@ final class TestSmtlib {
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(unitedData.synthTask, unitedProblem)
     val (dec, model) = solver.runSolver(query)
     assertEquals("unsat", dec)
-    assertEquals(false, SygusUtils.hasSingleInvocationProperty(unitedData))
+    assertEquals(false, unitedData.singleInvocFormal)
+    assertEquals(false, unitedData.singleInvocAll)
   }
 
 

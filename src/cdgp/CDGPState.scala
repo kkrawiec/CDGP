@@ -69,9 +69,9 @@ class CDGPState(val sygusProblem: SyGuS16)
   // Pre- and post-conditions of the synthesis problem
   if (!silent) {
     println("\nPRECONDITIONS:")
-    sygusData.precond.foreach { case ConstraintCmd(t) => println(SMTLIBFormatter.termToSmtlib(t)) }
+    sygusData.precond.foreach { c => println(SMTLIBFormatter.termToSmtlib(c.t)) }
     println("\nPOSTCONDITIONS:")
-    sygusData.postcond.foreach { case ConstraintCmd(t) => println(SMTLIBFormatter.termToSmtlib(t)) }
+    sygusData.postcond.foreach { c => println(SMTLIBFormatter.termToSmtlib(c.t)) }
     println("")
   }
 
@@ -83,19 +83,18 @@ class CDGPState(val sygusProblem: SyGuS16)
   lazy val solver = new SolverManager(solverPath, solverArgs, moreSolverArgs, verbose=false)
 
   // Templates for solver queries
-  val templateVerification = new TemplateVerification(sygusProblem, sygusData, timeout = timeout)
-  val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(sygusProblem, sygusData, timeout = timeout)
-  val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(sygusProblem, sygusData, timeout = timeout)
-  val templateFindOutput = new TemplateFindOutput(sygusProblem, sygusData, timeout = timeout)
-  val templateSimplify = new TemplateSimplify(sygusProblem, sygusData)
+  lazy val templateVerification = new TemplateVerification(sygusProblem, sygusData, timeout = timeout)
+  lazy val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(sygusProblem, sygusData, timeout = timeout)
+  lazy val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(sygusProblem, sygusData, timeout = timeout)
+  lazy val templateFindOutput = new TemplateFindOutput(sygusProblem, sygusData, timeout = timeout)
+  lazy val templateSimplify = new TemplateSimplify(sygusProblem, sygusData)
 
 
 
   def getTestCasesMode(problem: SyGuS16): String = {
-    val singleInvoc = SygusUtils.hasSingleInvocationProperty(sygusData)
-    println(s"(singleInvocationProperty $singleInvoc)")
-    coll.set("cdgp.singleInvocationProperty", singleInvoc)
-    if (singleInvoc) {
+    println(s"(singleInvocationProperty ${sygusData.singleInvocFormal})")
+    coll.set("cdgp.singleInvocationProperty", sygusData.singleInvocFormal)
+    if (sygusData.singleInvocFormal) {
       // Checking for the single answer property has sense only if the problem
       // has single invocation property.
       val singleAnswer = hasSingleAnswerForEveryInput(problem)

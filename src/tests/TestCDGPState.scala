@@ -232,8 +232,7 @@ final class TestCDGPState {
     val code = TestCDGPState.scriptNotSingleInvocation
     val problem = LoadSygusBenchmark.parseText(code)
     val data = SygusProblemData(problem, mixedSpecAllowed=true)
-    val singleInvoc = SygusUtils.hasSingleInvocationProperty(data)
-    assertEquals(true, singleInvoc)
+    assertEquals(true, data.singleInvocFormal)
   }
 
   @Test
