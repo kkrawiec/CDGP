@@ -220,20 +220,20 @@ class TemplateIsProgramCorrectForInput(problem: SyGuS16,
   * wrongly specified).
   */
 class TemplateFindOutput(problem: SyGuS16,
-                         sygusConstr: SygusProblemData,
+                         sygusData: SygusProblemData,
                          timeout: Int = 0) extends Function1[Map[String, Any], CheckSatQuery] {
   def createTemplate: String = {
     // Test-cases constraints are ignored
     // TODO: something is off with this; either median or united unit test is failing.
-    val preconditions = SMTLIBFormatter.getCodeForMergedConstraints(sygusConstr.precond)
-    val constraints = SMTLIBFormatter.getCodeForMergedConstraints(sygusConstr.formalConstr)
+    val preconditions = SMTLIBFormatter.getCodeForMergedConstraints(sygusData.precond)
+    val constraints = SMTLIBFormatter.getCodeForMergedConstraints(sygusData.formalConstr)
     val auxiliaries = SMTLIBFormatter.getCodeForAuxiliaries(problem)
     s"(set-logic ${SMTLIBFormatter.getLogicName(problem)})\n" +
       (if (timeout > 0) s"(set-option :timeout $timeout)\n" else "") +
       "(set-option :produce-models true)\n" +
       auxiliaries + "\n" +
-      s"(declare-fun CorrectOutput () ${SMTLIBFormatter.sortToString(sygusConstr.synthTask.outputType)})\n" +
-      s"${sygusConstr.synthTask.getSynthFunCode("CorrectOutput")}\n" +
+      s"(declare-fun CorrectOutput () ${SMTLIBFormatter.sortToString(sygusData.synthTask.outputType)})\n" +
+      s"${sygusData.synthTask.getSynthFunCode("CorrectOutput")}\n" +
       "%1$s" +
       (if (preconditions.nonEmpty) s"\n(assert $preconditions)\n" else "") +
       s"\n(assert $constraints)\n"
@@ -242,7 +242,10 @@ class TemplateFindOutput(problem: SyGuS16,
   val satCmds: String = s"(get-value (CorrectOutput))\n"
 
   def apply(input: Map[String, Any]): CheckSatQuery = {
-    val textInputs = sygusConstr.varDecls.map{v =>
+    // Guard against incorrect usage of this query.
+    assert(sygusData.singleInvocFormal, "FindOutput query can only be used if problem has single invocation property.")
+
+    val textInputs = sygusData.varDecls.map{ v =>
       s"(define-fun ${v.sym} () " +
       s"${SMTLIBFormatter.sortToString(v.sortExpr)} ${SMTLIBFormatter.normalizeTerminal(input(v.sym).toString)})"
     }.mkString("\n")
