@@ -126,7 +126,11 @@ class CDGPState(val sygusProblem: SyGuS16)
     }
     for (test <- tests) yield {
       try {
-        if (useDomainToComputeFitness) evalOnTestsDomain(s, test)
+        if (useDomainToComputeFitness || test._2.isDefined)
+          // User may define test cases for a problem, in which generally single-answer
+          // property does not hold. We will use domain for those cases, since it is more
+          // efficient.
+          evalOnTestsDomain(s, test)
         else evalOnTestsSolver(s, test)
       }
       catch { case e: Throwable => handleException(test, e.getMessage); 1 }
