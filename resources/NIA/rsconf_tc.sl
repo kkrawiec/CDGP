@@ -21,6 +21,9 @@
 (- (* a ElementsSum) (* (+ a b) (+ a c)))
 )
 
+
+(constraint (= (rsconf 10 2 10 10) 80))
+
 (constraint (=> (and (precondition a b c d) (> (condition a b c d) 0))
 (> (rsconf a b c d) 0)))
 
@@ -31,3 +34,4 @@
 (= (rsconf a b c d) 0)))
 
 (check-synth)
+
