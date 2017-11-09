@@ -140,10 +140,10 @@ final class TestSmtlib {
   @Test
   def test_simplify_max(): Unit = {
     val templateSimplify = new TemplateSimplify(maxProblem, maxData)
-    val res = solver.executeQuery(templateSimplify("(+ x (- 0 x))"))
+    val query = templateSimplify("(+ x (- 0 x))")
+    println(query)
+    val res = solver.executeQuery(query)
     assertEquals("0", res)
-    val res2 = solver.executeQuery(templateSimplify("(+ x x)"))
-    assertEquals("(+ x x)", res2)
   }
 
 
@@ -381,5 +381,13 @@ final class TestSmtlib {
     val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=false)
     assertEquals("(ite (>= x y) x 0)", SMTLIBFormatter.opToString(op))
     assertEquals("(ite (>= x y) x 0)", SMTLIBFormatter(op))
+  }
+
+  @Test
+  def test_testsAsIteExpr(): Unit = {
+    val t1 = (Map("a"->5), 11)
+    val t2 = (Map("a"->0), 10)  // names are the same to avoid problems with order
+    assertEquals("(ite (and (= a 5)) 11 (ite (and (= a 0)) 10 20))",
+      SMTLIBFormatter.testsAsIteExpr(Seq(t1, t2), "20"))
   }
 }

@@ -261,12 +261,15 @@ class TemplateFindOutput(problem: SyGuS16,
 
 
 /**
-  * Query to simplify the synthesis function.
+  * Query to simplify the synthesized function.
   *
   * An example of the query:
   * <pre>{@code
   *   (set-logic LIA)
-  *
+  *   (declare-fun x () Int)
+  *   (declare-fun y () Int)
+  *   (simplify (+ x (- 0 x))
+  *   )
   * }</pre>
   */
 class TemplateSimplify(problem: SyGuS16,
@@ -315,6 +318,15 @@ object SMTLIBFormatter {
   def normalizeTerminal(x: String): String = {
     if (x.head == '-') s"(- ${x.tail})"  // special treatment for negative numbers
     else x
+  }
+
+  def testsAsIteExpr(tests: Seq[(Map[String, Any], Any)], default: String): String = {
+    if (tests.isEmpty) default
+    else {
+      val cond = tests.head._1.map{case (k, v) => s"(= $k ${normalizeTerminal(v.toString)})" }.mkString("(and ", " ", ")")
+      val elseBlock = testsAsIteExpr(tests.tail, default)
+      s"(ite $cond ${tests.head._2} $elseBlock)"
+    }
   }
 
   def opToString(op: Op): String = {
