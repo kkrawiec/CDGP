@@ -106,6 +106,12 @@ object Main {
       }
     }
     catch {
+      case e: NoSolutionException =>
+        println(s"There is no solution to this problem.")
+        println(s"Input with no correct answer: " + e.badInput)
+        coll.set("terminatingException", e.toString)
+        coll.saveSnapshot("cdgp")
+        System.exit(0)
       case e: Throwable =>
         println(s"Terminating exception occurred! Message: ${e.getMessage}")
         coll.set("terminatingException", e.toString)

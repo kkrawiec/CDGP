@@ -7,6 +7,11 @@ import sygus.{Cmd, ConstraintCmd, VarDeclCmd}
 import sygus16.SyGuS16
 
 
+class NoSolutionException(val badInput: String) extends Exception {
+  override def toString: String = s"NoSolutionException($badInput)"
+}
+
+
 /**
   * Manages everything needed for the CDGP to run. Among other things, handles interaction
   * with the solver, and contains test manager. As argument given is the definition of the
@@ -236,6 +241,8 @@ class CDGPState(val sygusProblem: SyGuS16)
         val values = GetValueParser(res.get)
         (test._1, Some(values.head._2))
       }
+      else if (dec == "unsat")
+        throw new NoSolutionException(test._1.toString)
       else
         test
     }
