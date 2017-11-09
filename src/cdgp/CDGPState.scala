@@ -263,7 +263,7 @@ class CDGPState(val sygusProblem: SyGuS16)
   def createTestFromFailedVerification(verOutput: String): (Map[String, Any], Option[Any]) = {
     val testModel = GetValueParser(verOutput)  // parse model returned by solver
     val testNoOutput = (testModel.toMap, None)  // for this test currently the correct answer is not known
-    if (useDomainToComputeFitness)
+    if (useDomainToComputeFitness)  // a correct output can be found, and it is the only such output
       findOutputForTestCase(testNoOutput)
     else
       testNoOutput
@@ -272,7 +272,7 @@ class CDGPState(val sygusProblem: SyGuS16)
   def createRandomTest(): (Map[String, Any], Option[Any]) = {
     val example = sygusData.varDeclsNames.map(a => (a, GPRminInt + rng.nextInt(GPRmaxInt+1-GPRminInt)))
     val testNoOutput = (example.toMap, None) // for this test currently the correct answer is not known
-    if (useDomainToComputeFitness)
+    if (useDomainToComputeFitness)  // a correct output can be found, and it is the only such output
       findOutputForTestCase(testNoOutput)
     else
       testNoOutput
@@ -308,12 +308,12 @@ class CDGPState(val sygusProblem: SyGuS16)
         val numPassed = evalTests.count(_ == 0).asInstanceOf[Double]
         (numPassed / evalTests.size) >= CDGPtestsRatio || evalTests.isEmpty
       }
-      def apply(s: Op) = {
+      def apply(s: Op): (Boolean, Seq[Int]) = {
         val evalTests = evalOnTests(s, testsManager.getTests())
         // If the program passes the specified ratio of test cases, it will be verified
         // and a counterexample will be produced (or program will be deemed correct).
         // NOTE: if the program does not pass all test cases, then the probability is high
-        // that produced counterexample will already be in the set of test cases.
+        // that the produced counterexample will already be in the set of test cases.
         if (!doVerify(evalTests))
           (false, evalTests)
         else {
@@ -351,7 +351,7 @@ class CDGPState(val sygusProblem: SyGuS16)
           testsManager.addNewTest(newTest)
         }
       }
-      def apply(s: Op) = {
+      def apply(s: Op): (Boolean, Seq[Int]) = {
         val evalTests = evalOnTests(s, testsManager.getTests())
         if (!doSearchForCounterexample(evalTests))
           (false, evalTests)

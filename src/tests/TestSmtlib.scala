@@ -25,6 +25,18 @@ final class TestSmtlib {
     """.stripMargin
   val maxProblem = LoadSygusBenchmark.parseText(specMax)
   val maxData = SygusProblemData(maxProblem)
+  val specMaxPartial =
+    """(set-logic LIA)
+      |(synth-fun max2 ((x Int) (y Int)) Int)
+      |(declare-var x Int)
+      |(constraint (>= (max2 x 1) x))
+      |(constraint (>= (max2 x 1) 1))
+      |(constraint (or (= x (max2 x 1))
+      |				     (= 1 (max2 x 1))))
+      |(check-synth)
+    """.stripMargin
+  val maxPartialProblem = LoadSygusBenchmark.parseText(specMaxPartial)
+  val maxPartialData = SygusProblemData(maxPartialProblem)
   val specMedian =
     """(set-logic LIA)
       |(synth-fun median3 ((a Int) (b Int) (c Int)) Int)
@@ -57,6 +69,7 @@ final class TestSmtlib {
   val unitedData = SygusProblemData(unitedProblem)
 
 
+
   ////////////////////////////////////////////////////////////////////////////////////
   //             Tests for MAX
   ////////////////////////////////////////////////////////////////////////////////////
@@ -76,7 +89,6 @@ final class TestSmtlib {
     assertEquals("unsat", dec2)
   }
 
-
   @Test
   def test_templateFindOutput_max(): Unit = {
     val templateFindOutput = new TemplateFindOutput(maxProblem, maxData)
@@ -87,7 +99,6 @@ final class TestSmtlib {
     assertEquals(true, model.isDefined)
     assertEquals(Map("CorrectOutput" -> 5), GetValueParser(model.get).toMap)
   }
-
 
   @Test
   def test_templateIsOutputCorrectForInput_max(): Unit = {
@@ -101,7 +112,6 @@ final class TestSmtlib {
     val (dec2, model2) = solver.runSolver(query2)
     assertEquals("unsat", dec2)
   }
-
 
   @Test
   def test_templateIsProgramCorrectForInput_max(): Unit = {
@@ -118,24 +128,97 @@ final class TestSmtlib {
     assertEquals("sat", dec2)
   }
 
-
   @Test
   def test_singleAnswerProperty_max(): Unit = {
-    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(maxData.synthTask, maxProblem)
-    val (dec, model) = solver.runSolver(query)
-    assertEquals("unsat", dec)
     assertEquals(true, maxData.singleInvocFormal)
     assertEquals(true, maxData.singleInvocAll)
+    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(maxProblem, maxData)
+    val (dec, model) = solver.runSolver(query)
+    assertEquals("unsat", dec)
   }
-
 
   @Test
   def test_simplify_max(): Unit = {
     val templateSimplify = new TemplateSimplify(maxProblem, maxData)
-    val query = templateSimplify("(+ x (- 0 x))")
-    val res = solver.executeQuery(query)
+    val res = solver.executeQuery(templateSimplify("(+ x (- 0 x))"))
     assertEquals("0", res)
+    val res2 = solver.executeQuery(templateSimplify("(+ x x)"))
+    assertEquals("(+ x x)", res2)
   }
+
+
+
+
+
+  ////////////////////////////////////////////////////////////////////////////////////
+  //             Tests for MAX PARTIAL
+  ////////////////////////////////////////////////////////////////////////////////////
+  @Test
+  def test_templateVerification_maxPartial(): Unit = {
+    val templateVerification = new TemplateVerification(maxPartialProblem, maxPartialData)
+    val op = Op.fromStr("ite(=(x y) x y)", useSymbols = false)
+    val query = templateVerification(op)
+    val (dec, model) = solver.runSolver(query)
+    assertEquals("sat", dec)
+    assertEquals(true, model.isDefined)
+    println(s"Counterexample: $model")
+
+    val op2 = Op.fromStr("ite(>=(x y) x y)", useSymbols = false)
+    val query2 = templateVerification(op2)
+    val (dec2, model2) = solver.runSolver(query2)
+    assertEquals("unsat", dec2)
+  }
+
+  @Test
+  def test_templateFindOutput_maxPartial(): Unit = {
+    val templateFindOutput = new TemplateFindOutput(maxPartialProblem, maxPartialData)
+    val inputs = Map("x" -> 5, "y" -> 2)
+    val query = templateFindOutput(inputs)
+    val (dec, model) = solver.runSolver(query)
+    assertEquals("sat", dec)
+    assertEquals(true, model.isDefined)
+    assertEquals(Map("CorrectOutput" -> 5), GetValueParser(model.get).toMap)
+  }
+
+  @Test
+  def test_templateIsOutputCorrectForInput_maxPartial(): Unit = {
+    val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(maxPartialProblem, maxPartialData)
+    val inputs = Map("x" -> 5, "y" -> 2)
+    val query = templateIsOutputCorrectForInput(inputs, 5)
+    val (dec, model) = solver.runSolver(query)
+    assertEquals("sat", dec)
+
+    val query2 = templateIsOutputCorrectForInput(inputs, 1)
+    val (dec2, model2) = solver.runSolver(query2)
+    assertEquals("unsat", dec2)
+  }
+
+  @Test
+  def test_templateIsProgramCorrectForInput_maxPartial(): Unit = {
+    val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(maxPartialProblem, maxPartialData)
+    val op = Op.fromStr("ite(=(x y) x y)", useSymbols = false)
+    val inputs = Map("x" -> 5, "y" -> 2)
+    val query = templateIsProgramCorrectForInput(op, inputs)
+    val (dec, model) = solver.runSolver(query)
+    assertEquals("unsat", dec)
+
+    val op2 = Op.fromStr("ite(>=(x y) x y)", useSymbols = false)
+    val query2 = templateIsProgramCorrectForInput(op2, inputs)
+    val (dec2, model2) = solver.runSolver(query2)
+    assertEquals("sat", dec2)
+  }
+
+  @Test
+  def test_singleAnswerProperty_maxPartial(): Unit = {
+    assertEquals(true, maxPartialData.singleInvocFormal)
+    assertEquals(true, maxPartialData.singleInvocAll)
+    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(maxPartialProblem, maxPartialData)
+    val (dec, model) = solver.runSolver(query)
+    assertEquals("unsat", dec)
+  }
+
+
+
 
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -165,7 +248,6 @@ final class TestSmtlib {
     assertEquals("unsat", dec2)
   }
 
-
   @Test
   def test_templateFindOutput_median(): Unit = {
     val templateFindOutput = new TemplateFindOutput(medianProblem, medianData)
@@ -176,7 +258,6 @@ final class TestSmtlib {
     assertEquals(true, model.isDefined)
     assertEquals(Map("CorrectOutput" -> 2), GetValueParser(model.get).toMap)
   }
-
 
   @Test
   def test_templateIsOutputCorrectForInput_median(): Unit = {
@@ -191,7 +272,6 @@ final class TestSmtlib {
     val (dec2, model2) = solver.runSolver(query2)
     assertEquals("unsat", dec2)
   }
-
 
   @Test
   def test_templateIsProgramCorrectForInput_median(): Unit = {
@@ -209,16 +289,14 @@ final class TestSmtlib {
     assertEquals("sat", dec2)
   }
 
-
   @Test
   def test_singleAnswerProperty_median(): Unit = {
-    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(medianData.synthTask, medianProblem)
-    val (dec, model) = solver.runSolver(query)
-    assertEquals("unsat", dec)
     assertEquals(true, medianData.singleInvocFormal)
     assertEquals(false, medianData.singleInvocAll)
+    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(medianProblem, medianData)
+    val (dec, model) = solver.runSolver(query)
+    assertEquals("unsat", dec)
   }
-
 
 
 
@@ -243,7 +321,6 @@ final class TestSmtlib {
     assertEquals("unsat", dec2)
   }
 
-
   @Test
   def test_templateFindOutput_united(): Unit = {
     val templateFindOutput = new TemplateFindOutput(unitedProblem, unitedData)
@@ -252,20 +329,13 @@ final class TestSmtlib {
     catch { case e: AssertionError => }
   }
 
-
   @Test
   def test_templateIsOutputCorrectForInput_united(): Unit = {
     val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(unitedProblem, unitedData)
     val inputs = Map("x" -> 5)
-    val query = templateIsOutputCorrectForInput(inputs, 5) // correct
-    val (dec, model) = solver.runSolver(query)
-    assertEquals("sat", dec)
-
-    val query2 = templateIsOutputCorrectForInput(inputs, 2) // incorrect
-    val (dec2, model2) = solver.runSolver(query2)
-    assertEquals("unsat", dec2)
+    try { templateIsOutputCorrectForInput(inputs, 5); fail() }
+    catch { case e: AssertionError => }
   }
-
 
   @Test
   def test_templateIsProgramCorrectForInput_united(): Unit = {
@@ -283,17 +353,20 @@ final class TestSmtlib {
     assertEquals("sat", dec2)
   }
 
-
   @Test
   def test_singleAnswerProperty_united(): Unit = {
-    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(unitedData.synthTask, unitedProblem)
-    val (dec, model) = solver.runSolver(query)
-    assertEquals("unsat", dec)
     assertEquals(false, unitedData.singleInvocFormal)
     assertEquals(false, unitedData.singleInvocAll)
+    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(unitedProblem, unitedData,
+      useAllConstraints=false)
+    val (dec, _) = solver.runSolver(query)
+    assertEquals("sat", dec)
+
+    val query2 = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(unitedProblem, unitedData,
+      useAllConstraints=true)
+    val (dec2, _) = solver.runSolver(query2)
+    assertEquals("unsat", dec2)  // unsat, because test cases constraints bound possibilities
   }
-
-
 
 
 

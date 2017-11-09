@@ -220,8 +220,8 @@ final class TestCDGPState {
   def test_checkIfSingleCorrectAnswer_unsat(): Unit = {
     val code = TestCDGPState.scriptMaxRenamedVars
     val problem = LoadSygusBenchmark.parseText(code)
-    val synthTask = SygusSynthesisTask(problem).head
-    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(synthTask, problem)
+    val sygusData = SygusProblemData(problem)
+    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(problem, sygusData)
     val state = new CDGPState(problem)
     val (decision, output) = state.solver.runSolver(query)
     assertEquals("unsat", decision)  // unsat, so there is only a single answer
@@ -239,8 +239,8 @@ final class TestCDGPState {
   def test_checkIfSingleCorrectAnswer_sat(): Unit = {
     val code = TestCDGPState.scriptPsuedoMaxRenamedVars
     val problem = LoadSygusBenchmark.parseText(code)
-    val synthTask = SygusSynthesisTask(problem).head
-    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(synthTask, problem)
+    val sygusData = SygusProblemData(problem)
+    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(problem, sygusData)
     val state = new CDGPState(problem)
     val (decision, output) = state.solver.runSolver(query)
     assertEquals("sat", decision)

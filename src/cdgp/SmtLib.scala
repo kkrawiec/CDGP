@@ -55,27 +55,27 @@ object SimplifyQuery {
   * Sat means that there is a counterexample, unsat means perfect program was found.
   */
 class TemplateVerification(problem: SyGuS16,
-                           sygusConstr: SygusProblemData,
+                           sygusData: SygusProblemData,
                            timeout: Int = 0) extends Function1[Op, CheckSatQuery] {
   def createTemplate: String = {
-    val constraintsPre = SMTLIBFormatter.getCodeForConstraints(sygusConstr.precond)
-    val constraintsPost = SMTLIBFormatter.getCodeForMergedConstraints(sygusConstr.formalConstr)
+    val constraintsPre = SMTLIBFormatter.getCodeForConstraints(sygusData.precond)
+    val constraintsPost = SMTLIBFormatter.getCodeForMergedConstraints(sygusData.formalConstr)
     val auxiliaries = SMTLIBFormatter.getCodeForAuxiliaries(problem)
     s"(set-logic ${SMTLIBFormatter.getLogicName(problem)})\n" +
       (if (timeout > 0) s"(set-option :timeout $timeout)\n" else "") +
       "(set-option :produce-models true)\n" +
       auxiliaries + "\n" +
       "%1$s\n" +  // a place to insert target function definition given the program
-      sygusConstr.varDecls.map{v => s"(declare-fun ${v.sym} () ${SMTLIBFormatter.sortToString(v.sortExpr)})"}.mkString("", "\n", "\n") +
+      sygusData.varDecls.map{ v => s"(declare-fun ${v.sym} () ${SMTLIBFormatter.sortToString(v.sortExpr)})"}.mkString("", "\n", "\n") +
       constraintsPre + // TODO: Is this correct?
       s"\n(assert (not $constraintsPost))\n"
   }
   val template: String = createTemplate
-  val satCmds = s"(get-value (${sygusConstr.varDecls.map(_.sym).mkString(" ")}))\n"
+  val satCmds = s"(get-value (${sygusData.varDecls.map(_.sym).mkString(" ")}))\n"
 
   override def apply(program: Op): CheckSatQuery = {
     val programBody = SMTLIBFormatter.opToString(program)
-    val code = template.format(sygusConstr.synthTask.getSynthFunCode(programBody))
+    val code = template.format(sygusData.synthTask.getSynthFunCode(programBody))
     CheckSatQuery(code, satCmds)
   }
 }
@@ -85,12 +85,12 @@ class TemplateVerification(problem: SyGuS16,
 
 /**
   * Query for checking whether the given constant output is correct wrt the specification
-  * for a given input.
-  * This is done by substituting provided constants for input values (var-decls) and
-  * synth-fun body (see the example below).
-  * Single-invocation property is assumed, because function's
-  * output is treated as a constant. Because of this, only formal constraints
-  * are used.
+  * for a given constant input. This is done by substituting provided constants for input
+  * values (var-decls) and synth-fun body (see the example below).
+  *
+  * NOTE: Single-invocation property is assumed, because only then the notion of a concrete
+  * output is defined (otherwise one may aks: output of which function). Because of this,
+  * only formal constraints.
   *
   * An example query:
   * <pre>{@code
@@ -107,18 +107,18 @@ class TemplateVerification(problem: SyGuS16,
   * Sat means that the answer is correct.
   */
 class TemplateIsOutputCorrectForInput(problem: SyGuS16,
-                                      sygusConstr: SygusProblemData,
+                                      sygusData: SygusProblemData,
                                       timeout: Int = 0) extends Function2[Map[String, Any], Any, CheckSatQuery] {
   def createTemplate: String = {
     // Test-cases constraints are ignored
-    val preconditions = SMTLIBFormatter.getCodeForMergedConstraints(sygusConstr.precond)
-    val constraints = SMTLIBFormatter.getCodeForMergedConstraints(sygusConstr.formalConstr)
+    val preconditions = SMTLIBFormatter.getCodeForMergedConstraints(sygusData.precond)
+    val constraints = SMTLIBFormatter.getCodeForMergedConstraints(sygusData.formalConstr)
     val auxiliaries = SMTLIBFormatter.getCodeForAuxiliaries(problem)
     s"(set-logic ${SMTLIBFormatter.getLogicName(problem)})\n" +
       (if (timeout > 0) s"(set-option :timeout $timeout)\n" else "") +
       "(set-option :produce-models true)\n" +
       auxiliaries + "\n" +
-      s"${sygusConstr.synthTask.getSynthFunCode("%1$s")}\n" +
+      s"${sygusData.synthTask.getSynthFunCode("%1$s")}\n" +
       "%2$s\n" +
       (if (preconditions.nonEmpty) s"\n(assert $preconditions)\n" else "") +
       s"\n(assert $constraints)\n"
@@ -126,8 +126,11 @@ class TemplateIsOutputCorrectForInput(problem: SyGuS16,
   val template: String = createTemplate
 
   def apply(input: Map[String, Any], output: Any): CheckSatQuery = {
+    // Guard against incorrect usage of this query.
+    assert(sygusData.singleInvocFormal, "IsOutputCorrectForInput query can only be used if problem has the single-invocation property.")
+
     val textOutput = SMTLIBFormatter.normalizeTerminal(output.toString)
-    val textInputs = sygusConstr.varDecls.map { v =>
+    val textInputs = sygusData.varDecls.map { v =>
       s"(define-fun ${v.sym} () " +
         s"${SMTLIBFormatter.sortToString(v.sortExpr)} ${SMTLIBFormatter.normalizeTerminal(input(v.sym).toString)})"
     }.mkString("\n")
@@ -161,18 +164,18 @@ class TemplateIsOutputCorrectForInput(problem: SyGuS16,
   * Sat means that the answer is correct.
   */
 class TemplateIsProgramCorrectForInput(problem: SyGuS16,
-                                       sygusConstr: SygusProblemData,
+                                       sygusData: SygusProblemData,
                                        timeout: Int = 0) extends Function2[Op, Map[String, Any], CheckSatQuery] {
   def createTemplate: String = {
     // Test-cases constraints are ignored
-    val preconditions = SMTLIBFormatter.getCodeForMergedConstraints(sygusConstr.precond)
-    val constraints = SMTLIBFormatter.getCodeForMergedConstraints(sygusConstr.formalConstr)
+    val preconditions = SMTLIBFormatter.getCodeForMergedConstraints(sygusData.precond)
+    val constraints = SMTLIBFormatter.getCodeForMergedConstraints(sygusData.formalConstr)
     val auxiliaries = SMTLIBFormatter.getCodeForAuxiliaries(problem)
     s"(set-logic ${SMTLIBFormatter.getLogicName(problem)})\n" +
       (if (timeout > 0) s"(set-option :timeout $timeout)\n" else "") +
       "(set-option :produce-models true)\n" +
       auxiliaries + "\n" +
-      s"${sygusConstr.synthTask.getSynthFunCode("%1$s")}\n" +
+      s"${sygusData.synthTask.getSynthFunCode("%1$s")}\n" +
       "%2$s" +
       (if (preconditions.nonEmpty) s"\n(assert $preconditions)\n" else "") +
       s"\n(assert $constraints)\n"
@@ -181,7 +184,7 @@ class TemplateIsProgramCorrectForInput(problem: SyGuS16,
 
   def apply(program: Op, input: Map[String, Any]): CheckSatQuery = {
     val programBody = SMTLIBFormatter.opToString(program)
-    val textInputs = sygusConstr.varDecls.map{v =>
+    val textInputs = sygusData.varDecls.map{ v =>
       s"(define-fun ${v.sym} () " +
       s"${SMTLIBFormatter.sortToString(v.sortExpr)} ${SMTLIBFormatter.normalizeTerminal(input(v.sym).toString)})"
     }.mkString("\n")
@@ -224,7 +227,6 @@ class TemplateFindOutput(problem: SyGuS16,
                          timeout: Int = 0) extends Function1[Map[String, Any], CheckSatQuery] {
   def createTemplate: String = {
     // Test-cases constraints are ignored
-    // TODO: something is off with this; either median or united unit test is failing.
     val preconditions = SMTLIBFormatter.getCodeForMergedConstraints(sygusData.precond)
     val constraints = SMTLIBFormatter.getCodeForMergedConstraints(sygusData.formalConstr)
     val auxiliaries = SMTLIBFormatter.getCodeForAuxiliaries(problem)
@@ -243,7 +245,7 @@ class TemplateFindOutput(problem: SyGuS16,
 
   def apply(input: Map[String, Any]): CheckSatQuery = {
     // Guard against incorrect usage of this query.
-    assert(sygusData.singleInvocFormal, "FindOutput query can only be used if problem has single invocation property.")
+    assert(sygusData.singleInvocFormal, "FindOutput query can only be used if problem has the single-invocation property.")
 
     val textInputs = sygusData.varDecls.map{ v =>
       s"(define-fun ${v.sym} () " +
@@ -268,7 +270,7 @@ class TemplateFindOutput(problem: SyGuS16,
   * }</pre>
   */
 class TemplateSimplify(problem: SyGuS16,
-                       sygusConstr: SygusProblemData,
+                       sygusData: SygusProblemData,
                        timeout: Int = 0) extends Function1[Op, SimplifyQuery] {
   def createTemplate: String = {
     // Auxiliaries are added because they may contain function definitions which are
@@ -277,7 +279,7 @@ class TemplateSimplify(problem: SyGuS16,
     s"(set-logic ${SMTLIBFormatter.getLogicName(problem)})\n" +
       (if (timeout > 0) s"(set-option :timeout $timeout)\n" else "") +
       auxiliaries + "\n" +
-      SMTLIBFormatter.produceVarDecls(sygusConstr) +
+      SMTLIBFormatter.produceVarDecls(sygusData) +
       "(simplify %1$s\n)\n"
   }
   val template: String = createTemplate
@@ -389,22 +391,25 @@ object SMTLIBFormatter {
     * Sat means that there is at least one input for which there is more than
     * one correct output.
     */
-  def checkIfSingleAnswerForEveryInput(sf: SygusSynthesisTask, problem: SyGuS16,
-                                       solverTimeout: Int = 0): CheckSatQuery = {
+  def checkIfSingleAnswerForEveryInput(problem: SyGuS16, sygusData: SygusProblemData,
+                                       solverTimeout: Int = 0,
+                                       useAllConstraints: Boolean = false): CheckSatQuery = {
+    def sf = sygusData.synthTask
     val sfArgs = synthFunArgsToString(sf)
     val varDecls = problem.cmds.collect { case v: VarDeclCmd => v }
     val varsDeclFunDefs = varDecls.map {
       v: VarDeclCmd => s"(declare-fun ${v.sym} () ${sortToString(v.sortExpr)})"
     }.mkString("", "\n", "\n")
     val vMap = Map(sf.fname -> (sf.fname+"__2"))
-    val cmds1 = problem.cmds
-    val cmds2 = problem.cmds.map(SygusUtils.renameNamesInCmd(_, vMap))
+    val cmds1 = if (useAllConstraints) sygusData.postcond else sygusData.formalConstr
+    val cmds2 = cmds1.map(SygusUtils.renameNamesInCmd(_, vMap))
     val body1 = cmds1.collect {
       case ConstraintCmd(t: Term) => s"(assert ${termToSmtlib(t)})"
     }.mkString("", "\n", "\n")
     val body2 = cmds2.collect {
       case ConstraintCmd(t: Term) => s"(assert ${termToSmtlib(t)})"
     }.mkString("", "\n", "\n")
+    val preconditions = SMTLIBFormatter.getCodeForMergedConstraints(sygusData.precond)
     val auxiliaries = getCodeForAuxiliaries(problem)
 
     val synthFunSort = sortToString(sf.outputType)
@@ -412,6 +417,7 @@ object SMTLIBFormatter {
       (if (solverTimeout > 0) s"(set-option :timeout $solverTimeout)\n" else "") +
       "(set-option :produce-models true)\n" +
       auxiliaries + "\n" +
+      preconditions + "\n" +
       s"(declare-fun res1__2 () $synthFunSort)\n" +
       s"(declare-fun res2__2 () $synthFunSort)\n" +
       s"(define-fun ${sf.fname} ($sfArgs) $synthFunSort res1__2)\n" +
