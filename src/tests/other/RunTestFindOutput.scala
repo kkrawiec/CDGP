@@ -9,7 +9,7 @@ import tests.Global
 import scala.util.Random
 
 
-object SolverCorrectOutput extends App {
+object RunTestFindOutput extends App {
   private val rng: Random = scala.util.Random
   rng.setSeed(0)
   val root = System.getProperty("user.dir")
@@ -17,7 +17,8 @@ object SolverCorrectOutput extends App {
   
   val collection = "/resources/LIA/cdgp_paper17/"
   // val files = Tools.getRecursiveListOfFiles(new File(root + collection)).filter{ f => f.getName.endsWith(".sl")}
-  val files = List(new File(root + "/resources/LIA/Median3_tests.sl"))
+  // val files = List(new File(root + "/resources/LIA/Median3_tests.sl"))
+  val files = List(new File(root + "/resources/NIA/rsconf_tc.sl"))
   val solverPath = Global.solverPath
   val solver = SolverInteractive(solverPath, verbose = false)
 
@@ -42,10 +43,10 @@ object SolverCorrectOutput extends App {
 
     // Generate 100 random inputs and find correct outputs for them
     val templateFindOutput = new TemplateFindOutput(sygusProblem, sygusConstr)
-    0.until(100).foreach { _ =>
+    0.until(50).foreach { _ =>
       val input = getRandomInput(inputsSortsMap).toMap
       val query = templateFindOutput(input)
-      println("query: " + query)
+      // println("query: " + query)
       val (dec, res) = solver.solve(query)
       println(s"Input: $input")
       println(s"Decision: $dec, model: $res")
