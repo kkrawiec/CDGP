@@ -3,7 +3,6 @@ package cdgp
 import fuel.util.{Collector, Options, TRandom}
 import swim.Grammar
 import swim.tree.Op
-import sygus.{Cmd, ConstraintCmd, VarDeclCmd}
 import sygus16.SyGuS16
 
 
@@ -40,12 +39,15 @@ class CDGPState(val sygusProblem: SyGuS16)
   val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, Int.MaxValue, (x: Int) => x > 0)
   val timeout: Int = opt('solverTimeout, 0)
   val silent = opt('silent, false)
+  val alwaysSearchForOutput = opt('alwaysSearchForOutput, true)
+  val gprRetryIfUndefined = opt('gprRetryIfUndefined, true)
 
 
   val sygusData = SygusProblemData(sygusProblem, opt('mixedSpecAllowed, true))
   val invocations: Seq[Seq[String]] = sygusData.formalInvocations
   def synthTask: SygusSynthesisTask = sygusData.synthTask
   def grammar: Grammar = synthTask.grammar
+  val singleAnswerFormal: Boolean = sygusData.singleInvocFormal && hasSingleAnswerForEveryInput(sygusProblem).getOrElse(false)
 
   // Initializing population of test cases
   testsManager.addNewTests(sygusData.testCasesConstrToTests)
@@ -56,29 +58,19 @@ class CDGPState(val sygusProblem: SyGuS16)
    * Depending on the properties of the problem, CDGPState will switch between using
    * GP domain and executing the solver for computing fitness.
    */
-  val testCasesMode: String = getTestCasesMode(sygusProblem)
-  assert(testCasesMode == "solver" || testCasesMode == "gp")
-  val useDomainToComputeFitness: Boolean = testCasesMode == "gp"
-  println(s"(testCasesMode $testCasesMode)")
-  coll.set("cdgp.testCasesMode", testCasesMode)
-  if (!useDomainToComputeFitness)
+  val evaluationMode: String = getEvaluationMode
+  assert(evaluationMode == "solver" || evaluationMode == "gp")
+  val useDomainEvaluation: Boolean = evaluationMode == "gp"
+  if (!useDomainEvaluation && !silent)
     println("INFO: solver will be used to compute fitness. Expect major efficiency decrease" +
-      " in comparison with GP test cases mode.")
+      " in comparison with domain evaluation mode.")
+  println(s"(evaluationMode $evaluationMode)")
+  coll.set("cdgp.evaluationMode", evaluationMode)
 
 
   // Currently the domain is hardcoded. This matters only for problems which
   // can be domain-evaluated.
   val domain = SLIA(synthTask.argNames, synthTask.fname, opt("recDepthLimit", 1000))
-
-
-  // Pre- and post-conditions of the synthesis problem
-  if (!silent) {
-    println("\nPRECONDITIONS:")
-    sygusData.precond.foreach { c => println(SMTLIBFormatter.termToSmtlib(c.t)) }
-    println("\nPOSTCONDITIONS:")
-    sygusData.postcond.foreach { c => println(SMTLIBFormatter.termToSmtlib(c.t)) }
-    println("")
-  }
 
 
   // Creating solver manager
@@ -92,23 +84,24 @@ class CDGPState(val sygusProblem: SyGuS16)
   lazy val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(sygusProblem, sygusData, timeout = timeout)
   lazy val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(sygusProblem, sygusData, timeout = timeout)
   lazy val templateFindOutput = new TemplateFindOutput(sygusProblem, sygusData, timeout = timeout)
+  lazy val templateFindOutputNeg = new TemplateFindOutput(sygusProblem, sygusData, negateConstr = true, timeout = timeout)
   lazy val templateSimplify = new TemplateSimplify(sygusProblem, sygusData)
 
 
 
-  def getTestCasesMode(problem: SyGuS16): String = {
+  def getEvaluationMode: String = {
     println(s"(singleInvocationProperty ${sygusData.singleInvocFormal})")
     coll.set("cdgp.singleInvocationProperty", sygusData.singleInvocFormal)
     if (sygusData.singleInvocFormal) {
       // Checking for the single answer property has sense only if the problem
       // has single invocation property.
-      val singleAnswer = hasSingleAnswerForEveryInput(problem)
-      val supportForAllTerms = !SygusUtils.containsUnsupportedComplexTerms(problem)
-      println(s"(singleAnswerForEveryInput ${singleAnswer.getOrElse("unknown")})")
-      println(s"(supportForAllTerms $supportForAllTerms)")
-      coll.set("cdgp.singleAnswerForEveryInput", singleAnswer.getOrElse("unknown"))
-      coll.set("cdgp.supportForAllTerms", supportForAllTerms)
-      if (singleAnswer.getOrElse(false) && supportForAllTerms)
+
+      val singleAnswerText = singleAnswerFormal
+      println(s"(singleAnswerForEveryInput $singleAnswerText)")
+      println(s"(supportForAllTerms ${sygusData.supportForAllTerms})")
+      coll.set("cdgp.singleAnswerForEveryInput", singleAnswerText)
+      coll.set("cdgp.supportForAllTerms", sygusData.supportForAllTerms)
+      if (singleAnswerFormal && sygusData.supportForAllTerms)
         "gp"  // we may be consider treating unknown singleAnswer as true, with the potential risk of losing "soundness" of the fitness
       else
         "solver"
@@ -131,8 +124,8 @@ class CDGPState(val sygusProblem: SyGuS16)
     }
     for (test <- tests) yield {
       try {
-        if (useDomainToComputeFitness || test._2.isDefined)
-          // User may define test cases for a problem, in which generally single-answer
+        if (test._2.isDefined)
+          // User can define test cases for a problem, in which generally single-answer
           // property does not hold. We will use domain for those cases, since it is more
           // efficient.
           evalOnTestsDomain(s, test)
@@ -162,7 +155,7 @@ class CDGPState(val sygusProblem: SyGuS16)
     * by the solver for consistency with the specification. The test will be updated if
     * this output is deemed consistent by the solver.
     *
-    * Names of variables in test should be the same as those as in the function's invocation.
+    * Names of variables in test should be the same as those in the function's invocation.
     * They will be renamed for those in the function's declaration.
     */
   def evalOnTestsDomain(s: Op, test: (I, Option[O])): Int = {
@@ -177,10 +170,15 @@ class CDGPState(val sygusProblem: SyGuS16)
       if (output.get == testOutput.get) 0 else 1
     }
     else {
-      val (dec, _) = checkIsOutputCorrectForInput(s, testModel, output.get)
-      if (dec == "sat")
-        testsManager.updateTest((testModel, output))
-      if (dec == "sat") 0 else 1
+      // Situation, when the test case has None as the expected output
+      // We don't allow such a situation
+      throw new Exception("Trying to domain-evaluate a test without defined correct answer!")
+
+      // The code below can be used to try to find the expected output for the test
+      //val (dec, _) = checkIsOutputCorrectForInput(s, testModel, output.get)
+      //if (dec == "sat")
+      //  testsManager.updateTest((testModel, output))
+      //if (dec == "sat") 0 else 1
     }
   }
 
@@ -199,7 +197,7 @@ class CDGPState(val sygusProblem: SyGuS16)
     * any input.
     */
   def hasSingleAnswerForEveryInput(problem: SyGuS16): Option[Boolean] = {
-    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(synthTask, problem)
+    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(problem, sygusData)
     // println("\nQuery checkIfSingleAnswerForEveryInput:\n" + query)
     val (dec, model) = solver.runSolver(query)
     if (dec == "sat") {
@@ -232,24 +230,49 @@ class CDGPState(val sygusProblem: SyGuS16)
     solver.runSolver(query)
   }
 
-  def findOutputForTestCase(test: (I, Option[O])): (I, Option[O]) = {
-    val query = templateFindOutput(test._1)
-    // println("\nQuery findOutputForTestCase:\n" + query)
-    try {
-      val (dec, res) = solver.runSolver(query)
-      if (dec == "sat") {
-        val values = GetValueParser(res.get)
-        (test._1, Some(values.head._2))
+  def findOutputForTestCase(test: (I, Option[O]), singleAnswer: Boolean = true): (I, Option[O]) = {
+    assert(test._2.isEmpty)
+    if (!sygusData.singleInvocFormal || !sygusData.supportForAllTerms)
+      test
+    else {
+      try {
+        val query = templateFindOutput(test._1)
+        // println("\nQuery findOutputForTestCase:\n" + query)
+        val (dec, res) = solver.runSolver(query)
+        if (dec == "sat") {
+          val output: Option[Any] = GetValueParser(res.get).toMap.get(TemplateFindOutput.CORRECT_OUTPUT_VAR)
+          if (singleAnswer) // we have guarantees that the found output is the only correct one
+            (test._1, output)
+
+          else if (alwaysSearchForOutput) {
+            // We are trying to find some other output which satisfies the constraints.
+            // If we succeed, then test must be evaluated by solver in the future, hence the None
+            // ain place of correct output.
+            //
+            // This can be especially useful if outputs for some parts of input space are undefined.
+            // Undefinedness, which means that for such inputs every output is acceptable, makes the whole
+            // problem to not have the single-answer property, even if otherwise all inputs have single-answer.
+            val query2 = templateFindOutput(test._1, excludeValues = List(output.get))
+            val (dec2, res2) = solver.runSolver(query2)
+            if (dec2 == "unsat")
+              (test._1, output)
+            else
+              (test._1, None)
+          }
+
+          else
+            (test._1, None)
+        }
+        else if (dec == "unsat")
+          throw new NoSolutionException(test._1.toString)
+        else  // e.g. unknown
+          test
       }
-      else if (dec == "unsat")
-        throw new NoSolutionException(test._1.toString)
-      else
-        test
-    }
-    catch {
-      case _: Throwable =>
-        println(s"Exception during executing query or parsing result, returning test with no output! ")
-        test // in case solver returns unknown
+      catch {
+        case _: Throwable =>
+          println(s"Exception during executing query or parsing result, returning test with no output! ")
+          test
+      }
     }
   }
 
@@ -267,22 +290,35 @@ class CDGPState(val sygusProblem: SyGuS16)
 
 
 
-  def createTestFromFailedVerification(verOutput: String): (Map[String, Any], Option[Any]) = {
+  def createTestFromFailedVerification(verOutput: String): Option[(Map[String, Any], Option[Any])] = {
     val testModel = GetValueParser(verOutput)  // parse model returned by solver
     val testNoOutput = (testModel.toMap, None)  // for this test currently the correct answer is not known
-    if (useDomainToComputeFitness)  // a correct output can be found, and it is the only such output
-      findOutputForTestCase(testNoOutput)
-    else
-      testNoOutput
+
+    if (testsManager.tests.contains(testNoOutput._1))
+      None  // this input already was used, there is no use to search for output
+    else {
+      Some(findOutputForTestCase(testNoOutput, singleAnswerFormal))
+    }
   }
 
-  def createRandomTest(): (Map[String, Any], Option[Any]) = {
+  def createRandomTest(): Option[(Map[String, Any], Option[Any])] = {
     val example = sygusData.varDeclsNames.map(a => (a, GPRminInt + rng.nextInt(GPRmaxInt+1-GPRminInt)))
     val testNoOutput = (example.toMap, None) // for this test currently the correct answer is not known
-    if (useDomainToComputeFitness)  // a correct output can be found, and it is the only such output
-      findOutputForTestCase(testNoOutput)
+    if (testsManager.tests.contains(testNoOutput._1))
+      createRandomTest() // try again
+    else if (gprRetryIfUndefined) {
+      // We will now check if for the input there exists an incorrect output.
+      // This is necessary in case GPR generated a test with undefined answer.
+      // Adding such a test is meaningless.
+      val query = templateFindOutputNeg(testNoOutput._1)
+      val (dec, _) = solver.runSolver(query)
+      if (dec == "unsat")
+        createRandomTest() // try again
+      else
+        Some(findOutputForTestCase(testNoOutput, singleAnswerFormal))
+    }
     else
-      testNoOutput
+      Some(findOutputForTestCase(testNoOutput, singleAnswerFormal))
   }
 
   /**
@@ -330,7 +366,8 @@ class CDGPState(val sygusProblem: SyGuS16)
           else if (decision == "sat") {
             if (testsManager.newTests.size < maxNewTestsPerIter) {
               val newTest = createTestFromFailedVerification(r.get)
-              testsManager.addNewTest(newTest)
+              if (newTest.isDefined)
+                testsManager.addNewTest(newTest.get)
             }
             (false, evalTests)
           }
@@ -355,7 +392,8 @@ class CDGPState(val sygusProblem: SyGuS16)
       def generateAndAddRandomTest(): Unit = {
         if (testsManager.newTests.size < maxNewTestsPerIter) {
           val newTest = createRandomTest()
-          testsManager.addNewTest(newTest)
+          if (newTest.isDefined)
+            testsManager.addNewTest(newTest.get)
         }
       }
       def apply(s: Op): (Boolean, Seq[Int]) = {

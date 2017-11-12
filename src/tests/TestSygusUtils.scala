@@ -19,7 +19,7 @@ final class TestSygusUtils {
 (check-synth)"""
     val problem = LoadSygusBenchmark.parseText(code)
     // println(problem.cmds.mkString("\n"))
-    assertEquals(false, SygusUtils.containsUnsupportedComplexTerms(problem))
+    assertEquals(false, SygusUtils.containsUnsupportedTerms(problem))
     assertEquals(true, SygusUtils.hasSingleInvocationPropertyAllConstr(problem))
     assertEquals(Map("funSynth" -> List(List("a", "b", "c"), List("a", "b", "c"))),
       SygusUtils.getSynthFunsInvocationsInfo(SygusUtils.getAllConstraints(problem), Set("funSynth")))
@@ -40,7 +40,7 @@ final class TestSygusUtils {
     assertEquals(false, SygusUtils.hasSingleInvocationPropertyAllConstr(problem))
     assertEquals(Map("funSynth" -> List(List("a", "1", "c"), List("a", "c", "1"))),
       SygusUtils.getSynthFunsInvocationsInfo(SygusUtils.getAllConstraints(problem), Set("funSynth")))
-    assertEquals(false, SygusUtils.containsUnsupportedComplexTerms(problem))
+    assertEquals(false, SygusUtils.containsUnsupportedTerms(problem))
   }
 
   @Test
@@ -56,7 +56,7 @@ final class TestSygusUtils {
 (check-synth)"""
     val problem = LoadSygusBenchmark.parseText(code)
     assertEquals(false, SygusUtils.hasSingleInvocationPropertyAllConstr(problem))
-    assertEquals(true, SygusUtils.containsUnsupportedComplexTerms(problem))
+    assertEquals(true, SygusUtils.containsUnsupportedTerms(problem))
   }
 
   @Test
@@ -72,7 +72,7 @@ final class TestSygusUtils {
 (check-synth)"""
     val problem = LoadSygusBenchmark.parseText(code)
     assertEquals(true, SygusUtils.hasSingleInvocationPropertyAllConstr(problem))
-    assertEquals(false, SygusUtils.containsUnsupportedComplexTerms(problem))
+    assertEquals(false, SygusUtils.containsUnsupportedTerms(problem))
   }
 
   @Test
@@ -88,7 +88,7 @@ final class TestSygusUtils {
 (check-synth)"""
     val problem = LoadSygusBenchmark.parseText(code)
     assertEquals(true, SygusUtils.hasSingleInvocationPropertyAllConstr(problem))
-    assertEquals(true, SygusUtils.containsUnsupportedComplexTerms(problem))
+    assertEquals(true, SygusUtils.containsUnsupportedTerms(problem))
   }
 
   @Test

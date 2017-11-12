@@ -224,6 +224,7 @@ class TemplateIsProgramCorrectForInput(problem: SyGuS16,
   */
 class TemplateFindOutput(problem: SyGuS16,
                          sygusData: SygusProblemData,
+                         negateConstr: Boolean = false,
                          timeout: Int = 0) extends Function1[Map[String, Any], CheckSatQuery] {
   def createTemplate: String = {
     // Test-cases constraints are ignored
@@ -234,28 +235,38 @@ class TemplateFindOutput(problem: SyGuS16,
       (if (timeout > 0) s"(set-option :timeout $timeout)\n" else "") +
       "(set-option :produce-models true)\n" +
       auxiliaries + "\n" +
-      s"(declare-fun CorrectOutput () ${SMTLIBFormatter.sortToString(sygusData.synthTask.outputType)})\n" +
-      s"${sygusData.synthTask.getSynthFunCode("CorrectOutput")}\n" +
-      "%1$s" +
+      s"(declare-fun ${TemplateFindOutput.CORRECT_OUTPUT_VAR} () ${SMTLIBFormatter.sortToString(sygusData.synthTask.outputType)})\n" +
+      s"${sygusData.synthTask.getSynthFunCode(TemplateFindOutput.CORRECT_OUTPUT_VAR)}\n" +
+      "%1$s" +  // inputs
       (if (preconditions.nonEmpty) s"\n(assert $preconditions)\n" else "") +
-      s"\n(assert $constraints)\n"
+      (if (negateConstr) s"\n(assert (not $constraints))\n"
+      else s"\n(assert $constraints)\n") +
+      "%2$s\n"  // forbidden values of CorrectOutput
   }
   val template: String = createTemplate
   val satCmds: String = s"(get-value (CorrectOutput))\n"
 
   def apply(input: Map[String, Any]): CheckSatQuery = {
+    apply(input, List())
+  }
+
+  def apply(input: Map[String, Any], excludeValues: Seq[Any]): CheckSatQuery = {
     // Guard against incorrect usage of this query.
     assert(sygusData.singleInvocFormal, "FindOutput query can only be used if problem has the single-invocation property.")
 
     val textInputs = sygusData.varDecls.map{ v =>
       s"(define-fun ${v.sym} () " +
-      s"${SMTLIBFormatter.sortToString(v.sortExpr)} ${SMTLIBFormatter.normalizeTerminal(input(v.sym).toString)})"
+        s"${SMTLIBFormatter.sortToString(v.sortExpr)} ${SMTLIBFormatter.normalizeTerminal(input(v.sym).toString)})"
     }.mkString("\n")
-    val code = template.format(textInputs)
+    val textExcludeConstr = if (excludeValues.isEmpty) "" else
+      excludeValues.map { x => s"(assert (distinct CorrectOutput $x))" }.mkString("\n")
+    val code = template.format(textInputs, textExcludeConstr)
     CheckSatQuery(code, satCmds)
   }
 }
-
+object TemplateFindOutput {
+  val CORRECT_OUTPUT_VAR = "CorrectOutput"
+}
 
 
 
@@ -437,7 +448,7 @@ object SMTLIBFormatter {
       varsDeclFunDefs + "\n" +
       body1 + "\n" +
       body2 + "\n" +
-      s"(assert (distinct res1__2 res2__2))"
+      s"(assert (distinct res1__2 res2__2))\n"
     val satCmds = s"(get-value (${varDecls.map(_.sym).mkString(" ")} res1__2 res2__2))\n"
     CheckSatQuery(code, satCmds)
   }

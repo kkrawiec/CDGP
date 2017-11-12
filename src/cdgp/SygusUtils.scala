@@ -48,8 +48,9 @@ case class SygusProblemData(problem: SyGuS16,
   val formalInvocations: Seq[Seq[String]] = SygusUtils.getSynthFunsInvocationsInfo(formalConstr, synthTask.fname)
   val allInvocations: Seq[Seq[String]] = SygusUtils.getSynthFunsInvocationsInfo(postcond, synthTask.fname)
 
-  lazy val singleInvocFormal: Boolean = SygusUtils.singleInvocationProp(formalInvocations)
-  lazy val singleInvocAll: Boolean = SygusUtils.singleInvocationProp(allInvocations)
+  val singleInvocFormal: Boolean = SygusUtils.singleInvocationProp(formalInvocations)
+  val singleInvocAll: Boolean = SygusUtils.singleInvocationProp(allInvocations)
+  val supportForAllTerms: Boolean = !SygusUtils.containsUnsupportedTerms(problem)
 
 
   /**
@@ -493,10 +494,10 @@ object SygusUtils {
   }
 
   def getSynthFunsInvocationsInfo(constrCmds: Seq[ConstraintCmd], name: String): Seq[Seq[String]] = {
-    getSynthFunsInvocationsInfo(constrCmds, Set(name))(name)
+    getSynthFunsInvocationsInfo(constrCmds, Set(name)).getOrElse(name, Seq())
   }
   def getSynthFunsInvocationsInfo(problem: SyGuS16, name: String): Seq[Seq[String]] = {
-    getSynthFunsInvocationsInfo(getAllConstraints(problem), Set(name))(name)
+    getSynthFunsInvocationsInfo(getAllConstraints(problem), Set(name)).getOrElse(name, Seq())
   }
 
   def getAllConstraints(problem: SyGuS16): Seq[ConstraintCmd] = {
@@ -507,9 +508,9 @@ object SygusUtils {
     * Checks, if the constraints contains let terms, or composite terms as
     * arguments to the synth-function. Both of these cases make it impossible
     * to use GP test cases mode, because it requires concrete values as
-    * arguments to the synth-function and not expressions.
+    * arguments to the synth-function instead of expressions.
     */
-  def containsUnsupportedComplexTerms(problem: SyGuS16): Boolean = {
+  def containsUnsupportedTerms(problem: SyGuS16): Boolean = {
     try {
       checkUnsupportedTermsForGPMode(problem)
       false

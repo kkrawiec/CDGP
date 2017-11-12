@@ -131,22 +131,22 @@ final class TestCDGPState {
     val code = TestCDGPState.scriptMax
     val problem = LoadSygusBenchmark.parseText(code)
     val state = new CDGPState(problem)
-    assertEquals(true, state.useDomainToComputeFitness)
+    assertEquals(true, state.useDomainEvaluation)
     val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=false)
-    val t1 = (GetValueParser("((x 4)(y 3))").toMap, None)
-    val t2 = (GetValueParser("((x 5)(y 1))").toMap, None)
-    val t3 = (GetValueParser("((x 1)(y 3))").toMap, None)
+    val t1 = (GetValueParser("((x 4)(y 3))").toMap, Some(4))
+    val t2 = (GetValueParser("((x 5)(y 1))").toMap, Some(5))
+    val t3 = (GetValueParser("((x 1)(y 3))").toMap, Some(3))
     state.testsManager.addNewTest(t1)
     state.testsManager.addNewTest(t2)
     state.testsManager.addNewTest(t3)
     state.testsManager.flushHelpers()
     assertEquals(3, state.testsManager.getNumberOfTests)
-    assertEquals(0, state.testsManager.getNumberOfKnownOutputs)
-    assertEquals(Seq(0, 0, 1), state.evalOnTests(op, state.testsManager.getTests()))
-    assertEquals(2, state.testsManager.getNumberOfKnownOutputs)
-    assertEquals(Some(4), state.testsManager.tests(t1._1))
-    assertEquals(Some(5), state.testsManager.tests(t2._1))
-    assertEquals(None,state.testsManager.tests(t3._1))
+    assertEquals(3, state.testsManager.getNumberOfKnownOutputs)
+    assertEquals(1, state.evalOnTests(op, state.testsManager.getTests()).sum)
+    assertEquals(3, state.testsManager.getNumberOfKnownOutputs)
+//    assertEquals(Some(4), state.testsManager.tests(t1._1))
+//    assertEquals(Some(5), state.testsManager.tests(t2._1))
+//    assertEquals(None,state.testsManager.tests(t3._1))
   }
 
   @Test
@@ -257,7 +257,7 @@ final class TestCDGPState {
       """.stripMargin
     val problem = LoadSygusBenchmark.parseText(code)
     val state = new CDGPState(problem)
-    val test = state.createRandomTest()
+    val test = state.createRandomTest().get
     val test2 = (test._1.map{ case (k, v) => (k, if (k == "4") 4 else 1)}, test._2)
     assertEquals(Map("a"->1), test2._1)
     println(s"Test: $test")
@@ -278,7 +278,7 @@ final class TestCDGPState {
     val problem = LoadSygusBenchmark.parseText(code)
     val state = new CDGPState(problem)
     val solverOut = "((a 1))"
-    val test = state.createTestFromFailedVerification(solverOut)
+    val test = state.createTestFromFailedVerification(solverOut).get
     println(s"Test: $test")
     val testModel = GetValueParser(solverOut).toMap
     val testInputs = state.modelToSynthFunInputs(testModel)

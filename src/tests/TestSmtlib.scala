@@ -98,6 +98,10 @@ final class TestSmtlib {
     assertEquals("sat", dec)
     assertEquals(true, model.isDefined)
     assertEquals(Map("CorrectOutput" -> 5), GetValueParser(model.get).toMap)
+    // Try to find other correct output
+    val query2 = templateFindOutput(inputs, Seq(5))
+    val (dec2, model2) = solver.runSolver(query2)
+    assertEquals("unsat", dec2)
   }
 
   @Test
@@ -257,6 +261,10 @@ final class TestSmtlib {
     assertEquals("sat", dec)
     assertEquals(true, model.isDefined)
     assertEquals(Map("CorrectOutput" -> 2), GetValueParser(model.get).toMap)
+    // Try to find other correct output
+    val query2 = templateFindOutput(inputs, Seq(2))
+    val (dec2, _) = solver.runSolver(query2)
+    assertEquals("unsat", dec2)
   }
 
   @Test

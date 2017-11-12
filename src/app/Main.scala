@@ -109,6 +109,7 @@ object Main {
       case e: NoSolutionException =>
         println(s"There is no solution to this problem.")
         println(s"Input with no correct answer: " + e.badInput)
+        coll.set("cdgp.noCorrectSolution", true)
         coll.set("terminatingException", e.toString)
         coll.saveSnapshot("cdgp")
         System.exit(0)
