@@ -1,0 +1,6 @@
+(set-logic LIA)
+(synth-fun united ((a Int)) Int)
+(declare-var x Int)
+(constraint (= (united 1) 5))
+(constraint (= (united x) (united (+ x 1))))
+(check-synth)
