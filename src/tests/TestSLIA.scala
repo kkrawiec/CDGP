@@ -148,7 +148,7 @@ object TestRunLIA extends IApp('maxGenerations -> 25, 'printResults -> false, 'p
     def synthTask = sygusData.synthTask
 
     // Create the Swim grammar from it
-    val gr = synthTask.grammar
+    val gr = synthTask.uninterpSwimGrammar
 
     // Generate a bunch of random programs using the grammar
     val cf = new CodeFactory(gr, stoppingDepth = 4, maxDepth = 8)

@@ -23,7 +23,7 @@ object VerificationExperiments extends App {
   }
 
   def generateRandomPrograms(synthTask: SygusSynthesisTask): Seq[Op] = {
-    val cf = new CodeFactory(synthTask.grammar, stoppingDepth = 4, maxDepth = 8)
+    val cf = new CodeFactory(synthTask.getSwimGrammar(rng), stoppingDepth = 4, maxDepth = 8)
     for (i <- 0 until 100) yield cf.randomProgram
   }
 

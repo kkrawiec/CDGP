@@ -2,7 +2,9 @@ package cdgp
 
 import java.io.File
 
+import fuel.util.TRandom
 import swim.Grammar
+import swim.tree.ConstantProviderUniformI
 import sygus._
 import sygus16.SyGuS16
 
@@ -85,8 +87,20 @@ case class SygusSynthesisTask(fname: String,
                               args: Seq[(String, SortExpr)],
                               outputType: SortExpr) {
   val argNames: Seq[String] = args.unzip._1
-  val grammar: Grammar = SygusUtils.getSwimGrammar(grammarSygus)
-  val canBeRecursive: Boolean = grammar.contains(Symbol(fname)) || grammar.contains(fname)
+  val uninterpSwimGrammar: Grammar = SygusUtils.getSwimGrammar(grammarSygus)
+  val canBeRecursive: Boolean = uninterpSwimGrammar.contains(Symbol(fname)) || uninterpSwimGrammar.contains(fname)
+
+  def getSwimGrammar(rng: TRandom): Grammar = {
+    val modGrammar = grammarSygus.map{ case (k, seq) =>
+      (k, seq.map{
+        case cm @ ConstantMarker(tpe) =>
+          if (tpe == "Int") ConstantProviderUniformI(-10, 10)(rng)
+          else throw new Exception(s"Unsupported constant type: $tpe!")
+        case x => x
+      })
+    }
+    SygusUtils.getSwimGrammar(modGrammar)
+  }
 
   /**
     * Returns code in SMTLIB of a synthesis function.
@@ -101,6 +115,9 @@ case class SygusSynthesisTask(fname: String,
     s"($defFun $fname ($sfArgs) ${SMTLIBFormatter.sortToString(outputType)} $programBody)"
   }
 }
+
+
+case class ConstantMarker(tpe: String)
 
 
 object SygusSynthesisTask {
@@ -136,7 +153,7 @@ object SygusSynthesisTask {
   // arithmetic' in SygusComp16.pdf)
   // Constants are fixed for now:
   def intProd(vars: Seq[Any]): (Any, Seq[Any]) = 'I -> (vars ++ Seq(
-    -1, 0, 1,
+    /*-1, 0, 1,*/ ConstantMarker("Int"),
     "+" -> ('I, 'I),
     "-" -> ('I, 'I),
     "ite" -> ('B, 'I, 'I)))

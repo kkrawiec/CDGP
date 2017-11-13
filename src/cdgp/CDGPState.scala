@@ -46,7 +46,7 @@ class CDGPState(val sygusProblem: SyGuS16)
   val sygusData = SygusProblemData(sygusProblem, opt('mixedSpecAllowed, true))
   val invocations: Seq[Seq[String]] = sygusData.formalInvocations
   def synthTask: SygusSynthesisTask = sygusData.synthTask
-  def grammar: Grammar = synthTask.grammar
+  val grammar: Grammar = synthTask.getSwimGrammar(rng)
   val singleAnswerFormal: Boolean = sygusData.singleInvocFormal && hasSingleAnswerForEveryInput(sygusProblem).getOrElse(false)
 
   // Initializing population of test cases
@@ -61,9 +61,6 @@ class CDGPState(val sygusProblem: SyGuS16)
   val evaluationMode: String = getEvaluationMode
   assert(evaluationMode == "solver" || evaluationMode == "gp")
   val useDomainEvaluation: Boolean = evaluationMode == "gp"
-  if (!useDomainEvaluation && !silent)
-    println("INFO: solver will be used to compute fitness. Expect major efficiency decrease" +
-      " in comparison with domain evaluation mode.")
   println(s"(evaluationMode $evaluationMode)")
   coll.set("cdgp.evaluationMode", evaluationMode)
 
