@@ -343,7 +343,7 @@ object SMTLIBFormatter {
   def opToString(op: Op): String = {
     val opStr =
       if (op.op.isInstanceOf[Symbol]) op.op.toString.tail
-      //else if (op.op.isInstanceOf[String]) "\"" + op.op + "\""  // String constant
+      else if (op.op.isInstanceOf[String]) "\"" + op.op + "\""  // String constant
       else op.op.toString
     if (op.args.isEmpty) normalizeTerminal(opStr)
     else s"($opStr ${op.args.map(opToString(_)).mkString(" ")})"
@@ -500,13 +500,15 @@ object SMTLIBFormatter {
     case ForallTerm(list, term) =>
       val boundVars = list.map{ case (name, sort) => s"($name ${sortToString(sort)})" }
       s"(forall (${boundVars.mkString("")}) ${termToSmtlib(term)})"
+    case SymbolTerm(name) => name
+    case LiteralTerm(lit) => lit match { case StringConst(v) => "\"" + v + "\""; case x => x.toString}
     case prod: Product => prod.productArity match {
       // Product catches any case class
       case 1 => termToSmtlib(prod.productElement(0))
       case _ => "(" + prod.productIterator.   // iterate over all fields
         map(termToSmtlib(_)).reduce(_ + " " + _) + ")"
     }
-    case _ => p.toString
+    case p => p.toString
   }
 
   /**

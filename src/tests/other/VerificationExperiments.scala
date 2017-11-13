@@ -48,7 +48,7 @@ object VerificationExperiments extends App {
     def synthTask = sygusData.synthTask
     val tests = sygusData.testCasesConstrToTests
     val testsSeq = tests.map{ test => test._1.toList.map(_._2)}
-    val domainLIA = SLIA(synthTask.argNames, synthTask.fname)
+    val domainLIA = SLIA(synthTask.argNames, Symbol(synthTask.fname))
 
 
     val fv = sygusData.varDecls

@@ -67,7 +67,7 @@ class CDGPState(val sygusProblem: SyGuS16)
 
   // Currently the domain is hardcoded. This matters only for problems which
   // can be domain-evaluated.
-  val domain = SLIA(synthTask.argNames, synthTask.fname, opt("recDepthLimit", 1000))
+  val domain = SLIA(synthTask.argNames, Symbol(synthTask.fname), opt("recDepthLimit", 1000))
 
 
   // Creating solver manager

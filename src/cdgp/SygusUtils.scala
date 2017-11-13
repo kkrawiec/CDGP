@@ -138,8 +138,8 @@ object SygusSynthesisTask {
     */
   def createDefaultGrammar(args: List[(String, SortExpr)], se: SortExpr): Seq[(Any, Seq[Any])] = {
     // Add the variables
-    val bp = boolProd(args.filter(_._2 == BoolSortExpr()).map(_._1.toString))
-    val ip = intProd(args.filter(_._2 == IntSortExpr()).map(_._1.toString))
+    val bp = boolProd(args.filter(_._2 == BoolSortExpr()).map{ x => Symbol(x._1) })
+    val ip = intProd(args.filter(_._2 == IntSortExpr()).map{ x => Symbol(x._1) })
     // The first symbol in the grammar is the initial symbol, and that symbol depends
     // on the output type of the function:
     se match {
@@ -154,33 +154,33 @@ object SygusSynthesisTask {
   // Constants are fixed for now:
   def intProd(vars: Seq[Any]): (Any, Seq[Any]) = 'I -> (vars ++ Seq(
     ConstantMarker("Int"),
-    "+" -> ('I, 'I),
-    "-" -> ('I, 'I),
-    "*" -> ('I_const, 'I),
-    "div" -> ('I, 'I_const),
-    "mod" -> ('I, 'I_const),
-    "ite" -> ('B, 'I, 'I)))
+    '+ -> ('I, 'I),
+    '- -> ('I, 'I),
+    '* -> ('I_const, 'I),
+    'div -> ('I, 'I_const),
+    'mod -> ('I, 'I_const),
+    'ite -> ('B, 'I, 'I)))
   def intProd_const: (Any, Seq[Any]) = 'I_const -> Seq(ConstantMarker("Int"))
   def boolProd(vars: Seq[Any]): (Any, Seq[Any]) = 'B -> (vars ++ Seq(
     true, false,
-    "=" -> ('I, 'I),
-    "<" -> ('I, 'I),
-    "<=" -> ('I, 'I),
-    ">" -> ('I, 'I),
-    ">=" -> ('I, 'I),
-    "and" -> ('B, 'B),
-    "or" -> ('B, 'B),
-    "not" -> ('B)))
+    '= -> ('I, 'I),
+    '< -> ('I, 'I),
+    '<= -> ('I, 'I),
+    '> -> ('I, 'I),
+    '>= -> ('I, 'I),
+    'and -> ('B, 'B),
+    'or -> ('B, 'B),
+    'not -> 'B))
 
   def retrieveGrammar(ntDefs: List[NTDef]): List[(Any, Seq[Any])] = ntDefs.map {
     case NTDef(symbol: String, sortExpr: SortExpr, gterms: List[GTerm]) =>
-      symbol -> {
+      Symbol(symbol) -> {
         gterms.map({
-          case CompositeGTerm(symbol: String, terms: List[GTerm]) => symbol -> terms.map {
-            case CompositeGTerm(symbol: String, terms: List[GTerm])           => symbol
+          case CompositeGTerm(symbol: String, terms: List[GTerm]) => Symbol(symbol) -> terms.map {
+            case CompositeGTerm(symbol: String, terms: List[GTerm])           => Symbol(symbol)
             case LiteralGTerm(literal: Literal)                               => literal
-            case SymbolGTerm(symbol: String)                                  => symbol //Input(argNames.indexOf(symbol))
-            case LetGTerm(list: List[(String, SortExpr, GTerm)], term: GTerm) => 0 // TODO
+            case SymbolGTerm(symbol: String)                                  => Symbol(symbol) //Input(argNames.indexOf(symbol))
+            case LetGTerm(list: List[(String, SortExpr, GTerm)], term: GTerm) => ??? // TODO
           }
           case LiteralGTerm(literal: Literal) => literal match {
             case IntConst(value: Int)          => value
@@ -189,10 +189,10 @@ object SygusSynthesisTask {
             case BVConst(value: List[Boolean]) => value
             case StringConst(value: String)    => value
           }
-          case SymbolGTerm(symbol: String)                                  => symbol
-          case LetGTerm(list: List[(String, SortExpr, GTerm)], term: GTerm) => 0 // TODO: Not implemented yet
-          case GenericGTerm(identifier: String, sortExpr: SortExpr)         => 0 // TODO
-        }).toSeq
+          case SymbolGTerm(symbol: String)                                  => Symbol(symbol)
+          case LetGTerm(list: List[(String, SortExpr, GTerm)], term: GTerm) => ??? // TODO: Not implemented yet
+          case GenericGTerm(identifier: String, sortExpr: SortExpr)         => ??? // TODO
+        })
       }
   }
 }

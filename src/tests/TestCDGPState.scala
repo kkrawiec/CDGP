@@ -118,7 +118,7 @@ final class TestCDGPState {
     val code = TestCDGPState.scriptMax
     val problem = LoadSygusBenchmark.parseText(code)
     val state = new CDGPState(problem)
-    val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=false)
+    val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=true)
     val t1 = (GetValueParser("((x 4)(y 3))").toMap, Some(4))
     val t2 = (GetValueParser("((x 5)(y 1))").toMap, Some(5))
     val t3 = (GetValueParser("((x 1)(y 3))").toMap, Some(3))
@@ -132,7 +132,7 @@ final class TestCDGPState {
     val problem = LoadSygusBenchmark.parseText(code)
     val state = new CDGPState(problem)
     assertEquals(true, state.useDomainEvaluation)
-    val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=false)
+    val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=true)
     val t1 = (GetValueParser("((x 4)(y 3))").toMap, Some(4))
     val t2 = (GetValueParser("((x 5)(y 1))").toMap, Some(5))
     val t3 = (GetValueParser("((x 1)(y 3))").toMap, Some(3))
@@ -154,7 +154,7 @@ final class TestCDGPState {
     val code = TestCDGPState.scriptMax
     val problem = LoadSygusBenchmark.parseText(code)
     val state = new CDGPState(problem)
-    val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=false)
+    val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=true)
     val (dec, output) = state.verify(op)
     assertEquals("sat", dec)
     assertEquals(true, output.isDefined)
@@ -165,7 +165,7 @@ final class TestCDGPState {
     val code = TestCDGPState.scriptMax
     val problem = LoadSygusBenchmark.parseText(code)
     val state = new CDGPState(problem)
-    val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=false)
+    val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=true)
     val t1 = (GetValueParser("((y 3)(x 4))").toMap, Some(4))
     val t2 = (GetValueParser("((y 1)(x 5))").toMap, Some(5))
     val t3 = (GetValueParser("((y 3)(x 1))").toMap, Some(3))
@@ -178,7 +178,7 @@ final class TestCDGPState {
     val code = TestCDGPState.scriptMaxRenamedVars
     val problem = LoadSygusBenchmark.parseText(code)
     val state = new CDGPState(problem)
-    val op = Op.fromStr("ite(>=(a b) a 0)", useSymbols=false)
+    val op = Op.fromStr("ite(>=(a b) a 0)", useSymbols=true)
     val t1 = (GetValueParser("((x 4)(y 3))").toMap, Some(4))
     val t2 = (GetValueParser("((x 5)(y 1))").toMap, Some(5))
     val t3 = (GetValueParser("((x 1)(y 3))").toMap, Some(3))
@@ -195,7 +195,7 @@ final class TestCDGPState {
     val code = TestCDGPState.scriptMaxFixedX
     val problem = LoadSygusBenchmark.parseText(code)
     val state = new CDGPState(problem)
-    val op = Op.fromStr("ite(>=(argA argB) argA 0)", useSymbols=false)
+    val op = Op.fromStr("ite(>=(argA argB) argA 0)", useSymbols=true)
     val t1 = (GetValueParser("((asd 4)(y -3))").toMap, Some(1))
     val t2 = (GetValueParser("((asd 5)(y 0))").toMap, Some(1))
     val t3 = (GetValueParser("((asd 1)(y 3))").toMap, Some(3))
@@ -208,7 +208,7 @@ final class TestCDGPState {
     val code = TestCDGPState.scriptMaxFixedX.replace("argA", "x").replace("argB", "y")
     val problem = LoadSygusBenchmark.parseText(code)
     val state = new CDGPState(problem)
-    val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=false)
+    val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=true)
     val t1 = (GetValueParser("((y -3))").toMap, Some(1))
     val t2 = (GetValueParser("((y 0))").toMap, Some(1))
     val t3 = (GetValueParser("((y 3))").toMap, Some(3))

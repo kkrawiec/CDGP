@@ -76,14 +76,14 @@ final class TestSmtlib {
   @Test
   def test_templateVerification_max(): Unit = {
     val templateVerification = new TemplateVerification(maxProblem, maxData)
-    val op = Op.fromStr("ite(=(x y) x y)", useSymbols = false)
+    val op = Op.fromStr("ite(=(x y) x y)", useSymbols = true)
     val query = templateVerification(op)
     val (dec, model) = solver.runSolver(query)
     assertEquals("sat", dec)
     assertEquals(true, model.isDefined)
     println(s"Counterexample: $model")
 
-    val op2 = Op.fromStr("ite(>=(x y) x y)", useSymbols = false)
+    val op2 = Op.fromStr("ite(>=(x y) x y)", useSymbols = true)
     val query2 = templateVerification(op2)
     val (dec2, model2) = solver.runSolver(query2)
     assertEquals("unsat", dec2)
@@ -120,13 +120,13 @@ final class TestSmtlib {
   @Test
   def test_templateIsProgramCorrectForInput_max(): Unit = {
     val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(maxProblem, maxData)
-    val op = Op.fromStr("ite(=(x y) x y)", useSymbols = false)
+    val op = Op.fromStr("ite(=(x y) x y)", useSymbols = true)
     val inputs = Map("x" -> 5, "y" -> 2)
     val query = templateIsProgramCorrectForInput(op, inputs)
     val (dec, model) = solver.runSolver(query)
     assertEquals("unsat", dec)
 
-    val op2 = Op.fromStr("ite(>=(x y) x y)", useSymbols = false)
+    val op2 = Op.fromStr("ite(>=(x y) x y)", useSymbols = true)
     val query2 = templateIsProgramCorrectForInput(op2, inputs)
     val (dec2, model2) = solver.runSolver(query2)
     assertEquals("sat", dec2)
@@ -160,14 +160,14 @@ final class TestSmtlib {
   @Test
   def test_templateVerification_maxPartial(): Unit = {
     val templateVerification = new TemplateVerification(maxPartialProblem, maxPartialData)
-    val op = Op.fromStr("ite(=(x y) x y)", useSymbols = false)
+    val op = Op.fromStr("ite(=(x y) x y)", useSymbols = true)
     val query = templateVerification(op)
     val (dec, model) = solver.runSolver(query)
     assertEquals("sat", dec)
     assertEquals(true, model.isDefined)
     println(s"Counterexample: $model")
 
-    val op2 = Op.fromStr("ite(>=(x y) x y)", useSymbols = false)
+    val op2 = Op.fromStr("ite(>=(x y) x y)", useSymbols = true)
     val query2 = templateVerification(op2)
     val (dec2, model2) = solver.runSolver(query2)
     assertEquals("unsat", dec2)
@@ -200,13 +200,14 @@ final class TestSmtlib {
   @Test
   def test_templateIsProgramCorrectForInput_maxPartial(): Unit = {
     val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(maxPartialProblem, maxPartialData)
-    val op = Op.fromStr("ite(=(x y) x y)", useSymbols = false)
+    val op = Op.fromStr("ite(=(x y) x y)", useSymbols = true)
     val inputs = Map("x" -> 5, "y" -> 2)
     val query = templateIsProgramCorrectForInput(op, inputs)
+    println(query)
     val (dec, model) = solver.runSolver(query)
     assertEquals("unsat", dec)
 
-    val op2 = Op.fromStr("ite(>=(x y) x y)", useSymbols = false)
+    val op2 = Op.fromStr("ite(>=(x y) x y)", useSymbols = true)
     val query2 = templateIsProgramCorrectForInput(op2, inputs)
     val (dec2, model2) = solver.runSolver(query2)
     assertEquals("sat", dec2)
@@ -231,8 +232,9 @@ final class TestSmtlib {
   @Test
   def test_templateVerification_median(): Unit = {
     val templateVerification = new TemplateVerification(medianProblem, medianData)
-    val op = Op.fromStr("ite(>=(a b) a b)", useSymbols = false)
+    val op = Op.fromStr("ite(>=(a b) a b)", useSymbols = true)
     val query = templateVerification(op)
+    println(query)
     val (dec, model) = solver.runSolver(query)
     assertEquals("sat", dec)
     assertEquals(true, model.isDefined)
@@ -284,14 +286,14 @@ final class TestSmtlib {
   @Test
   def test_templateIsProgramCorrectForInput_median(): Unit = {
     val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(medianProblem, medianData)
-    val op = Op.fromStr("ite(>=(a b) a b)", useSymbols = false) // incorrect
+    val op = Op.fromStr("ite(>=(a b) a b)", useSymbols = true) // incorrect
     val inputs = Map("a" -> 5, "b" -> 2,  "c" -> 2)
     val query = templateIsProgramCorrectForInput(op, inputs)
     val (dec, model) = solver.runSolver(query)
     assertEquals("unsat", dec)
     assertEquals(false, model.isDefined)
 
-    val op2 = Op.fromStr("2", useSymbols = false) // correct (on this input)
+    val op2 = Op.fromStr("2", useSymbols = true) // correct (on this input)
     val query2 = templateIsProgramCorrectForInput(op2, inputs)
     val (dec2, model2) = solver.runSolver(query2)
     assertEquals("sat", dec2)
@@ -316,14 +318,14 @@ final class TestSmtlib {
   @Test
   def test_templateVerification_united(): Unit = {
     val templateVerification = new TemplateVerification(unitedProblem, unitedData)
-    val op = Op.fromStr("a", useSymbols = false)
+    val op = Op.fromStr("a", useSymbols = true)
     val query = templateVerification(op)
     val (dec, model) = solver.runSolver(query)
     assertEquals("sat", dec)
     assertEquals(true, model.isDefined)
     println(s"Counterexample: $model")
 
-    val op2 = Op.fromStr("5", useSymbols = false)
+    val op2 = Op.fromStr("5", useSymbols = true)
     val query2 = templateVerification(op2)
     val (dec2, model2) = solver.runSolver(query2)
     assertEquals("unsat", dec2)
@@ -348,14 +350,14 @@ final class TestSmtlib {
   @Test
   def test_templateIsProgramCorrectForInput_united(): Unit = {
     val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(unitedProblem, unitedData)
-    val op = Op.fromStr("a", useSymbols = false) // incorrect
+    val op = Op.fromStr("a", useSymbols = true) // incorrect
     val inputs = Map("x" -> 3)
     val query = templateIsProgramCorrectForInput(op, inputs)
     val (dec, model) = solver.runSolver(query)
     assertEquals("unsat", dec)
     assertEquals(false, model.isDefined)
 
-    val op2 = Op.fromStr("5", useSymbols = false) // correct
+    val op2 = Op.fromStr("5", useSymbols = true) // correct
     val query2 = templateIsProgramCorrectForInput(op2, inputs)
     val (dec2, model2) = solver.runSolver(query2)
     assertEquals("sat", dec2)
@@ -386,10 +388,10 @@ final class TestSmtlib {
 
   @Test
   def test_opToString(): Unit = {
-    val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=false)
+    val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=true)
     assertEquals("(ite (>= x y) x 0)", SMTLIBFormatter.opToString(op))
     assertEquals("(ite (>= x y) x 0)", SMTLIBFormatter(op))
-    val op2 = Op.fromStr("ite(>=(x y) x \"0\")", useSymbols=false)
+    val op2 = Op.fromStr("ite(>=(x y) x \"0\")", useSymbols=true)
     assertEquals("(ite (>= x y) x \"0\")", SMTLIBFormatter.opToString(op2))
   }
 
