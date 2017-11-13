@@ -341,7 +341,10 @@ object SMTLIBFormatter {
   }
 
   def opToString(op: Op): String = {
-    val opStr = if (op.op.isInstanceOf[Symbol]) op.op.toString.tail else op.op.toString
+    val opStr =
+      if (op.op.isInstanceOf[Symbol]) op.op.toString.tail
+      //else if (op.op.isInstanceOf[String]) "\"" + op.op + "\""  // String constant
+      else op.op.toString
     if (op.args.isEmpty) normalizeTerminal(opStr)
     else s"($opStr ${op.args.map(opToString(_)).mkString(" ")})"
   }

@@ -143,8 +143,8 @@ object SygusSynthesisTask {
     // The first symbol in the grammar is the initial symbol, and that symbol depends
     // on the output type of the function:
     se match {
-      case BoolSortExpr() => List(bp, ip)
-      case IntSortExpr()  => List(ip, bp)
+      case BoolSortExpr() => List(bp, ip, intProd_const)
+      case IntSortExpr()  => List(ip, bp, intProd_const)
       case _ => throw new Exception(s"Default grammar not supported for $se")
     }
   }
@@ -153,10 +153,14 @@ object SygusSynthesisTask {
   // arithmetic' in SygusComp16.pdf)
   // Constants are fixed for now:
   def intProd(vars: Seq[Any]): (Any, Seq[Any]) = 'I -> (vars ++ Seq(
-    /*-1, 0, 1,*/ ConstantMarker("Int"),
+    ConstantMarker("Int"),
     "+" -> ('I, 'I),
     "-" -> ('I, 'I),
+    "*" -> ('I_const, 'I),
+    "div" -> ('I, 'I_const),
+    "mod" -> ('I, 'I_const),
     "ite" -> ('B, 'I, 'I)))
+  def intProd_const: (Any, Seq[Any]) = 'I_const -> Seq(ConstantMarker("Int"))
   def boolProd(vars: Seq[Any]): (Any, Seq[Any]) = 'B -> (vars ++ Seq(
     true, false,
     "=" -> ('I, 'I),
