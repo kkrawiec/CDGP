@@ -358,7 +358,7 @@ class CDGPState(val sygusProblem: SyGuS16)
           (false, evalTests)
         else {
           val (decision, r) = verify(s)
-          if (decision == "unsat")
+          if (decision == "unsat" && evalTests.sum == 0)
             (true, evalTests)  // perfect program found; end of run
           else if (decision == "sat") {
             if (testsManager.newTests.size < maxNewTestsPerIter) {
@@ -400,7 +400,7 @@ class CDGPState(val sygusProblem: SyGuS16)
         else if (allTestsPassed(evalTests)) {
           // program passes all tests - verify if it is correct
           val (decision, _) = verify(s)
-          if (decision == "unsat")
+          if (decision == "unsat" && evalTests.sum == 0)
             (true, evalTests)  // perfect program found; end of run
           else {
             generateAndAddRandomTest()  // program incorrect; generate random test
