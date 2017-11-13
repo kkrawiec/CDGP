@@ -235,8 +235,16 @@ object Common {
   def correctSeqInt: (Any, FSeqInt) => Boolean =
     (_: Any, e: FSeqInt) => e.correct
 
+  def containsDiv0(op: Op): Boolean = {
+    if (op.args.isEmpty)
+      false
+    else if ((op.op == 'mod || op.op == 'div) && op.args(1).op == 0)
+      true
+    else
+      op.args.exists(containsDiv0(_))
+  }
   def isFeasible(rootFunName: String, opt: Options)(op: Op): Boolean = {
-    if (op.count(rootFunName) <= opt.paramInt("maxRecursiveCalls", 1))
+    if (op.count(rootFunName) <= opt.paramInt("maxRecursiveCalls", 1) && !containsDiv0(op))
       SimpleGP.defaultFeasible(opt)(op)
     else false
   }
