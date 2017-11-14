@@ -25,6 +25,13 @@ class TestGetValueParser {
                (y -2)(z "eps"))""").toMap)
   }
 
+  @Test
+  def testGetValueTooBigInt(): Unit = {
+    try {
+      GetValueParser("""((x 12345678901234)(y (- 2)))""").toMap
+      fail()
+    } catch { case e: Throwable => }
+  }
 
   @Test
   def testParserString(): Unit = {

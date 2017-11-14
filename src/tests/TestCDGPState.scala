@@ -287,6 +287,22 @@ final class TestCDGPState {
   }
 
   @Test
+  def test_createTestFromFailedVerification_tooBig(): Unit = {
+    val code =
+      """(set-logic LIA)
+        |(synth-fun f ( (w Int)(x Int)(y Int)(z Int)) Int )
+        |(declare-var a Int)
+        |(constraint (= (f a a 4 4) (+ (* 2 a) 8)))
+        |(check-synth)
+      """.stripMargin
+    val problem = LoadSygusBenchmark.parseText(code)
+    val state = new CDGPState(problem)
+    val solverOut = "((a 12345678901234))"
+    val test = state.createTestFromFailedVerification(solverOut)
+    assertEquals(None, test)
+  }
+
+  @Test
   def test_createTestsFromConstraints(): Unit = {
     val code =
       """(set-logic SLIA)

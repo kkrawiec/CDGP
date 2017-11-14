@@ -288,13 +288,19 @@ class CDGPState(val sygusProblem: SyGuS16)
 
 
   def createTestFromFailedVerification(verOutput: String): Option[(Map[String, Any], Option[Any])] = {
-    val testModel = GetValueParser(verOutput)  // parse model returned by solver
-    val testNoOutput = (testModel.toMap, None)  // for this test currently the correct answer is not known
+    try {
+      val testModel = GetValueParser(verOutput) // parse model returned by solver
+      val testNoOutput = (testModel.toMap, None) // for this test currently the correct answer is not known
 
-    if (testsManager.tests.contains(testNoOutput._1))
-      None  // this input already was used, there is no use to search for output
-    else {
-      Some(findOutputForTestCase(testNoOutput, singleAnswerFormal))
+      if (testsManager.tests.contains(testNoOutput._1))
+        None // this input already was used, there is no use to search for output
+      else {
+        Some(findOutputForTestCase(testNoOutput, singleAnswerFormal))
+      }
+    } catch {
+      case e: Throwable =>
+        println("Error during creation of counterexample. Original message: " + e.getMessage)
+        None
     }
   }
 
