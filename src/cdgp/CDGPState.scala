@@ -85,6 +85,9 @@ class CDGPState(val sygusProblem: SyGuS16)
   lazy val templateSimplify = new TemplateSimplify(sygusProblem, sygusData)
 
 
+  // For statistic/diagnostic info
+  var numRejectedCounterex = 0
+
 
   def getEvaluationMode: String = {
     println(s"(singleInvocationProperty ${sygusData.singleInvocFormal})")
@@ -300,6 +303,7 @@ class CDGPState(val sygusProblem: SyGuS16)
     } catch {
       case e: Throwable =>
         println("Error during creation of counterexample. Original message: " + e.getMessage)
+        numRejectedCounterex += 1
         None
     }
   }

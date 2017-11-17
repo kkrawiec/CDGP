@@ -346,6 +346,7 @@ object Common {
     coll.set("cdgp.testsHistory", cdgpState.testsManager.history.toList.sorted.mkString(", "))
     coll.set("cdgp.totalTestsKnownOutputs", cdgpState.testsManager.getNumberOfKnownOutputs)
     coll.set("cdgp.totalTestsUnknownOutputs", cdgpState.testsManager.getNumberOfUnknownOutputs)
+    coll.set("cdgp.numRejectedCounterex", cdgpState.numRejectedCounterex)
     coll.set("cdgp.solverTotalCalls", cdgpState.solver.getNumCalls)
     coll.set("cdgp.solverTotalRestarts", cdgpState.solver.getNumRestarts)
     coll.set("cdgp.solverTimeMinSec", cdgpState.solver.getMinSolveTime)
