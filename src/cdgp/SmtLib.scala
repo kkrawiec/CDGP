@@ -129,10 +129,10 @@ class TemplateIsOutputCorrectForInput(problem: SyGuS16,
     // Guard against incorrect usage of this query.
     assert(sygusData.singleInvocFormal, "IsOutputCorrectForInput query can only be used if problem has the single-invocation property.")
 
-    val textOutput = SMTLIBFormatter.normalizeTerminal(output.toString)
+    val textOutput = SMTLIBFormatter.constToSmtlib(output)
     val textInputs = sygusData.varDecls.map { v =>
       s"(define-fun ${v.sym} () " +
-        s"${SMTLIBFormatter.sortToString(v.sortExpr)} ${SMTLIBFormatter.normalizeTerminal(input(v.sym).toString)})"
+        s"${SMTLIBFormatter.sortToString(v.sortExpr)} ${SMTLIBFormatter.constToSmtlib(input(v.sym))})"
     }.mkString("\n")
     val code = template.format(textOutput, textInputs)
     CheckSatQuery(code, "")
@@ -186,7 +186,7 @@ class TemplateIsProgramCorrectForInput(problem: SyGuS16,
     val programBody = SMTLIBFormatter.opToString(program)
     val textInputs = sygusData.varDecls.map{ v =>
       s"(define-fun ${v.sym} () " +
-      s"${SMTLIBFormatter.sortToString(v.sortExpr)} ${SMTLIBFormatter.normalizeTerminal(input(v.sym).toString)})"
+      s"${SMTLIBFormatter.sortToString(v.sortExpr)} ${SMTLIBFormatter.constToSmtlib(input(v.sym))})"
     }.mkString("\n")
     val code = template.format(programBody, textInputs)
     CheckSatQuery(code, "")
@@ -256,10 +256,10 @@ class TemplateFindOutput(problem: SyGuS16,
 
     val textInputs = sygusData.varDecls.map{ v =>
       s"(define-fun ${v.sym} () " +
-        s"${SMTLIBFormatter.sortToString(v.sortExpr)} ${SMTLIBFormatter.normalizeTerminal(input(v.sym).toString)})"
+        s"${SMTLIBFormatter.sortToString(v.sortExpr)} ${SMTLIBFormatter.constToSmtlib(input(v.sym))})"
     }.mkString("\n")
     val textExcludeConstr = if (excludeValues.isEmpty) "" else
-      excludeValues.map { x => s"(assert (distinct CorrectOutput $x))" }.mkString("\n")
+      excludeValues.map { x => s"(assert (distinct CorrectOutput ${SMTLIBFormatter.constToSmtlib(x)}))" }.mkString("\n")
     val code = template.format(textInputs, textExcludeConstr)
     CheckSatQuery(code, satCmds)
   }
@@ -326,15 +326,21 @@ object SMTLIBFormatter {
 
   def apply(op: Op): String = opToString(op)
 
-  def normalizeTerminal(x: String): String = {
+  def normalizeNumber(x: String): String = {
     if (x.head == '-') s"(- ${x.tail})"  // special treatment for negative numbers
     else x
+  }
+
+  def constToSmtlib(c: Any): String = {
+    if (c.isInstanceOf[Int] || c.isInstanceOf[Double]) normalizeNumber(c.toString)
+    else if (c.isInstanceOf[String]) "\"" + c + "\""
+    else c.toString
   }
 
   def testsAsIteExpr(tests: Seq[(Map[String, Any], Any)], default: String): String = {
     if (tests.isEmpty) default
     else {
-      val cond = tests.head._1.map{case (k, v) => s"(= $k ${normalizeTerminal(v.toString)})" }.mkString("(and ", " ", ")")
+      val cond = tests.head._1.map{case (k, v) => s"(= $k ${normalizeNumber(v.toString)})" }.mkString("(and ", " ", ")")
       val elseBlock = testsAsIteExpr(tests.tail, default)
       s"(ite $cond ${tests.head._2} $elseBlock)"
     }
@@ -345,7 +351,7 @@ object SMTLIBFormatter {
       if (op.op.isInstanceOf[Symbol]) op.op.toString.tail
       else if (op.op.isInstanceOf[String]) "\"" + op.op + "\""  // String constant
       else op.op.toString
-    if (op.args.isEmpty) normalizeTerminal(opStr)
+    if (op.args.isEmpty) normalizeNumber(opStr)
     else s"($opStr ${op.args.map(opToString(_)).mkString(" ")})"
   }
 
