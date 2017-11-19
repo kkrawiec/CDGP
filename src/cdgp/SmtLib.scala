@@ -299,7 +299,7 @@ class TemplateSimplify(problem: SyGuS16,
     s"(set-logic ${SMTLIBFormatter.getLogicName(problem)})\n" +
       (if (timeout > 0) s"(set-option :timeout $timeout)\n" else "") +
       auxiliaries + "\n" +
-      SMTLIBFormatter.produceVarDecls(sygusData) +
+      SMTLIBFormatter.produceVarDeclsForSynthFunArgs(sygusData) +
       "(simplify %1$s\n)\n"
   }
   val template: String = createTemplate
@@ -375,6 +375,12 @@ object SMTLIBFormatter {
   def produceVarDecls(sygusConstr: SygusProblemData): String = {
     sygusConstr.varDecls.map{v =>
       s"(declare-fun ${v.sym} () ${SMTLIBFormatter.sortToString(v.sortExpr)})"
+    }.mkString("", "\n", "\n")
+  }
+
+  def produceVarDeclsForSynthFunArgs(sygusData: SygusProblemData): String = {
+    sygusData.synthTask.args.map{ case (v, tpe) =>
+      s"(declare-fun $v () ${SMTLIBFormatter.sortToString(tpe)})"
     }.mkString("", "\n", "\n")
   }
 
