@@ -15,6 +15,18 @@ import swim.tree._
 
 
 
+trait CDGPAlgorithm[S, E] {
+  def cdgpState: CDGPState
+  def bsf: BestSoFar[S, E]
+
+  /**
+    * Current state of the population. Should be updated after every iteration.
+    */
+  var pop: Option[StatePop[(S, E)]] = None
+}
+
+
+
 /**
   * This is a standard generational GP in which evolved are program trees.
   * All solutions from the current generation are used to create offsprings (guided by the
@@ -33,10 +45,11 @@ import swim.tree._
 class CDGPGenerational(moves: GPMoves,
                        cdgpEval: CDGPEvaluation[Op, FInt])
                       (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[FInt])
-      extends SimpleGP(moves, cdgpEval.eval, Common.correctInt) {
+      extends SimpleGP(moves, cdgpEval.eval, Common.correctInt) with CDGPAlgorithm[Op, FInt] {
+  override def cdgpState: CDGPState = cdgpEval.state
   override def initialize  = super.initialize
   override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalInt(cdgpEval.state, bsf)
-  override def iter = super.iter// andThen super.report // uncomment report to change the result (FUEL issue #6)
+  override def iter = super.iter andThen Common.saveCurrentPop(this)// andThen super.report // uncomment report to change the result (FUEL issue #6)
   override def evaluate = cdgpEval
 }
 
@@ -78,9 +91,10 @@ class CDGPSteadyState(moves: GPMoves,
       extends SteadyStateEA[Op, FInt](moves, cdgpEval.eval,
                                       Common.correctInt,
                                       CDGPSteadyState.getSelection(),
-                                      CDGPSteadyState.getDeselection()) {
+                                      CDGPSteadyState.getDeselection()) with CDGPAlgorithm[Op, FInt] {
+  override def cdgpState: CDGPState = cdgpEval.state
   override def initialize  = super.initialize
-  override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests
+  override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests andThen Common.saveCurrentPop(this)
   override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalInt(cdgpEval.state, bsf)
   override def report = s => s
   override def evaluate = // used only for the initial population
@@ -139,10 +153,12 @@ object CDGPSteadyState {
 class CDGPGenerationalLexicase(moves: GPMoves,
                                cdgpEval: CDGPEvaluation[Op, FSeqInt])
                               (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[Int])
-      extends LexicaseGPMain[Int, FSeqInt](moves, cdgpEval.eval, Common.correctSeqInt, FSeqIntOrdering) {
+      extends LexicaseGPMain[Int, FSeqInt](moves, cdgpEval.eval, Common.correctSeqInt, FSeqIntOrdering)
+        with CDGPAlgorithm[Op, FSeqInt] {
+  override def cdgpState: CDGPState = cdgpEval.state
   override def initialize  = super.initialize
   override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalSeqInt(cdgpEval.state, bsf)
-  override def iter = super.iter andThen super.report
+  override def iter = super.iter andThen super.report andThen Common.saveCurrentPop(this)
   override def evaluate = cdgpEval
 }
 
@@ -187,9 +203,10 @@ class CDGPSteadyStateLexicase(moves: GPMoves,
       extends SteadyStateEA[Op, FSeqInt](moves, cdgpEval.eval,
                                          Common.correctSeqInt,
                                          CDGPSteadyStateLexicase.getSelection(),
-                                         CDGPSteadyStateLexicase.getDeselection()) {
+                                         CDGPSteadyStateLexicase.getDeselection()) with CDGPAlgorithm[Op, FSeqInt] {
+  override def cdgpState: CDGPState = cdgpEval.state
   override def initialize  = super.initialize
-  override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests
+  override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests andThen Common.saveCurrentPop(this)
   override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalSeqInt(cdgpEval.state, bsf)
   override def evaluate = // used only for the initial population
     (s: StatePop[Op]) => {
@@ -276,6 +293,11 @@ object Common {
   }
   def evalPopToDefaultFInt(dec: Boolean, fit: Int)(s: StatePop[Op]): StatePop[(Op, FInt)] = {
     StatePop(s.map{ op => (op, FInt(dec, fit, op.size))})
+  }
+
+  def saveCurrentPop[S, E](alg: CDGPAlgorithm[S, E])(s: StatePop[(S, E)]): StatePop[(S, E)] = {
+    alg.pop = Some(s)
+    s
   }
 
   def printPop[S, E](s: StatePop[(S, E)]): StatePop[(S, E)] = {

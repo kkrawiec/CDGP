@@ -6,7 +6,11 @@ import fuel.func.RunExperiment
 import fuel.util.{CollectorFile, Options, OptionsMap, Rng}
 import swim.tree.Op
 import cdgp._
+import fuel.core.StatePop
 
+import scala.concurrent._
+import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext.Implicits.global
 
 
 /**
@@ -18,6 +22,11 @@ import cdgp._
   * --solverPath, path to the SMT solver (e.g. Z3)
   */
 object Main {
+
+  def runWithTimeout[T](timeoutMs: Long)(f: => T) : T = {
+    Await.result(Future(f), Duration(timeoutMs, MILLISECONDS))
+  }
+
   def getOptions(args: Array[String]): Options = {
     val opt = Options(args)
     if (opt.getOption("loadOptionsFromFile").isDefined) {
@@ -32,6 +41,51 @@ object Main {
     implicit val opt = getOptions(args)
     implicit val coll = CollectorFile(opt)
     implicit val rng = Rng(opt)
+
+    def watchTimeFInt(alg: CDGPAlgorithm[Op, FInt], f: => Option[StatePop[(Op, FInt)]]): Option[StatePop[(Op, FInt)]] = {
+      val maxTime = opt('maxTime, 2000)
+      try {
+        val res = runWithTimeout(maxTime)(f)
+        res
+      }
+      catch {
+        case e: java.util.concurrent.TimeoutException =>
+          println("Timeout!!!!!!!!!!!!!!!!!!!")
+          coll.set("cdgp.wasTimeout", true)
+          coll.set("result.totalTimeSystem", maxTime.toDouble / 1000.0)  // save in sec
+          if (alg.pop.isDefined) {
+            alg.bsf(alg.pop.get) // update bsf
+            Common.epilogueEvalInt(alg.cdgpState, alg.bsf)(alg.pop.get)
+          }
+          coll.saveSnapshot("cdgp")
+          alg.pop
+      }
+    }
+
+    def watchTimeFSeqInt(alg: CDGPAlgorithm[Op, FSeqInt], f: => Option[StatePop[(Op, FSeqInt)]]): Option[StatePop[(Op, FSeqInt)]] = {
+      val maxTime = opt('maxTime, 2000)  //86400000 // 24h in miliseconds
+      try {
+        val res = runWithTimeout(maxTime)(f)
+        res
+      }
+      catch {
+        case e: java.util.concurrent.TimeoutException =>
+          println("Timeout!!!!!!!!!!!!!!!!!!!")
+          coll.set("cdgp.wasTimeout", true)
+          coll.set("result.totalTimeSystem", maxTime.toDouble / 1000.0)  // save in sec
+          if (alg.pop.isDefined) {
+            alg.bsf(alg.pop.get) // update bsf
+            Common.epilogueEvalSeqInt(alg.cdgpState, alg.bsf)(alg.pop.get)
+          }
+          coll.saveSnapshot("cdgp")
+          alg.pop
+      }
+    }
+
+
+    // --------------------------------------------------------------------------
+    //                             MAIN LOOP
+    // --------------------------------------------------------------------------
     try {
       val benchmark = opt('benchmark)
       println(s"Benchmark: $benchmark")
@@ -40,22 +94,22 @@ object Main {
       val (res, bestOfRun) = opt('searchAlgorithm) match {
         case "GP" =>
           val alg = CDGPGenerational(cdgpState)
-          val finalPop = RunExperiment(alg)
+          val finalPop = watchTimeFInt(alg, RunExperiment(alg))
           (finalPop, alg.bsf.bestSoFar)
 
         case "GPSteadyState" =>
           val alg = CDGPSteadyState(cdgpState)
-          val finalPop = RunExperiment(alg)
+          val finalPop = watchTimeFInt(alg, RunExperiment(alg))
           (finalPop, alg.bsf.bestSoFar)
 
         case "Lexicase" =>
           val alg = CDGPGenerationalLexicase(cdgpState)
-          val finalPop = RunExperiment(alg)
+          val finalPop = watchTimeFSeqInt(alg, RunExperiment(alg))
           (finalPop, alg.bsf.bestSoFar)
 
         case "LexicaseSteadyState" =>
           val alg = CDGPSteadyStateLexicase(cdgpState)
-          val finalPop = RunExperiment(alg)
+          val finalPop = watchTimeFSeqInt(alg, RunExperiment(alg))
           (finalPop, alg.bsf.bestSoFar)
       }
       coll.saveSnapshot("cdgp")
@@ -83,7 +137,7 @@ object Main {
       println("Tests known outputs:".padTo(pn, ' ') + cdgpState.testsManager.getNumberOfKnownOutputs)
       println("Total solver calls:".padTo(pn, ' ') + cdgpState.solver.getNumCalls)
       println("Generations:".padTo(pn, ' ') + coll.getResult("best.generation").get)
-      println("Total time [s]:".padTo(pn, ' ') + coll.getResult("totalTimeSystem").get.toString.toInt / 1000.0)
+      println("Total time [s]:".padTo(pn, ' ') + coll.getResult("totalTimeSystem").get.toString.toDouble / 1000.0)
       println("Log file:".padTo(pn, ' ') + coll.get("thisFileName").get.toString)
 
       if (opt("printTests", false)) {
@@ -112,7 +166,10 @@ object Main {
         coll.set("cdgp.noCorrectSolution", true)
         coll.set("terminatingException", e.toString)
         coll.saveSnapshot("cdgp")
-        System.exit(0)
+      case e: java.util.concurrent.TimeoutException =>
+        println("Timeout!!!!!!!!!!!!!!!!!!!")
+        coll.set("cdgp.wasTimeout", true)
+        coll.saveSnapshot("cdgp")
       case e: Throwable =>
         println(s"Terminating exception occurred! Message: ${e.getMessage}")
         coll.set("terminatingException", e.toString)

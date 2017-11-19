@@ -82,7 +82,7 @@ class CDGPState(val sygusProblem: SyGuS16)
   lazy val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(sygusProblem, sygusData, timeout = timeout)
   lazy val templateFindOutput = new TemplateFindOutput(sygusProblem, sygusData, timeout = timeout)
   lazy val templateFindOutputNeg = new TemplateFindOutput(sygusProblem, sygusData, negateConstr = true, timeout = timeout)
-  lazy val templateSimplify = new TemplateSimplify(sygusProblem, sygusData)
+  lazy val templateSimplify = new TemplateSimplify(sygusProblem, sygusData, timeout = timeout)
 
 
   // For statistic/diagnostic info
