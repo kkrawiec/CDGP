@@ -74,8 +74,11 @@ class TemplateVerification(problem: SyGuS16,
   val satCmds = s"(get-value (${sygusData.varDecls.map(_.sym).mkString(" ")}))\n"
 
   override def apply(program: Op): CheckSatQuery = {
-    val programBody = SMTLIBFormatter.opToString(program)
-    val code = template.format(sygusData.synthTask.getSynthFunCode(programBody))
+    apply(SMTLIBFormatter.opToString(program))
+  }
+
+  def apply(program: String): CheckSatQuery = {
+    val code = template.format(sygusData.synthTask.getSynthFunCode(program))
     CheckSatQuery(code, satCmds)
   }
 }
@@ -182,13 +185,16 @@ class TemplateIsProgramCorrectForInput(problem: SyGuS16,
   }
   val template: String = createTemplate
 
-  def apply(program: Op, input: Map[String, Any]): CheckSatQuery = {
-    val programBody = SMTLIBFormatter.opToString(program)
+  override def apply(program: Op, input: Map[String, Any]): CheckSatQuery = {
+    apply(SMTLIBFormatter.opToString(program), input)
+  }
+
+  def apply(program: String, input: Map[String, Any]): CheckSatQuery = {
     val textInputs = sygusData.varDecls.map{ v =>
       s"(define-fun ${v.sym} () " +
-      s"${SMTLIBFormatter.sortToString(v.sortExpr)} ${SMTLIBFormatter.constToSmtlib(input(v.sym))})"
+        s"${SMTLIBFormatter.sortToString(v.sortExpr)} ${SMTLIBFormatter.constToSmtlib(input(v.sym))})"
     }.mkString("\n")
-    val code = template.format(programBody, textInputs)
+    val code = template.format(program, textInputs)
     CheckSatQuery(code, "")
   }
 }

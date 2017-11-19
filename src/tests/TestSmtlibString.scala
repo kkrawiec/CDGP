@@ -44,7 +44,7 @@ final class TestSmtlibString {
       |
       |; (constraint (= (f "Nancy FreeHafer") "Nancy"))
       |(declare-var s String)
-      |(constraint (= (f s) (ithSplit s " " 0) ))
+      |(constraint (=> (distinct (str.indexof s " " 0) (- 1))   (= (f s) (ithSplit s " " 0) )))
       |(check-synth)""".stripMargin
   val firstnameProblem = LoadSygusBenchmark.parseText(specFirstname)
   val firstnameData = SygusProblemData(firstnameProblem)
@@ -53,7 +53,7 @@ final class TestSmtlibString {
 
 
   ////////////////////////////////////////////////////////////////////////////////////
-  //             Tests for MAX
+  //             Tests for FIRSTNAME
   ////////////////////////////////////////////////////////////////////////////////////
   @Test
   def test_templateVerification_firstname(): Unit = {
@@ -65,7 +65,7 @@ final class TestSmtlibString {
     assertEquals(true, model.isDefined)
     println(s"Counterexample: $model")
 
-    val op2 = Op.fromStr("name", useSymbols = true)
+    val op2 = """(str.substr name 0 (str.indexof name " " 0))"""
     val query2 = templateVerification(op2)
     val (dec2, model2) = solver.runSolver(query2)
     assertEquals("unsat", dec2)
@@ -102,16 +102,16 @@ final class TestSmtlibString {
   @Test
   def test_templateIsProgramCorrectForInput_firstname(): Unit = {
     val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(firstnameProblem, firstnameData)
-    val op = Op.fromStr("ite(=(x y) x y)", useSymbols = true)
-    val inputs = Map("s" -> "Iwo")
+    val op = "(str.substr name 0 1)"
+    val inputs = Map("s" -> "Iwo Bladek")
     val query = templateIsProgramCorrectForInput(op, inputs)
     val (dec, model) = solver.runSolver(query)
-    assertEquals("unsat", dec)
+    assertEquals("unsat", dec)  // incorrect
 
-    val op2 = Op.fromStr("ite(>=(x y) x y)", useSymbols = true)
+    val op2 = """(str.substr name 0 (str.indexof name " " 0))"""
     val query2 = templateIsProgramCorrectForInput(op2, inputs)
     val (dec2, model2) = solver.runSolver(query2)
-    assertEquals("sat", dec2)
+    assertEquals("sat", dec2)  // correct
   }
 
   @Test
@@ -120,7 +120,7 @@ final class TestSmtlibString {
     assertEquals(true, firstnameData.singleInvocAll)
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(firstnameProblem, firstnameData)
     val (dec, model) = solver.runSolver(query)
-    assertEquals("unsat", dec)
+    assertEquals("sat", dec)
   }
 
   @Test
