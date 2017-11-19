@@ -43,7 +43,7 @@ object Main {
     implicit val rng = Rng(opt)
 
     def watchTimeFInt(alg: CDGPAlgorithm[Op, FInt], f: => Option[StatePop[(Op, FInt)]]): Option[StatePop[(Op, FInt)]] = {
-      val maxTime = opt('maxTime, 2000)
+      val maxTime = opt('maxTime, 86400000)  // 24h in miliseconds
       try {
         val res = runWithTimeout(maxTime)(f)
         res
@@ -63,7 +63,7 @@ object Main {
     }
 
     def watchTimeFSeqInt(alg: CDGPAlgorithm[Op, FSeqInt], f: => Option[StatePop[(Op, FSeqInt)]]): Option[StatePop[(Op, FSeqInt)]] = {
-      val maxTime = opt('maxTime, 2000)  //86400000 // 24h in miliseconds
+      val maxTime = opt('maxTime, 86400000)  // 24h in miliseconds
       try {
         val res = runWithTimeout(maxTime)(f)
         res
