@@ -302,7 +302,7 @@ class CDGPState(val sygusProblem: SyGuS16)
       }
     } catch {
       case e: Throwable =>
-        println("Error during creation of counterexample. Original message: " + e.getMessage)
+        println(s"Error during creation of counterexample from: $verOutput\nOriginal message: " + e.getMessage)
         numRejectedCounterex += 1
         None
     }
