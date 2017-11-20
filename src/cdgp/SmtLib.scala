@@ -4,6 +4,8 @@ import swim.tree.Op
 import sygus._
 import sygus16.SyGuS16
 
+import scala.collection.mutable
+
 
 
 class Query(val code: String, val mainCmd: String = "(check-sat)\n",
@@ -585,8 +587,38 @@ object SMTLIBFormatter {
       }
       args
     }
+    def getWords(s: String): Array[String] = {
+      if (!s.contains("\""))
+        s.replace("(", " ( ").replace(")", " ) ").split(delim).filter(!_.isEmpty)
+      else {
+        val qMarks = Tools.allOccurences(s, "\"")
+        assert(qMarks.size % 2 == 0, "Odd number of quotation marks!")
+        var wwords = mutable.MutableList[String]()
+        var start = 0
+        for (i <- 0.until(qMarks.size / 2)) {
+          val (a1, a2) = (2 * i, 2 * i + 1)
+          wwords += s.substring(start, qMarks(a1))
+          wwords += s.substring(qMarks(a1), qMarks(a2) + 1)
+          start = qMarks(a2) + 1
+        }
+        if (start < s.size)
+          wwords += s.substring(start, s.size)
+
+        val res = mutable.MutableList[String]()
+        wwords.foreach { s =>
+          if (s != "") {
+            if (s.head == '\"') res += s
+            else {
+              val w = s.replace("(", " ( ").replace(")", " ) ").split(delim).toList.filter(!_.isEmpty)
+              res ++= w
+            }
+          }
+        }
+        res.toArray
+      }
+    }
     try {
-      val words = s.replace("(", " ( ").replace(")", " ) ").split(delim).filter(!_.isEmpty())
+      val words = getWords(s)
       if (words.head != "(") {
         val value = getTerminalOp(words.head)
         val nt = getNtForTerminal(value)

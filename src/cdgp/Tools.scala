@@ -37,4 +37,19 @@ object Tools {
     } / xs.size)
   }
 
+  def allOccurences(s: String, x: String): List[Int] = {
+    var list = List[Int]()
+    var i = 0
+    do {
+      val ind = s.indexOf(x, i)
+      if (ind == -1)
+        i = s.size
+      else {
+        list = ind :: list
+        i = ind + 1
+      }
+    } while (i < s.size)
+    list.reverse
+  }
+
 }

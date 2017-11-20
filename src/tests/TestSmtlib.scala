@@ -402,4 +402,26 @@ final class TestSmtlib {
     assertEquals("(ite (and (= a 5)) 11 (ite (and (= a 0)) 10 20))",
       SMTLIBFormatter.testsAsIteExpr(Seq(t1, t2), "20"))
   }
+
+  @Test
+  def test_smtlibToOp1(): Unit = {
+    val s = """(str.substr name 0 (str.indexof name " " 0))"""
+    assertEquals(Op(Symbol("str.substr"), Op('name), Op(0), Op(Symbol("str.indexof"), Op('name), Op(" "), Op(0))),
+                 SMTLIBFormatter.smtlibToOp(s))
+  }
+
+  @Test
+  def test_smtlibToOp2(): Unit = {
+    assertEquals(Op(""), SMTLIBFormatter.smtlibToOp("\"\""))
+    assertEquals(Op(" "), SMTLIBFormatter.smtlibToOp("\" \""))
+    assertEquals(Op("  "), SMTLIBFormatter.smtlibToOp("\"  \""))
+    assertEquals(Op("a  b"), SMTLIBFormatter.smtlibToOp("\"a  b\""))
+  }
+
+  @Test
+  def test_allOccurences(): Unit = {
+    assertEquals(List(0, 8), Tools.allOccurences("asd fgh asd", "a"))
+    assertEquals(List(), Tools.allOccurences("asd fgh asd", "z"))
+    assertEquals(List(0, 1, 2), Tools.allOccurences("aaa", "a"))
+  }
 }
