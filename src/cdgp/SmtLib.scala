@@ -67,7 +67,7 @@ class TemplateVerification(problem: SyGuS16,
       auxiliaries + "\n" +
       "%1$s\n" +  // a place to insert target function definition given the program
       sygusData.varDecls.map{ v => s"(declare-fun ${v.sym} () ${SMTLIBFormatter.sortToString(v.sortExpr)})"}.mkString("", "\n", "\n") +
-      constraintsPre + // TODO: Is this correct?
+      constraintsPre +
       s"\n(assert (not $constraintsPost))\n"
   }
   val template: String = createTemplate

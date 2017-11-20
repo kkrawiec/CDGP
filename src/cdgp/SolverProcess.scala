@@ -100,7 +100,7 @@ case class SolverFromScript(path: String, args: String = SolverFromScript.ARGS_Z
 object SolverFromScript {
   // pp.min-alias-size=1000000 pp.max_depth=1000000 are needed for simplification to not have let expressions
   def ARGS_Z3: String = "-smt2 pp.min-alias-size=1000000 pp.max_depth=1000000 " //-file:
-  def ARGS_CVC4: String = "--lang=smt2.5 --default-dag-thresh=0 "
+  def ARGS_CVC4: String = "--lang=smt2.5 --strings-exp --default-dag-thresh=0 "
   def ARGS_OTHER: String = ""
 }
 
@@ -213,7 +213,8 @@ case class SolverInteractive(path: String, args: String = SolverInteractive.ARGS
 object SolverInteractive {
   // pp.min-alias-size=1000000 pp.max_depth=1000000 are needed for simplification to not have let expressions
   def ARGS_Z3: String = "-smt2 pp.min-alias-size=1000000 pp.max_depth=1000000 -in "
-  def ARGS_CVC4: String = "--lang=smt2.5 --default-dag-thresh=0 --incremental "
+  // To use timeout with CVC4: --moreSolverArgs "--tlimit-per 1000"
+  def ARGS_CVC4: String = "--lang=smt2.5 --strings-exp --default-dag-thresh=0 --incremental "
   def ARGS_OTHER: String = ""
 }
 
