@@ -22,7 +22,7 @@ class CDGPState(val sygusProblem: SyGuS16)
   // The types for input and output
   type I = Map[String, Any]
   type O = Any
-  val testsManager = new TestsManagerCDGP[I, O](printAddedTests = opt("printTests", false))
+  val testsManager = new TestsManagerCDGP[I, O](opt("logTestsHistory", false), opt("printTests", false))
 
   val method = opt('method, "CDGP")
   val searchAlg = opt('searchAlgorithm)
