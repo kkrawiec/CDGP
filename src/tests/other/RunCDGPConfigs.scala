@@ -50,7 +50,7 @@ object RunCDGPConfigs extends App {
     println("-" * 100)
     for (method <- Seq("CDGP", "GPR"))
       for (searchAlg <- Seq("GP", "GPSteadyState", "Lexicase", "LexicaseSteadyState")) {
-        val options = Options(s"--solverPath ${Global.solverPath} --benchmark ${file.getAbsolutePath}" +
+        val options = Options(Global.solverConfig + s" --benchmark ${file.getAbsolutePath}" +
           s" --method $method --searchAlgorithm $searchAlg --populationSize 50 --maxGenerations 10 --seed 0")
         runConfig(options)
       }
