@@ -185,7 +185,7 @@ case class SolverInteractive(path: String, args: String = SolverInteractive.ARGS
         ("unsat", outputData)
       }
       else if (output == "unknown" || output == "timeout") (output, None)
-      else throw new UnknownSolverOutputException(s"Solver did not return sat, unsat, nor unknown, but this: $output")
+      else throw new UnknownSolverOutputException(s"Solver did not return sat, unsat, nor unknown, but this: $output.\nQuery:\n$query")
     }
   }
 

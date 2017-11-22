@@ -128,8 +128,7 @@ final class TestCDGPState {
 
   @Test
   def test_evalOnTestsMaxUsingSolver(): Unit = {
-    val code = TestCDGPState.scriptMax
-    val problem = LoadSygusBenchmark.parseText(code)
+    val problem = LoadSygusBenchmark.parseText(TestCDGPState.scriptMax)
     val state = new CDGPState(problem)
     assertEquals(true, state.useDomainEvaluation)
     val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=true)
@@ -148,6 +147,26 @@ final class TestCDGPState {
 //    assertEquals(Some(5), state.testsManager.tests(t2._1))
 //    assertEquals(None,state.testsManager.tests(t3._1))
   }
+
+  @Test
+  def test_evalOnTestsString(): Unit = {
+    val problem = LoadSygusBenchmark.parseText(Global.specFirstname)
+    val state = new CDGPState(problem)
+    val tests = Seq(
+      (Map("s" -> "\\x00 \\x00"), Some("\\x00")),
+      (Map("s" -> " "),Some("")),
+      (Map("s" -> "\\x00 "),Some("\\x00")),
+      (Map("s" -> " \\x00"),Some("")),
+      (Map("s" -> " \\x00\\x00\\x00"),Some("")),
+      (Map("s" -> "\\x00\\x00 \\x00"),Some("\\x00\\x00")),
+      (Map("s" -> " \\x00\\x00"),Some("")),
+      (Map("s" -> "\\x00 \\x00\\x00"),Some("\\x00")),
+      (Map("s" -> " \\x00"),Some("")))
+    tests.foreach{ t => state.testsManager.tests += t }
+    val op = SMTLIBFormatter.smtlibToOp("""(str.substr name 0 (str.indexof name " " 0))""")
+    assertEquals(0, state.evalOnTests(op, state.testsManager.getTests()).sum)
+  }
+
 
   @Test
   def test_evalOnTestsMaxVerify(): Unit = {

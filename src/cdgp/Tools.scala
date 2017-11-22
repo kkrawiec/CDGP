@@ -52,4 +52,36 @@ object Tools {
     list.reverse
   }
 
+  /**
+    * Finds in the string all hex encoded chars (e.g. \x00) and converts them to chars.
+    */
+  def convertHexToChars(s: String): String = {
+    var res = ""
+    var i = 0
+    while (i < s.size) {
+      if (s.charAt(i) == '\\' && s.charAt(i+1) == 'x' && i < s.size-3) {
+        val d1 = hexToInt(s.charAt(i+2))
+        val d2 = hexToInt(s.charAt(i+3))
+        res += (d1*16 + d2).toChar
+        i += 4
+      }
+      else {
+        res += s.charAt(i)
+        i += 1
+      }
+    }
+    res
+  }
+
+  def hexToInt(c: Char): Int = {
+    if (c <= '9') c.asDigit
+    else c match {
+      case 'a' | 'A' => 10
+      case 'b' | 'B' => 11
+      case 'c' | 'C' => 12
+      case 'd' | 'D' => 13
+      case 'e' | 'E' => 14
+      case 'f' | 'F' => 15
+    }
+  }
 }

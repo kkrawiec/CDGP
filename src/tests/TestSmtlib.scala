@@ -418,10 +418,4 @@ final class TestSmtlib {
     assertEquals(Op("a  b"), SMTLIBFormatter.smtlibToOp("\"a  b\""))
   }
 
-  @Test
-  def test_allOccurences(): Unit = {
-    assertEquals(List(0, 8), Tools.allOccurences("asd fgh asd", "a"))
-    assertEquals(List(), Tools.allOccurences("asd fgh asd", "z"))
-    assertEquals(List(0, 1, 2), Tools.allOccurences("aaa", "a"))
-  }
 }

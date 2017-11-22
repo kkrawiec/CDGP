@@ -47,6 +47,16 @@ class SLIA(val funArgsNames: Seq[String], funName: Symbol, recDepth: Int = 100)
   }
 
   override def operationalSemantics(input: Seq[Any])(childRes: Seq[Any]): Any = {
+    val input2 = input.map{ x: Any =>
+      if (!x.isInstanceOf[String]) x
+      else
+        // Convert hex encoding of chars (e.g. \x00) sometimes returned by solver.
+        Tools.convertHexToChars(x.asInstanceOf[String])
+    }
+    operationalSemanticsInternal(input2)(childRes)
+  }
+
+  private def operationalSemanticsInternal(input: Seq[Any])(childRes: Seq[Any]): Any = {
     childRes match {
       // Arithmetic
       case Seq('+, x: Int, y: Int)                => x + y

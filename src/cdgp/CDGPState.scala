@@ -167,7 +167,7 @@ class CDGPState(val sygusProblem: SyGuS16)
     if (output.isEmpty)
       1  // None means that recurrence depth was exceeded
     else if (testOutput.isDefined) {
-      if (output.get == testOutput.get) 0 else 1
+      if (output.get == convertValue(testOutput.get)) 0 else 1
     }
     else {
       // Situation, when the test case has None as the expected output
@@ -181,6 +181,12 @@ class CDGPState(val sygusProblem: SyGuS16)
       //if (dec == "sat") 0 else 1
     }
   }
+
+  def convertValue(value: Any): Any =
+    value match {
+      case str: String => Tools.convertHexToChars(str)
+      case _ => value
+    }
 
   /**
     * Transforms a model returned by the solver to a mapping from synth-fun argument name
