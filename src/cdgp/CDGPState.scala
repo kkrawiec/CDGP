@@ -203,7 +203,7 @@ class CDGPState(val sygusProblem: SyGuS16)
     * any input.
     */
   def hasSingleAnswerForEveryInput(problem: SyGuS16): Option[Boolean] = {
-    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(problem, sygusData)
+    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(problem, sygusData, solverTimeout=timeout)
     // println("\nQuery checkIfSingleAnswerForEveryInput:\n" + query)
     val (dec, model) = solver.runSolver(query)
     if (dec == "sat") {
