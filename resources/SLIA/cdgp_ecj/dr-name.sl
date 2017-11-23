@@ -1,39 +1,22 @@
 (set-logic SLIA)
 
 (synth-fun f ((name String)) String
-
     ((Start String (ntString))
-
      (ntString String (name " " "." "Dr."
-
                        (str.++ ntString ntString)
-
                        (str.replace ntString ntString ntString)
-
                        (str.at ntString ntInt)
-
                        (int.to.str ntInt)
-
                        (str.substr ntString ntInt ntInt)))
-
       (ntInt Int (0 1 2
-
                   (+ ntInt ntInt)
-
                   (- ntInt ntInt)
-
                   (str.len ntString)
-
                   (str.to.int ntString)
-
                   (str.indexof ntString ntString ntInt)))
-
       (ntBool Bool (true false
-
                     (str.prefixof ntString ntString)
-
                     (str.suffixof ntString ntString)
-
                     (str.contains ntString ntString)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -64,6 +47,7 @@
 
 (define-fun precond ((s String)) Bool
     (and (distinct (str.indexof s " " 0) (- 1))  ; there must be at least one space
+         (= (str.indexof s " " (+ (str.indexof s " " 0) 1)) (- 1))  ; only one space
          (>= (str.len s) 3)                      ; at least 3 chars
          (distinct (str.at s 0) " ")             ; first char must be non-space
          (distinct (str.at s (- (str.len s) 1)) " ")  ; last char must be non-space
@@ -76,6 +60,7 @@
 ; (constraint (= (f "Andrew Cencici") "Dr. Andrew"))
 ; (constraint (= (f "Jan Kotas") "Dr. Jan"))
 ; (constraint (= (f "Mariya Sergienko") "Dr. Mariya"))
+; Example solution: (str.++ "Dr." (str.++ " " (str.substr name 0 (str.indexof name " " 0))))
 
 (declare-var s String)
 (constraint (=> (precond s)  (= (ithSplit (f s) " " 0) "Dr." )))
