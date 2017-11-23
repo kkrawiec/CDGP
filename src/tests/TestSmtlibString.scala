@@ -17,7 +17,6 @@ final class TestSmtlibString {
 
 
 
-
   ////////////////////////////////////////////////////////////////////////////////////
   //             Tests for FIRSTNAME
   ////////////////////////////////////////////////////////////////////////////////////
@@ -96,6 +95,36 @@ final class TestSmtlibString {
     println(query)
     val res = solver.executeQuery(query)
     assertEquals("\"asd\"", res)
+  }
+
+
+
+
+  ////////////////////////////////////////////////////////////////////////////////////
+  //             Misc tests
+  ////////////////////////////////////////////////////////////////////////////////////
+  @Test
+  def test_verifyStringBenchmarks(): Unit = {
+    def verify(path: String, correct: String) {
+      println(s"Problem: $path")
+      val problem = LoadSygusBenchmark(path)
+      val templateVerification = new TemplateVerification(problem, SygusProblemData(problem))
+      val query = templateVerification(correct)
+      // println(s"Query:\n$query")
+      val start = System.currentTimeMillis()
+      val (dec, model) = solver.runSolver(query)
+      println("Time: " + (System.currentTimeMillis() - start) + " [ms]")
+      println(s"Result: ($dec, $model)\n")
+      assertEquals("unsat", dec)
+    }
+    verify("resources/SLIA/cdgp_ecj/dr-name.sl", """(str.++ "Dr." (str.++ " " (str.substr name 0 (str.indexof name " " 0))))""")
+    verify("resources/SLIA/cdgp_ecj/firstname.sl", """(str.substr name 0 (str.indexof name " " 0))""")
+    verify("resources/SLIA/cdgp_ecj/initials.sl", """(str.++ (str.++ (str.at name 0) ".")   (str.++ (str.at (str.substr name (+ 1 (str.indexof name " " 0)) (str.len  name)) 0) ".") )""")
+    verify("resources/SLIA/cdgp_ecj/lastname.sl", """(str.substr name (+ 1 (str.indexof name " " 0)) (str.len  name))""")
+    verify("resources/SLIA/cdgp_ecj/name-combine.sl", """(str.++ firstname (str.++ " " lastname))""")
+    verify("resources/SLIA/cdgp_ecj/name-combine-2.sl", """(str.++ (str.++ firstname " ") (str.++ (str.at lastname 0) "."))""")
+    verify("resources/SLIA/cdgp_ecj/name-combine-3.sl", """(str.++ (str.++ (str.at firstname 0) ". ") lastname)""")
+    verify("resources/SLIA/cdgp_ecj/name-combine-4.sl", """(str.++ (str.++ lastname ", ") (str.++ (str.at firstname 0) "."))""")
   }
 
 }
