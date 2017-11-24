@@ -125,6 +125,9 @@ final class TestSmtlibString {
     verify("resources/SLIA/cdgp_ecj/name-combine-2.sl", """(str.++ (str.++ firstname " ") (str.++ (str.at lastname 0) "."))""")
     verify("resources/SLIA/cdgp_ecj/name-combine-3.sl", """(str.++ (str.++ (str.at firstname 0) ". ") lastname)""")
     verify("resources/SLIA/cdgp_ecj/name-combine-4.sl", """(str.++ (str.++ lastname ", ") (str.++ (str.at firstname 0) "."))""")
+    verify("resources/SLIA/cdgp_ecj/phone.sl", """(str.substr name 0 (str.indexof name (str.at name 3) 0))""")
+    verify("resources/SLIA/cdgp_ecj/phone-1.sl", """(str.substr name (+ 1 (str.indexof name (str.at name 3) 0)) 3)""")
+    verify("resources/SLIA/cdgp_ecj/phone-2.sl", """(str.substr name (+ 1 (str.indexof name (str.at name 3) 4)) 3)""")
   }
 
 }

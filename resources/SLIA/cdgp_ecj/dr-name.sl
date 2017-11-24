@@ -23,11 +23,14 @@
 
 (define-fun ithSplit ((s String) (delimiter String) (i Int)) String
     (let ((firstSpacePos Int (str.indexof s delimiter 0)))
-      (let ((SecondSpacePos Int (str.indexof s delimiter (+ firstSpacePos 1))))
+    (let ((SecondSpacePos Int (str.indexof s delimiter (+ firstSpacePos 1))))
+    (let ((ThirdSpacePos Int (str.indexof s delimiter (+ SecondSpacePos 1))))
+
             (ite (= i 0)
                 (ite (= firstSpacePos (- 1))
                      s ; Return the whole string, there was no space
-                     (str.substr s 0 firstSpacePos))
+                     (str.substr s 0 firstSpacePos)
+                )
                 (ite (= i 1)
                     (ite (= firstSpacePos (- 1))
                         "" ; There was no space, so index 1 is out of bounds
@@ -36,12 +39,20 @@
                             (str.substr s (+ firstSpacePos 1) (- (- SecondSpacePos 1) firstSpacePos)) ; to the next space; second arg of str.substr is shift, not position
                         )
                     )
-                    "" ; Unhandled values of i
+                    (ite (= i 2)
+                        (ite (or (= firstSpacePos (- 1)) (= SecondSpacePos (- 1)))
+                            "" ; There was no space, so index 2 is out of bounds
+                            (ite (= ThirdSpacePos (- 1))
+                                (str.substr s (+ SecondSpacePos 1) (str.len s)) ; till the end of the String
+                                (str.substr s (+ SecondSpacePos 1) (- (- ThirdSpacePos 1) SecondSpacePos)) ; to the next space; second arg of str.substr is shift, not position
+                            )
+                        )
+                        "" ; Unhandled values of i (> 2)
+                    )
                 )
             )
 
-      )
-    )
+    )))
 )
 
 
