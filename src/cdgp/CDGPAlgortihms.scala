@@ -319,7 +319,7 @@ object Common {
     val (_, e) = bsf.bestSoFar.get
     val totalTests = cdgpState.testsManager.getNumberOfTests
     val passedTests = if (e.correct) totalTests else totalTests - e.value
-    val ratio = if (totalTests == 0) 1.0 else passedTests / totalTests
+    val ratio = if (totalTests == 0) 1.0 else passedTests.toDouble / totalTests
     val roundedRatio = BigDecimal(ratio).setScale(3, BigDecimal.RoundingMode.HALF_UP).toDouble
     coll.setResult("best.passedTests", passedTests)
     coll.setResult("best.numTests", totalTests)
@@ -334,7 +334,7 @@ object Common {
                         (implicit opt: Options, coll: Collector): StatePop[(Op, FSeqInt)] = {
     val (_, e) = bsf.bestSoFar.get
     val passedTests = if (e.correct) e.size else e.count(_ == 0)
-    val ratio = if (e.isEmpty) 1.0 else passedTests / e.size.toDouble
+    val ratio = if (e.isEmpty) 1.0 else passedTests.toDouble / e.size
     val roundedRatio = BigDecimal(ratio).setScale(3, BigDecimal.RoundingMode.HALF_UP).toDouble
     coll.setResult("best.passedTests", passedTests)
     coll.setResult("best.numTests", e.size)
