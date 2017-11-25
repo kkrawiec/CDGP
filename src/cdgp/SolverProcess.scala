@@ -75,7 +75,7 @@ case class SolverFromScript(path: String, args: String = SolverFromScript.ARGS_Z
     val outputRest = if (lines.size == 1) None else Some(lines.tail.mkString("\n"))
     if (outputDec == "sat" || outputDec == "unsat" || outputDec == "unknown" || outputDec == "timeout")
       (outputDec, outputRest)
-    else throw new Exception(s"Solver did not return sat, unsat, nor unknown, but this: $output")
+    else throw new UnknownSolverOutputException(s"Solver did not return sat, unsat, nor unknown, but this: $output.\nQuery:\n$query")
   }
 
   /** Executes a query and returns raw output as a String. */
