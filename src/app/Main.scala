@@ -52,7 +52,7 @@ object Main {
         case e: java.util.concurrent.TimeoutException =>
           println("Timeout!!!!!!!!!!!!!!!!!!!")
           coll.set("cdgp.wasTimeout", true)
-          coll.set("result.totalTimeSystem", maxTime.toDouble / 1000.0)  // save in sec
+          coll.set("result.totalTimeSystem", maxTime)  // save in ms
           if (alg.pop.isDefined) {
             alg.bsf(alg.pop.get) // update bsf
             Common.epilogueEvalInt(alg.cdgpState, alg.bsf)(alg.pop.get)
@@ -72,7 +72,7 @@ object Main {
         case e: java.util.concurrent.TimeoutException =>
           println("Timeout!!!!!!!!!!!!!!!!!!!")
           coll.set("cdgp.wasTimeout", true)
-          coll.set("result.totalTimeSystem", maxTime.toDouble / 1000.0)  // save in sec
+          coll.set("result.totalTimeSystem", maxTime)  // save in ms
           if (alg.pop.isDefined) {
             alg.bsf(alg.pop.get) // update bsf
             Common.epilogueEvalSeqInt(alg.cdgpState, alg.bsf)(alg.pop.get)
