@@ -308,7 +308,7 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
           println(s"Restarting solver (retry no. $doneRestarts)")
           createWithRetries()
         }
-        else throwExceededMaxRestartsException(error)
+        else throwExceededMaxRestartsException("", error)
     }
   }
 
@@ -324,14 +324,15 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
       res
     }
     catch {
-      case e : UnknownSolverOutputException => throw e  // we want to fail if any UNKNOWN happens
+      // case e : UnknownSolverOutputException => throw e  // we want to fail if any error happens
+      // Sometimes error happens when solver runs too long in the interactive mode.
       case e: Throwable => { // Restarting solver, because most likely it crashed.
         if (doneRestarts < maxSolverRestarts) {
           doneRestarts += 1
           _solver = createWithRetries()
           runSolver(query)
         }
-        else throwExceededMaxRestartsException(e)
+        else throwExceededMaxRestartsException(query.toString, e)
       }
     }
   }
@@ -349,14 +350,15 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
       res
     }
     catch {
-      case e : UnknownSolverOutputException => throw e  // we want to fail if any UNKNOWN happens
+      //case e : UnknownSolverOutputException => throw e  // we want to fail if any UNKNOWN happens
+      // Sometimes error happens when solver runs too long in the interactive mode.
       case e: Throwable => { // Restarting solver, because most likely it crashed.
         if (doneRestarts < maxSolverRestarts) {
           doneRestarts += 1
           _solver = createWithRetries()
           executeQuery(query)
         }
-        else throwExceededMaxRestartsException(e)
+        else throwExceededMaxRestartsException(query.toString, e)
       }
     }
   }
@@ -368,10 +370,10 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
     solver.close()
   }
 
-  protected def throwExceededMaxRestartsException(error: Throwable): Nothing = {
+  protected def throwExceededMaxRestartsException(query: String, error: Throwable): Nothing = {
     error.printStackTrace()
     val msg = s"Exceeded the maximum number of $maxSolverRestarts solver restarts. " +
-              s"Original message: ${error.getMessage}"
+              s"Original message: ${error.getMessage}\nQuery:\n$query"
     coll.set("solverError", error.getMessage)
     coll.set("solverError2", msg)
     coll.saveSnapshot("error_solver")
