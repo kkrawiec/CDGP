@@ -12,6 +12,11 @@ import scala.util.Random
 class UnknownSolverOutputException(message: String = "", cause: Throwable = null)
       extends Exception(message, cause)
 
+
+object SolverSMT {
+  val LOG_FILE: String = "solver_log.txt"
+}
+
 trait SolverSMT extends Closeable {
   /**
     * Executes the query and preprocesses the result, returning decision and optional
@@ -25,6 +30,13 @@ trait SolverSMT extends Closeable {
   def executeQuery(query: String, satCmds: String = "", unsatCmds: String = ""): String = {
     executeQuery(CheckSatQuery(query, satCmds, unsatCmds))
   }
+
+  protected lazy val logFile = new File(SolverSMT.LOG_FILE)
+  protected lazy val logFilePrinter = new PrintWriter(logFile)
+
+  def log(s: String): Unit = {
+    logFilePrinter.print(s)
+  }
 }
 
 
@@ -32,7 +44,7 @@ trait SolverSMT extends Closeable {
   * Saves each query on disk as a temporary file and then executes solver binaries for this query.
   */
 case class SolverFromScript(path: String, args: String = SolverFromScript.ARGS_Z3, verbose: Boolean = false,
-                            seed: Int = 0)
+                            logAllQueries: Boolean = false, seed: Int = 0)
             extends SolverSMT {
   private val rng: Random = scala.util.Random
   rng.setSeed(seed)  // rng is needed to avoid tmp file clashes in case many different processes are run
@@ -90,6 +102,8 @@ case class SolverFromScript(path: String, args: String = SolverFromScript.ARGS_Z
   }
 
   def save(file: File, s: String): Unit = {
+    if (logAllQueries)
+      log(s)
     val pw = new PrintWriter(file)
     pw.print(s)
     pw.close()
@@ -109,7 +123,8 @@ object SolverFromScript {
 /**
   * Executes solver binaries one and works in the interactive mode.
   */
-case class SolverInteractive(path: String, args: String = SolverInteractive.ARGS_Z3, verbose: Boolean = false)
+case class SolverInteractive(path: String, args: String = SolverInteractive.ARGS_Z3,
+                             verbose: Boolean = false, logAllQueries: Boolean = false)
             extends SolverSMT {
 
   private[this] var is: OutputStream = _
@@ -131,6 +146,8 @@ case class SolverInteractive(path: String, args: String = SolverInteractive.ARGS
   private[this] val scanner = new Scanner(os)
 
   private[this] def apply(input: String): Unit = {
+    if (logAllQueries)
+      log(input)
     bis.println(input)
     bis.flush()
   }
@@ -138,12 +155,20 @@ case class SolverInteractive(path: String, args: String = SolverInteractive.ARGS
   private[this] def scanOutputInParentheses: String = {
     val sb = new StringBuilder
     var n: Int = 0
+    var qMarkOpened: Boolean = false
     do {
       val s = scanner.nextLine
       sb ++= s
+      // We must be careful here. One of the models for String problem was:
+      // ((s "&(A\x02\x02 \x00")). This '(' in String made the previous version
+      // of this code wait infinitely long for new input.
+      // NOTE: the code below is still not prepared for the case when '"' char is
+      // in the string.
       for (c <- s) c match {
-        case '(' => n = n + 1
-        case ')' => n = n - 1
+        case '\"' if !qMarkOpened => qMarkOpened = true
+        case '\"' if  qMarkOpened => qMarkOpened = false
+        case '(' if !qMarkOpened => n = n + 1
+        case ')' if !qMarkOpened => n = n - 1
         case _   =>
       }
     } while (n > 0)
@@ -162,7 +187,7 @@ case class SolverInteractive(path: String, args: String = SolverInteractive.ARGS
 
   def solve(query: Query): (String, Option[String]) = {
     this.synchronized {
-      bis.println("(reset)")  // remove all earlier definitions and constraints
+      apply("(reset)\n")  // remove all earlier definitions and constraints
       if (verbose) println(s"Input to the solver:\n$query\n")
       val script = s"${query.code}\n${query.mainCmd}\n"
       apply(script)
@@ -195,7 +220,7 @@ case class SolverInteractive(path: String, args: String = SolverInteractive.ARGS
   /** Simply executes a query and returns raw output. */
   def executeQuery(inputStr: String): String = {
     if (verbose) println(s"Input to the solver:\n$inputStr\n")
-    bis.println("(reset)")  // remove all earlier definitions and constraints
+    apply("(reset)\n")  // remove all earlier definitions and constraints
     apply(inputStr)
     val output = scanOutputInParentheses
     if (verbose) print("Solver output:\n" + output)
@@ -243,6 +268,7 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
                    (implicit opt: Options, coll: Collector) {
   private val maxSolverRestarts: Int = opt('maxSolverRestarts, 1)
   private val solverInteractive: Boolean = opt('solverInteractive, true)
+  private val logAllQueries: Boolean = opt('logAllQueries, false)
   private val solverType: String = opt('solverType, "z3")
   assert(solverType == "z3" || solverType == "cvc4" || solverType == "other",
     "Invalid solver type! --solverType argument accepts values: 'z3', 'cvc4', 'other'.")
@@ -297,9 +323,9 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
     try {
       val solverArgs = getSolverArgs
       if (solverInteractive)
-        SolverInteractive(path, solverArgs, verbose = verbose)
+        SolverInteractive(path, solverArgs, verbose = verbose, logAllQueries = logAllQueries)
       else
-        SolverFromScript(path, solverArgs, verbose = verbose, seed = opt("seed", 0))
+        SolverFromScript(path, solverArgs, verbose = verbose, logAllQueries = logAllQueries, seed = opt("seed", 0))
     }
     catch {
       case error: Throwable =>
@@ -362,6 +388,7 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
       }
     }
   }
+
 
   /**
     * Closes the connection to the solver.

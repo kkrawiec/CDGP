@@ -105,7 +105,7 @@ final class TestSmtlibString {
   ////////////////////////////////////////////////////////////////////////////////////
   @Test
   def test_verifyStringBenchmarks(): Unit = {
-    def verify(path: String, correct: String) {
+    def verify(path: String, correct: String, expected: String = "unsat") {
       println(s"Problem: $path")
       val problem = LoadSygusBenchmark(path)
       val templateVerification = new TemplateVerification(problem, SygusProblemData(problem))
@@ -115,7 +115,7 @@ final class TestSmtlibString {
       val (dec, model) = solver.runSolver(query)
       println("Time: " + (System.currentTimeMillis() - start) + " [ms]")
       println(s"Result: ($dec, $model)\n")
-      assertEquals("unsat", dec)
+      assertEquals(expected, dec)
     }
     verify("resources/SLIA/cdgp_ecj/dr-name.sl", """(str.++ "Dr." (str.++ " " (str.substr name 0 (str.indexof name " " 0))))""")
     verify("resources/SLIA/cdgp_ecj/firstname.sl", """(str.substr name 0 (str.indexof name " " 0))""")

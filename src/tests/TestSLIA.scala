@@ -65,6 +65,7 @@ final class TestLIA {
     assertEquals("", semantics(Seq(Symbol("str.replace"), "", "", "")))
     assertEquals("", semantics(Seq(Symbol("str.replace"), "", "", "5")))
     assertEquals("x", semantics(Seq(Symbol("str.replace"), "x", "", "5")))
+    assertEquals("5  ", semantics(Seq(Symbol("str.replace"), "&(A  ", "&(A", "5")))
     assertEquals("xx", semantics(Seq(Symbol("str.replace"), "xx", "", "5")))
     assertEquals("5a", semantics(Seq(Symbol("str.replace"), "aaa", "aa", "5")))
     assertEquals("5sda", semantics(Seq(Symbol("str.replace"), "asda", "a", "5")))

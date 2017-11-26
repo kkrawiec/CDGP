@@ -1,6 +1,9 @@
 package cdgp
 
+import java.util.regex.Pattern
+
 import swim.RecursiveDomain
+
 import scala.collection.Seq
 
 
@@ -96,7 +99,8 @@ class SLIA(val funArgsNames: Seq[String], funName: Symbol, recDepth: Int = 100)
       case Seq(Symbol("str.len"), s: String) => s.size
       case Seq(Symbol("str.++"), s1: String, s2: String) => s1 + s2
       case Seq(Symbol("str.at"), s: String, i: Int) => if (i >= 0 && i < s.size) s.charAt(i).toString else ""
-      case Seq(Symbol("str.replace"), s: String, a: String, b: String) => if (a == "") s else s.replaceFirst(a, b)
+      case Seq(Symbol("str.replace"), s: String, a: String, b: String) =>
+        if (a == "") s else s.replaceFirst(Pattern.quote(a), b)
       case Seq(Symbol("str.substr"), s: String, a: Int, b: Int) =>
         if (a < 0 || b <= 0 || a >= s.size) ""
         else if (a+b >= s.size) s.substring(a, s.size)

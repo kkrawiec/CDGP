@@ -74,6 +74,7 @@
 ; Example solution: (str.++ "Dr." (str.++ " " (str.substr name 0 (str.indexof name " " 0))))
 
 (declare-var s String)
+(constraint (=> (precond s)  (= (str.len (f s)) (+ (str.indexof s " " 0) 4))))
 (constraint (=> (precond s)  (= (ithSplit (f s) " " 0) "Dr." )))
 (constraint (=> (precond s)  (= (ithSplit (f s) " " 1) (ithSplit s " " 0) )))
 
