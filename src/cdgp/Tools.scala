@@ -78,13 +78,13 @@ object Tools {
           Source: https://rise4fun.com/z3/tutorialcontent/sequences
         */
         val c = s.charAt(i+1) match {
-          case 'a' => 7.toChar.toString
+          case 'a' => Character.toString(7)
           case 'b' => "\b"
           case 'f' => "\f"
           case 'n' => "\n"
           case 'r' => "\r"
           case 't' => "\t"
-          case 'v' => 9.toChar.toString
+          case 'v' => Character.toString(11)
           case _   => ""
         }
         if (c != "") {

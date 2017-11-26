@@ -19,5 +19,7 @@ class TestTools {
     assertEquals("\n", Tools.convertToJavaString("\\n"))
     assertEquals("as\nas", Tools.convertToJavaString("as\\nas"))
     assertEquals("\"", Tools.convertToJavaString("\"\""))
+    assertEquals(Character.toString(7) + "\b", Tools.convertToJavaString("\\a\\b"))
+    assertEquals(Character.toString(11), Tools.convertToJavaString("\\v"))
   }
 }
