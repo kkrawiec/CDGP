@@ -184,7 +184,7 @@ class CDGPState(val sygusProblem: SyGuS16)
 
   def convertValue(value: Any): Any =
     value match {
-      case str: String => Tools.convertHexToChars(str)
+      case str: String => Tools.convertToJavaString(str)
       case _ => value
     }
 

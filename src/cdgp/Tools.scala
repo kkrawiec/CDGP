@@ -54,16 +54,51 @@ object Tools {
 
   /**
     * Finds in the string all hex encoded chars (e.g. \x00) and converts them to chars.
+    * Additionally replaces \n, \t and other such sequences for their appropriate chars.
     */
-  def convertHexToChars(s: String): String = {
+  def convertToJavaString(s: String): String = {
     var res = ""
     var i = 0
     while (i < s.size) {
-      if (s.charAt(i) == '\\' && s.charAt(i+1) == 'x' && i < s.size-3) {
+      if (i <= s.size-4 && s.charAt(i) == '\\' && s.charAt(i+1) == 'x') {
         val d1 = hexToInt(s.charAt(i+2))
         val d2 = hexToInt(s.charAt(i+3))
         res += (d1*16 + d2).toChar
         i += 4
+      }
+      else if (i <= s.size-2 && s.charAt(i) == '\\') {
+        /* Z3 handles following special chars:
+          \a 	audible bell 	byte 0x07 in ASCII encoding
+          \b 	backspace 	byte 0x08 in ASCII encoding
+          \f 	form feed - new page 	byte 0x0c in ASCII encoding
+          \n 	line feed - new line 	byte 0x0a in ASCII encoding
+          \r 	carriage return 	byte 0x0d in ASCII encoding
+          \t 	horizontal tab 	byte 0x09 in ASCII encoding
+          \v 	vertical tab 	byte 0x0b in ASCII encoding
+          Source: https://rise4fun.com/z3/tutorialcontent/sequences
+        */
+        val c = s.charAt(i+1) match {
+          case 'a' => 7.toChar.toString
+          case 'b' => "\b"
+          case 'f' => "\f"
+          case 'n' => "\n"
+          case 'r' => "\r"
+          case 't' => "\t"
+          case 'v' => 9.toChar.toString
+          case _   => ""
+        }
+        if (c != "") {
+          res += c
+          i += 2
+        }
+        else {
+          res += s.charAt(i)
+          i += 1
+        }
+      }
+      else if (i <= s.size-2 && s.charAt(i) == '\"' && s.charAt(i+1) == '\"') {
+        res += "\""
+        i += 2
       }
       else {
         res += s.charAt(i)

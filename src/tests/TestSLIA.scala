@@ -69,6 +69,7 @@ final class TestLIA {
     assertEquals("xx", semantics(Seq(Symbol("str.replace"), "xx", "", "5")))
     assertEquals("5a", semantics(Seq(Symbol("str.replace"), "aaa", "aa", "5")))
     assertEquals("5sda", semantics(Seq(Symbol("str.replace"), "asda", "a", "5")))
+    assertEquals("$\\x00", semantics(Seq(Symbol("str.replace"), "$\\x00 \\x00", "$\\x00 \\x00", "$\\x00")))
 
     // str.indexof
     assertEquals( 0, semantics(Seq(Symbol("str.indexof"), "", "", 0)))
