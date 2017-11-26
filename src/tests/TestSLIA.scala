@@ -73,6 +73,7 @@ final class TestLIA {
     assertEquals( 0, semantics(Seq(Symbol("str.indexof"), "", "", 0)))
     assertEquals(-1, semantics(Seq(Symbol("str.indexof"), "", "", -1)))
     assertEquals(-1, semantics(Seq(Symbol("str.indexof"), "", "", 1)))
+    assertEquals(-1, semantics(Seq(Symbol("str.indexof"), " ", "  ", 0)))
     assertEquals(-1, semantics(Seq(Symbol("str.indexof"), "a", "", -1)))
     assertEquals( 0, semantics(Seq(Symbol("str.indexof"), "a", "", 0)))
     assertEquals( 1, semantics(Seq(Symbol("str.indexof"), "a", "", 1)))
