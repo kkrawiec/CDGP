@@ -3,7 +3,7 @@ package cdgp
 import fuel.core.StatePop
 import fuel.func._
 import fuel.util.{Collector, Options, TRandom}
-import swim.eval.LexicaseSelectionMain
+import swim.eval.LexicaseSelection01
 import swim.tree._
 
 
@@ -155,6 +155,7 @@ class CDGPGenerationalLexicase(moves: GPMoves,
                               (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[Int])
       extends LexicaseGPMain[Int, FSeqInt](moves, cdgpEval.eval, Common.correctSeqInt, FSeqIntOrdering)
         with CDGPAlgorithm[Op, FSeqInt] {
+  override val selection = new LexicaseSelection01[Op, FSeqInt]
   override def cdgpState: CDGPState = cdgpEval.state
   override def initialize  = super.initialize
   override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalSeqInt(cdgpEval.state, bsf)
@@ -220,10 +221,10 @@ class CDGPSteadyStateLexicase(moves: GPMoves,
 
 object CDGPSteadyStateLexicase {
   def getSelection()(implicit rng: TRandom): Selection[Op, FSeqInt] =
-    new LexicaseSelectionMain[Op, Int, FSeqInt](Ordering[Int])
+    new LexicaseSelection01[Op, FSeqInt]
 
   def getDeselection()(implicit opt: Options, rng: TRandom): Selection[Op, FSeqInt] =
-    if (opt('lexicaseDeselection, false)) new LexicaseSelectionMain[Op, Int, FSeqInt](Ordering[Int].reverse)
+    if (opt('lexicaseDeselection, false)) new LexicaseSelection01[Op, FSeqInt]
     else {
       val k = opt('tournamentSize, 7, (_: Int) >= 2)
       new TournamentSelection[Op, FSeqInt](FSeqIntOrdering.reverse, opt('tournamentDeselectSize, k, (_: Int) >= 2))

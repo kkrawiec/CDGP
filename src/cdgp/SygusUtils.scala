@@ -38,6 +38,7 @@ case class SygusProblemData(problem: SyGuS16,
     synthTasks.head
   }
   val synthTask: SygusSynthesisTask = getSynthTask
+  val sygusLogic: String = s"${problem.setLogic.get.id}"
 
   val varDecls: Seq[VarDeclCmd] = problem.cmds.collect { case v: VarDeclCmd => v }
   val varDeclsNames: Seq[String] = varDecls.map(_.sym)
