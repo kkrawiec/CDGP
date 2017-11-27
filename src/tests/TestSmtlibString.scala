@@ -128,6 +128,7 @@ final class TestSmtlibString {
     verify("resources/SLIA/cdgp_ecj/phone.sl", """(str.substr name 0 (str.indexof name (str.at name 3) 0))""")
     verify("resources/SLIA/cdgp_ecj/phone-1.sl", """(str.substr name (+ 1 (str.indexof name (str.at name 3) 0)) 3)""")
     verify("resources/SLIA/cdgp_ecj/phone-2.sl", """(str.substr name (+ 1 (str.indexof name (str.at name 3) 4)) 3)""")
+    verify("resources/SLIA/cdgp_ecj/phone-5.sl", """(str.substr name 1 (- (str.indexof name " " 0) 1))""")
   }
 
 }

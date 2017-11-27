@@ -6,15 +6,15 @@ object Global {
   val solverPath: String = "z3"
   val solverType: String = "z3"  // Possible values: z3, cvc4, other
   val solverArgs: Option[String] = None
-  val moreSolverArgs: String = ""
+  val moreSolverArgs: String = ""   // smt.string_solver=z3str3
   val solverInteractive: String = "true"
 
   def solverConfig: String = {
-    s"--solverPath ${Global.solverPath} " +
-    s"--solverType ${Global.solverType} " +
-    s"--solverInteractive ${Global.solverInteractive}" +
-    (if (solverArgs.isDefined) s"--solverArgs ${Global.solverArgs} " else "") +
-    (if (Global.moreSolverArgs != "") s"--moreSolverArgs ${Global.moreSolverArgs} " else "")
+    s" --solverPath ${Global.solverPath} " +
+    s" --solverType ${Global.solverType} " +
+    s" --solverInteractive ${Global.solverInteractive}" +
+    (if (solverArgs.isDefined) s" --solverArgs ${Global.solverArgs} " else "") +
+    (if (Global.moreSolverArgs != "") s" --moreSolverArgs ${Global.moreSolverArgs} " else "")
   }
 
   val specFirstname: String =
