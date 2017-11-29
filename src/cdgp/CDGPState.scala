@@ -41,6 +41,7 @@ class CDGPState(val sygusProblem: SyGuS16)
   val silent = opt('silent, false)
   val alwaysSearchForOutput = opt('alwaysSearchForOutput, true)
   val gprRetryIfUndefined = opt('gprRetryIfUndefined, true)
+  val printQueries = opt('printQueries, false)
 
 
   val sygusData = SygusProblemData(sygusProblem, opt('mixedSpecAllowed, true))
@@ -95,11 +96,9 @@ class CDGPState(val sygusProblem: SyGuS16)
     if (sygusData.singleInvocFormal) {
       // Checking for the single answer property has sense only if the problem
       // has single invocation property.
-
-      val singleAnswerText = singleAnswerFormal
-      println(s"(singleAnswerForEveryInput $singleAnswerText)")
+      println(s"(singleAnswerForEveryInput $singleAnswerFormal)")
       println(s"(supportForAllTerms ${sygusData.supportForAllTerms})")
-      coll.set("cdgp.singleAnswerForEveryInput", singleAnswerText)
+      coll.set("cdgp.singleAnswerForEveryInput", singleAnswerFormal)
       coll.set("cdgp.supportForAllTerms", sygusData.supportForAllTerms)
       if (singleAnswerFormal && sygusData.supportForAllTerms)
         "gp"  // we may be consider treating unknown singleAnswer as true, with the potential risk of losing "soundness" of the fitness
@@ -204,7 +203,7 @@ class CDGPState(val sygusProblem: SyGuS16)
     */
   def hasSingleAnswerForEveryInput(problem: SyGuS16): Option[Boolean] = {
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(problem, sygusData, solverTimeout=timeout)
-    // println("\nQuery checkIfSingleAnswerForEveryInput:\n" + query)
+    printQuery("\nQuery checkIfSingleAnswerForEveryInput:\n" + query)
     val (dec, model) = solver.runSolver(query)
     if (dec == "sat") {
       val values = GetValueParser(model.get)
@@ -217,7 +216,7 @@ class CDGPState(val sygusProblem: SyGuS16)
 
   def verify(s: Op): (String, Option[String]) = {
     val query = templateVerification(s)
-    // println("\nQuery verify:\n" + query)
+    printQuery("\nQuery verify:\n" + query)
     solver.runSolver(query)
   }
 
@@ -225,14 +224,14 @@ class CDGPState(val sygusProblem: SyGuS16)
                                    testInputsMap: Map[String, Any],
                                    output: Any): (String, Option[String]) = {
     val query = templateIsOutputCorrectForInput(testInputsMap, output)
-    // println("\nQuery checkOnInputAndKnownOutput:\n" + query)
+    printQuery("\nQuery checkOnInputAndKnownOutput:\n" + query)
     solver.runSolver(query)
   }
 
   def checkIsProgramCorrectForInput(s: Op,
                                     testModel: Map[String, Any]): (String, Option[String]) = {
     val query = templateIsProgramCorrectForInput(s, testModel)
-    // println("\nQuery checkOnInputOnly:\n" + query)
+    printQuery("\nQuery checkOnInputOnly:\n" + query)
     solver.runSolver(query)
   }
 
@@ -243,7 +242,7 @@ class CDGPState(val sygusProblem: SyGuS16)
     else {
       try {
         val query = templateFindOutput(test._1)
-        // println("\nQuery findOutputForTestCase:\n" + query)
+        printQuery("\nQuery findOutputForTestCase:\n" + query)
         val (dec, res) = solver.runSolver(query)
         if (dec == "sat") {
           val output: Option[Any] = GetValueParser(res.get).toMap.get(TemplateFindOutput.CORRECT_OUTPUT_VAR)
@@ -259,7 +258,7 @@ class CDGPState(val sygusProblem: SyGuS16)
             // Undefinedness, which means that for such inputs every output is acceptable, makes the whole
             // problem to not have the single-answer property, even if otherwise all inputs have single-answer.
             val query2 = templateFindOutput(test._1, excludeValues = List(output.get))
-            // println("\nQuery findOutputForTestCase2:\n" + query2)
+            printQuery("\nQuery findOutputForTestCase2:\n" + query2)
             val (dec2, res2) = solver.runSolver(query2)
             if (dec2 == "unsat")
               (test._1, output)
@@ -438,6 +437,11 @@ class CDGPState(val sygusProblem: SyGuS16)
   }
   def updateEvalSeqInt(s: (Op, FSeqInt)): (Op, FSeqInt) =
     (s._1, FSeqInt(s._2.correct, s._2.value ++ evalOnTests(s._1, testsManager.newTests.toList), s._1.size))
+
+  def printQuery(s: String): Unit = {
+    if (printQueries)
+      println(s)
+  }
 }
 
 
