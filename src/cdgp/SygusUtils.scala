@@ -62,6 +62,10 @@ case class SygusProblemData(problem: SyGuS16,
   def testCasesConstrToTests: Seq[(Map[String, Any], Option[Any])] = {
     testCasesConstr.map { c =>
       val ct = c.t.asInstanceOf[CompositeTerm]
+      // At this point test cases constraints are of the form: (= (f input) out).
+      // This means that:
+      // - ct.terms(0) is the function invocation part
+      // - ct.terms(1) is the expected output part
       val args = ct.terms(0).asInstanceOf[CompositeTerm].terms.map{ x=>
         SygusUtils.getValueOfLiteral(x.asInstanceOf[LiteralTerm].literal)
       }

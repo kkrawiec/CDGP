@@ -114,6 +114,17 @@ final class TestCDGPState {
   implicit val rng = Rng(emptyOpt)
 
   @Test
+  def test_max_t(): Unit = {
+    // Testing CDGP for pure test-based specification
+    val state = new CDGPState(LoadSygusBenchmark("resources/LIA/max2_t.sl"))
+    state.testsManager.flushHelpers()  // propagate tests
+    assertEquals(5, state.testsManager.getNumberOfTests)
+    assertEquals(5, state.testsManager.getNumberOfKnownOutputs)
+    assertEquals(false, state.sygusData.singleInvocAll)
+    assertEquals(false, state.sygusData.singleInvocFormal)
+  }
+
+  @Test
   def test_evalOnTestsMax(): Unit = {
     val code = TestCDGPState.scriptMax
     val problem = LoadSygusBenchmark.parseText(code)
