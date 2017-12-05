@@ -192,6 +192,7 @@ class CDGPState(val sygusProblem: SyGuS16)
     * to value derived from the model.
     */
   def modelToSynthFunInputs(testModel: Map[String, Any]): Map[String, Any] =
+  // FIXME: exception when invocations are empty
     SygusUtils.renameVars(testModel, invocations.head, synthTask.argNames)
 
 
