@@ -299,6 +299,7 @@ class CDGPState(val sygusProblem: SyGuS16)
 
   def createTestFromFailedVerification(verOutput: String): Option[(Map[String, Any], Option[Any])] = {
     try {
+      // NOTE: should map be used for this? Wouldn't Seq work better?
       val testModel = GetValueParser(verOutput) // parse model returned by solver
       //TODO: convert names to those in function definition
       val testNoOutput = (testModel.toMap, None) // for this test currently the correct answer is not known
