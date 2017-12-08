@@ -300,6 +300,7 @@ class CDGPState(val sygusProblem: SyGuS16)
   def createTestFromFailedVerification(verOutput: String): Option[(Map[String, Any], Option[Any])] = {
     try {
       val testModel = GetValueParser(verOutput) // parse model returned by solver
+      //TODO: convert names to those in function definition
       val testNoOutput = (testModel.toMap, None) // for this test currently the correct answer is not known
 
       if (testsManager.tests.contains(testNoOutput._1))

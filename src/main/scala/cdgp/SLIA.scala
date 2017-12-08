@@ -116,7 +116,7 @@ class SLIA(val funArgsNames: Seq[String], funName: Symbol, recDepth: Int = 100)
         try {
           val x = s.toInt
           if (x < 0) -1 else x
-        } catch {case _ => -1}
+        } catch {case _: Throwable => -1}
 
       // Exceptions
       case Seq(_: String, xs@_*) =>
