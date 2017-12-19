@@ -39,7 +39,7 @@ class CDGPState(val sygusProblem: SyGuS16)
   val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, Int.MaxValue, (x: Int) => x > 0)
   val timeout: Int = opt('solverTimeout, if (opt('solverType, "z3") == "z3") 5000 else 0)
   val silent = opt('silent, false)
-  val alwaysSearchForOutput = opt('alwaysSearchForOutput, true)
+  val alwaysSearchForSecondOutput = opt('alwaysSearchForOutput, true)
   val gprRetryIfUndefined = opt('gprRetryIfUndefined, true)
   val printQueries = opt('printQueries, false)
 
@@ -191,10 +191,30 @@ class CDGPState(val sygusProblem: SyGuS16)
     * Transforms a model returned by the solver to a mapping from synth-fun argument name
     * to value derived from the model.
     */
-  def modelToSynthFunInputs(testModel: Map[String, Any]): Map[String, Any] =
-  // FIXME: exception when invocations are empty
-    SygusUtils.renameVars(testModel, invocations.head, synthTask.argNames)
+  def modelToSynthFunInputs(model: Map[String, Any]): Map[String, Any] =
+    modelToSynthFunInputs(model, invocations.head, synthTask.argNames)
 
+  /**
+    * Transforms a model returned by the solver to a mapping from synth-fun argument name
+    * to value derived from the model.
+    */
+  def modelToSynthFunInputs(model: Map[String, Any], invocation: Seq[String],
+                            sfArgNames: Seq[String]): Map[String, Any] =
+  // FIXME: exception when invocations are empty
+    SygusUtils.renameVars(model, invocation, sfArgNames)
+
+
+  /**
+    * Creates a complete test, i.e. a test containing both input and the only correct
+    * output for that input.
+    * @param model Valuation of synth-variables. Will be converted to synth-fun inputs
+    *              in test case.
+    * @param output An output of the test case computed by the solver.
+    */
+  def createCompleteTest(model: Map[String, Any], output: O): CompleteTestCase[I, O] = {
+    val synthFunInputs = modelToSynthFunInputs(model)
+    CompleteTestCase[I, O](synthFunInputs, Some(output))
+  }
 
   ///////  Interactions with the solver  ///////
 
@@ -236,21 +256,20 @@ class CDGPState(val sygusProblem: SyGuS16)
     solver.runSolver(query)
   }
 
-  def findOutputForTestCase(test: (I, Option[O]), singleAnswer: Boolean = true): (I, Option[O]) = {
-    assert(test._2.isEmpty)
+  def createTestFromCounterex(model: Map[String, Any], singleAnswer: Boolean): TestCase[I, O] = {
     if (!sygusData.singleInvocFormal || !sygusData.supportForAllTerms)
-      test
+      IncompleteTestCase(model)
     else {
       try {
-        val query = templateFindOutput(test._1)
-        printQuery("\nQuery findOutputForTestCase:\n" + query)
+        val query = templateFindOutput(model)
+        // printQuery("\nQuery findOutputForTestCase:\n" + query)
         val (dec, res) = solver.runSolver(query)
         if (dec == "sat") {
           val output: Option[Any] = GetValueParser(res.get).toMap.get(TemplateFindOutput.CORRECT_OUTPUT_VAR)
           if (singleAnswer) // we have guarantees that the found output is the only correct one
-            (test._1, output)
+            createCompleteTest(model, output)
 
-          else if (alwaysSearchForOutput) {
+          else if (alwaysSearchForSecondOutput) {
             // We are trying to find some other output which satisfies the constraints.
             // If we succeed, then test must be evaluated by solver in the future, hence the None
             // ain place of correct output.
@@ -258,27 +277,27 @@ class CDGPState(val sygusProblem: SyGuS16)
             // This can be especially useful if outputs for some parts of input space are undefined.
             // Undefinedness, which means that for such inputs every output is acceptable, makes the whole
             // problem to not have the single-answer property, even if otherwise all inputs have single-answer.
-            val query2 = templateFindOutput(test._1, excludeValues = List(output.get))
-            printQuery("\nQuery findOutputForTestCase2:\n" + query2)
+            val query2 = templateFindOutput(model, excludeValues = List(output.get))
+            // printQuery("\nQuery findOutputForTestCase2:\n" + query2)
             val (dec2, res2) = solver.runSolver(query2)
             if (dec2 == "unsat")
-              (test._1, output)
+              createCompleteTest(model, output)  // single-output
             else
-              test
+              IncompleteTestCase(model)  // multiple-output
           }
 
           else
-            test
+            IncompleteTestCase(model)
         }
         else if (dec == "unsat")
-          throw new NoSolutionException(test._1.toString)
+          throw new NoSolutionException(model.toString)
         else  // e.g. unknown
-          test
+          IncompleteTestCase(model)
       }
       catch {
         case _: Throwable =>
           println(s"Exception during executing query or parsing result, returning test with no output! ")
-          test
+          IncompleteTestCase(model)
       }
     }
   }
@@ -297,18 +316,14 @@ class CDGPState(val sygusProblem: SyGuS16)
 
 
 
-  def createTestFromFailedVerification(verOutput: String): Option[(Map[String, Any], Option[Any])] = {
+  def createTestFromFailedVerification(verOutput: String): Option[TestCase[I, O]] = {
     try {
       // NOTE: should map be used for this? Wouldn't Seq work better?
-      val testModel = GetValueParser(verOutput) // parse model returned by solver
-      //TODO: convert names to those in function definition
-      val testNoOutput = (testModel.toMap, None) // for this test currently the correct answer is not known
-
-      if (testsManager.tests.contains(testNoOutput._1))
-        None // this input already was used, there is no use to search for output
-      else {
-        Some(findOutputForTestCase(testNoOutput, singleAnswerFormal))
-      }
+      val model = GetValueParser(verOutput).toMap // parse model returned by solver
+      if (testsManager.tests.contains(model))
+        None // this input already was used, there is no use in creating a test case for it
+      else
+        Some(createTestFromCounterex(model, singleAnswerFormal))
     } catch {
       case e: Throwable =>
         println(s"Error during creation of counterexample from: $verOutput\nOriginal message: " + e.getMessage)
@@ -317,24 +332,23 @@ class CDGPState(val sygusProblem: SyGuS16)
     }
   }
 
-  def createRandomTest(): Option[(Map[String, Any], Option[Any])] = {
-    val example = sygusData.varDeclsNames.map(a => (a, GPRminInt + rng.nextInt(GPRmaxInt+1-GPRminInt)))
-    val testNoOutput = (example.toMap, None) // for this test currently the correct answer is not known
-    if (testsManager.tests.contains(testNoOutput._1))
+  def createRandomTest(): Option[TestCase[I, O]] = {
+    val model = sygusData.varDeclsNames.map(a => (a, GPRminInt + rng.nextInt(GPRmaxInt+1-GPRminInt))).toMap
+    if (testsManager.tests.contains(model))
       createRandomTest() // try again
     else if (gprRetryIfUndefined) {
       // We will now check if for the input there exists an incorrect output.
       // This is necessary in case GPR generated a test with undefined answer.
       // Adding such a test is meaningless.
-      val query = templateFindOutputNeg(testNoOutput._1)
+      val query = templateFindOutputNeg(model)
       val (dec, _) = solver.runSolver(query)
       if (dec == "unsat")
         createRandomTest() // try again
       else
-        Some(findOutputForTestCase(testNoOutput, singleAnswerFormal))
+        Some(createTestFromCounterex(model, singleAnswerFormal))
     }
     else
-      Some(findOutputForTestCase(testNoOutput, singleAnswerFormal))
+      Some(createTestFromCounterex(model, singleAnswerFormal))
   }
 
   /**
@@ -352,6 +366,7 @@ class CDGPState(val sygusProblem: SyGuS16)
 
   val fitness: (Op) => (Boolean, Seq[Int]) =
     method match {
+      case _ if invocations.isEmpty => fitnessOnlyTestCases
       case "CDGP"     => fitnessCDGPGeneral
       case "GPR"      => fitnessGPR
     }
@@ -359,6 +374,20 @@ class CDGPState(val sygusProblem: SyGuS16)
   def fitnessNoVerification(s: Op): (Boolean, Seq[Int]) = {
     (false, evalOnTests(s, testsManager.getTests()))
   }
+
+  /**
+    * Fitness is computed on the tests cases. No verications is performed.
+    * A solution passing all test cases is considered optimal.
+    */
+  def fitnessOnlyTestCases: Op => (Boolean, Seq[Int]) =
+    (s: Op) => {
+      println("fitnessOnlyTestCases")
+      val evalTests = evalOnTests(s, testsManager.getTests())
+      if (evalTests.sum == 0)
+        (true, evalTests)
+      else
+        (false, evalTests)
+    }
 
   /** Fitness is always computed on the tests that were flushed. */
   def fitnessCDGPGeneral: Op => (Boolean, Seq[Int]) =

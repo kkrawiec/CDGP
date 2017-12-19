@@ -291,12 +291,11 @@ final class TestCDGPState {
     val problem = LoadSygusBenchmark.parseText(code)
     val state = new CDGPState(problem)
     val test = state.createRandomTest().get
-    val test2 = (test._1.map{ case (k, v) => (k, if (k == "4") 4 else 1)}, test._2)
-    assertEquals(Map("a"->1), test2._1)
+    assertEquals(true, test.isCompleteTest)
+    val test2 = (test._1.map{ case (k, v) => (k, if (k == "y" || k == "z") 4 else 1)}, test._2)
     println(s"Test: $test")
-    val testInputs = state.modelToSynthFunInputs(test2._1)
     assertEquals(Seq("a", "a", "4", "4"), state.invocations.head)
-    assertEquals(Map("w"->1, "x"->1, "y"->4, "z"->4), testInputs)
+    assertEquals(Map("w"->1, "x"->1, "y"->4, "z"->4), test2._1)
   }
 
   @Test
@@ -375,5 +374,23 @@ final class TestCDGPState {
     assertEquals(1, tests.size)
     assertEquals(Map("s"->"asd", "a"->0, "b"->2), tests(0)._1)
     assertEquals(Some("das"), tests(0)._2)
+  }
+
+  @Test
+  def test_createTestFromCounterex(): Unit = {
+    val state = new CDGPState(LoadSygusBenchmark("resources/LIA/max2_t.sl"))
+    val model = Map("x"->5, "y"->9)
+    val test = state.createTestFromCounterex(model, singleAnswer=false)
+    assertEquals(false, test.isCompleteTest)
+    assertEquals(Map("x"->5, "y"->9), test.input)
+
+    val testSA = state.createTestFromCounterex(model, singleAnswer=true)
+    assertEquals(true, testSA.isCompleteTest)
+    assertEquals(Map("a"->5, "b"->9), testSA.input)
+
+    val model2 = Map("x"->5)
+    val testSA2 = state.createTestFromCounterex(model2, singleAnswer=true)
+    assertEquals(true, testSA2.isCompleteTest)
+    assertEquals(Map("a"->5, "b"->9), testSA2.input)
   }
 }

@@ -1,5 +1,5 @@
 (set-logic LIA)
-(synth-fun max ((x Int)(y Int)) Int)
+(synth-fun max ((a Int)(b Int)) Int)
 (declare-var x Int)
 (declare-var y Int)
 
