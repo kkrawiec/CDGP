@@ -15,7 +15,7 @@ class CompleteTestCase[I, O](input: I, output: Option[O]) extends TestCase[I, O]
   override val isCompleteTest = true
 }
 
-object CompleteTestCase{
+object CompleteTestCase {
   def apply[I,O](input: I, output: Option[O]): CompleteTestCase[I,O] = new CompleteTestCase(input, output)
 }
 

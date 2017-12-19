@@ -158,15 +158,18 @@ class CDGPState(val sygusProblem: SyGuS16)
     * They will be renamed for those in the function's declaration.
     */
   def evalOnTestsDomain(s: Op, test: (I, Option[O])): Int = {
-    val testModel: Map[String, Any] = test._1
+    assert(test._2.isDefined, "Trying to evaluate using the domain a test without defined expected output.")
+    val testInput: Map[String, Any] = test._1
     val testOutput: Option[Any] = test._2
-    val testInputsRenamed = modelToSynthFunInputs(testModel)
-    val inputVector = synthTask.argNames.map(testInputsRenamed(_))
+    val inputVector = synthTask.argNames.map(testInput(_))
     val output = domain(s)(inputVector)
     if (output.isEmpty)
       1  // None means that recurrence depth was exceeded
     else if (testOutput.isDefined) {
-      if (output.get == convertValue(testOutput.get)) 0 else 1
+      if (output.get == convertValue(testOutput.get))
+        0
+      else
+        1
     }
     else {
       // Situation, when the test case has None as the expected output
@@ -174,9 +177,9 @@ class CDGPState(val sygusProblem: SyGuS16)
       throw new Exception("Trying to domain-evaluate a test without defined correct answer!")
 
       // The code below can be used to try to find the expected output for the test
-      //val (dec, _) = checkIsOutputCorrectForInput(s, testModel, output.get)
+      //val (dec, _) = checkIsOutputCorrectForInput(s, testInput, output.get)
       //if (dec == "sat")
-      //  testsManager.updateTest((testModel, output))
+      //  testsManager.updateTest((testInput, output))
       //if (dec == "sat") 0 else 1
     }
   }
@@ -192,16 +195,7 @@ class CDGPState(val sygusProblem: SyGuS16)
     * to value derived from the model.
     */
   def modelToSynthFunInputs(model: Map[String, Any]): Map[String, Any] =
-    modelToSynthFunInputs(model, invocations.head, synthTask.argNames)
-
-  /**
-    * Transforms a model returned by the solver to a mapping from synth-fun argument name
-    * to value derived from the model.
-    */
-  def modelToSynthFunInputs(model: Map[String, Any], invocation: Seq[String],
-                            sfArgNames: Seq[String]): Map[String, Any] =
-  // FIXME: exception when invocations are empty
-    SygusUtils.renameVars(model, invocation, sfArgNames)
+    CDGPState.modelToSynthFunInputs(model, invocations.head, synthTask.argNames)
 
 
   /**
@@ -211,9 +205,9 @@ class CDGPState(val sygusProblem: SyGuS16)
     *              in test case.
     * @param output An output of the test case computed by the solver.
     */
-  def createCompleteTest(model: Map[String, Any], output: O): CompleteTestCase[I, O] = {
+  def createCompleteTest(model: Map[String, Any], output: Option[O]): CompleteTestCase[I, O] = {
     val synthFunInputs = modelToSynthFunInputs(model)
-    CompleteTestCase[I, O](synthFunInputs, Some(output))
+    CompleteTestCase[I, O](synthFunInputs, output)
   }
 
   ///////  Interactions with the solver  ///////
@@ -256,7 +250,10 @@ class CDGPState(val sygusProblem: SyGuS16)
     solver.runSolver(query)
   }
 
-  def createTestFromCounterex(model: Map[String, Any], singleAnswer: Boolean): TestCase[I, O] = {
+  /**
+    * Creates a complete or incomplete test depending on the circumstances.
+    */
+  def createTestFromCounterex(model: Map[String, Any]): TestCase[I, O] = {
     if (!sygusData.singleInvocFormal || !sygusData.supportForAllTerms)
       IncompleteTestCase(model)
     else {
@@ -266,28 +263,29 @@ class CDGPState(val sygusProblem: SyGuS16)
         val (dec, res) = solver.runSolver(query)
         if (dec == "sat") {
           val output: Option[Any] = GetValueParser(res.get).toMap.get(TemplateFindOutput.CORRECT_OUTPUT_VAR)
-          if (singleAnswer) // we have guarantees that the found output is the only correct one
+          if (singleAnswerFormal) // we have guarantees that the found output is the only correct one
             createCompleteTest(model, output)
 
-          else if (alwaysSearchForSecondOutput) {
-            // We are trying to find some other output which satisfies the constraints.
-            // If we succeed, then test must be evaluated by solver in the future, hence the None
-            // ain place of correct output.
-            //
-            // This can be especially useful if outputs for some parts of input space are undefined.
-            // Undefinedness, which means that for such inputs every output is acceptable, makes the whole
-            // problem to not have the single-answer property, even if otherwise all inputs have single-answer.
-            val query2 = templateFindOutput(model, excludeValues = List(output.get))
-            // printQuery("\nQuery findOutputForTestCase2:\n" + query2)
-            val (dec2, res2) = solver.runSolver(query2)
-            if (dec2 == "unsat")
-              createCompleteTest(model, output)  // single-output
+          else {
+            if (alwaysSearchForSecondOutput) {
+              // We are trying to find some other output which satisfies the constraints.
+              // If we succeed, then test must be evaluated by solver in the future, hence the None
+              // ain place of correct output.
+              //
+              // This can be especially useful if outputs for some parts of input space are undefined.
+              // Undefinedness, which means that for such inputs every output is acceptable, makes the whole
+              // problem to not have the single-answer property, even if otherwise all inputs have single-answer.
+              val query2 = templateFindOutput(model, excludeValues = List(output.get))
+              // printQuery("\nQuery findOutputForTestCase2:\n" + query2)
+              val (dec2, res2) = solver.runSolver(query2)
+              if (dec2 == "unsat")
+                createCompleteTest(model, output) // single-output
+              else
+                IncompleteTestCase(model) // multiple-output
+            }
             else
-              IncompleteTestCase(model)  // multiple-output
+              IncompleteTestCase(model)   // assumed is multiple-output
           }
-
-          else
-            IncompleteTestCase(model)
         }
         else if (dec == "unsat")
           throw new NoSolutionException(model.toString)
@@ -323,7 +321,7 @@ class CDGPState(val sygusProblem: SyGuS16)
       if (testsManager.tests.contains(model))
         None // this input already was used, there is no use in creating a test case for it
       else
-        Some(createTestFromCounterex(model, singleAnswerFormal))
+        Some(createTestFromCounterex(model))
     } catch {
       case e: Throwable =>
         println(s"Error during creation of counterexample from: $verOutput\nOriginal message: " + e.getMessage)
@@ -345,10 +343,10 @@ class CDGPState(val sygusProblem: SyGuS16)
       if (dec == "unsat")
         createRandomTest() // try again
       else
-        Some(createTestFromCounterex(model, singleAnswerFormal))
+        Some(createTestFromCounterex(model))
     }
     else
-      Some(createTestFromCounterex(model, singleAnswerFormal))
+      Some(createTestFromCounterex(model))
   }
 
   /**
@@ -366,7 +364,7 @@ class CDGPState(val sygusProblem: SyGuS16)
 
   val fitness: (Op) => (Boolean, Seq[Int]) =
     method match {
-      case _ if invocations.isEmpty => fitnessOnlyTestCases
+      case _ if sygusData.formalInvocations.isEmpty => fitnessOnlyTestCases
       case "CDGP"     => fitnessCDGPGeneral
       case "GPR"      => fitnessGPR
     }
@@ -485,4 +483,14 @@ object CDGPState {
   def apply(sygusProblem: SyGuS16)
            (implicit opt: Options, coll: Collector, rng: TRandom): CDGPState =
     new CDGPState(sygusProblem)
+
+
+  /**
+    * Transforms a model returned by the solver to a mapping from synth-fun argument name
+    * to value derived from the model.
+    */
+  def modelToSynthFunInputs(model: Map[String, Any], invocation: Seq[String],
+                            sfArgNames: Seq[String]): Map[String, Any] =
+    // FIXME: exception when invocations are empty
+    SygusUtils.renameVars(model, invocation, sfArgNames)
 }
