@@ -39,7 +39,7 @@ class CDGPState(val sygusProblem: SyGuS16)
   val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, Int.MaxValue, (x: Int) => x > 0)
   val timeout: Int = opt('solverTimeout, if (opt('solverType, "z3") == "z3") 5000 else 0)
   val silent = opt('silent, false)
-  val alwaysSearchForSecondOutput = opt('alwaysSearchForOutput, true)
+  val searchForSecondOutput = opt('searchForSecondOutput, true)
   val gprRetryIfUndefined = opt('gprRetryIfUndefined, true)
   val printQueries = opt('printQueries, false)
 
@@ -53,17 +53,6 @@ class CDGPState(val sygusProblem: SyGuS16)
   // Initializing population of test cases
   testsManager.addNewTests(sygusData.testCasesConstrToTests)
   // testsManager.flushHelpers() // This is done elsewhere
-
-
-  /*
-   * Depending on the properties of the problem, CDGPState will switch between using
-   * GP domain and executing the solver for computing fitness.
-   */
-  val evaluationMode: String = getEvaluationMode
-  assert(evaluationMode == "solver" || evaluationMode == "gp")
-  val useDomainEvaluation: Boolean = evaluationMode == "gp"
-  println(s"(evaluationMode $evaluationMode)")
-  coll.set("cdgp.evaluationMode", evaluationMode)
 
 
   // Currently the domain is hardcoded. This matters only for problems which
@@ -89,8 +78,10 @@ class CDGPState(val sygusProblem: SyGuS16)
   // For statistic/diagnostic info
   var numRejectedCounterex = 0
 
+  printProblemInfo()
 
-  def getEvaluationMode: String = {
+
+  def printProblemInfo() {
     println(s"(singleInvocationProperty ${sygusData.singleInvocFormal})")
     coll.set("cdgp.singleInvocationProperty", sygusData.singleInvocFormal)
     if (sygusData.singleInvocFormal) {
@@ -100,15 +91,8 @@ class CDGPState(val sygusProblem: SyGuS16)
       println(s"(supportForAllTerms ${sygusData.supportForAllTerms})")
       coll.set("cdgp.singleAnswerForEveryInput", singleAnswerFormal)
       coll.set("cdgp.supportForAllTerms", sygusData.supportForAllTerms)
-      if (singleAnswerFormal && sygusData.supportForAllTerms)
-        "gp"  // we may be consider treating unknown singleAnswer as true, with the potential risk of losing "soundness" of the fitness
-      else
-        "solver"
     }
-    else
-      "solver"
   }
-
 
   /**
     * Tests a program on the available tests and returns the vector of 0s (passed test)
@@ -267,7 +251,7 @@ class CDGPState(val sygusProblem: SyGuS16)
             createCompleteTest(model, output)
 
           else {
-            if (alwaysSearchForSecondOutput) {
+            if (searchForSecondOutput) {
               // We are trying to find some other output which satisfies the constraints.
               // If we succeed, then test must be evaluated by solver in the future, hence the None
               // ain place of correct output.

@@ -145,7 +145,6 @@ final class TestCDGPState {
   def test_evalOnTestsMaxUsingSolver(): Unit = {
     val problem = LoadSygusBenchmark.parseText(TestCDGPState.scriptMax)
     val state = new CDGPState(problem)
-    assertEquals(true, state.useDomainEvaluation)
     val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=true)
     val t1 = (GetValueParser("((x 4)(y 3))").toMap, Some(4))
     val t2 = (GetValueParser("((x 5)(y 1))").toMap, Some(5))
