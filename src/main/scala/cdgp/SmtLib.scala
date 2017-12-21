@@ -363,12 +363,12 @@ object SMTLIBFormatter {
     else s"($opStr ${op.args.map(opToString(_)).mkString(" ")})"
   }
 
-  def synthSolutionToString(sst: SygusSynthesisTask, solution: Op): String = {
+  def synthSolutionToString(sst: SygusSynthTask, solution: Op): String = {
     val bestBody = opToString(solution)
     synthSolutionToString(sst, bestBody)
   }
 
-  def synthSolutionToString(sst: SygusSynthesisTask, solutionSmtlib: String): String = {
+  def synthSolutionToString(sst: SygusSynthTask, solutionSmtlib: String): String = {
     val args = synthFunArgsToString(sst)
     val tpe = sortToString(sst.outputType)
     s"(define-fun ${sst.fname} ($args) $tpe\n\t$solutionSmtlib)"
@@ -386,7 +386,7 @@ object SMTLIBFormatter {
     }.mkString("", "\n", "\n")
   }
 
-  def synthFunArgsToString(sst: SygusSynthesisTask): String = {
+  def synthFunArgsToString(sst: SygusSynthTask): String = {
     sst.args.map { case (k, v) => s"($k ${sortToString(v)})" }.mkString
   }
 

@@ -46,7 +46,7 @@ class CDGPState(val sygusProblem: SyGuS16)
 
   val sygusData = SygusProblemData(sygusProblem, opt('mixedSpecAllowed, true))
   val invocations: Seq[Seq[String]] = sygusData.formalInvocations
-  def synthTask: SygusSynthesisTask = sygusData.synthTask
+  def synthTask: SygusSynthTask = sygusData.synthTask
   val grammar: Grammar = synthTask.getSwimGrammar(rng)
   val singleAnswerFormal: Boolean = sygusData.singleInvocFormal && hasSingleAnswerForEveryInput(sygusProblem).getOrElse(false)
 
