@@ -25,11 +25,7 @@ class CDGPState(val sygusProblem: SyGuS16)
   val testsManager = new TestsManagerCDGP[I, O](opt("logTestsHistory", false), opt("printTests", false))
 
   val method = opt('method, "CDGP")
-  val searchAlg = opt('searchAlgorithm)
   assert(method == "CDGP" || method == "GPR", s"Invalid method '$method'! Possible values: 'CDGP', 'GPR'.")
-  assert(searchAlg == "GP" || searchAlg == "GPSteadyState" ||
-         searchAlg == "Lexicase" || searchAlg == "LexicaseSteadyState",
-         s"Invalid searchAlgorithm: '$searchAlg'! Possible values: 'GP', 'GPSteadyState', 'Lexicase', 'LexicaseSteadyState'.")
 
   // Other parameters
   val GPRminInt: Int = opt('GPRminInt, -100)

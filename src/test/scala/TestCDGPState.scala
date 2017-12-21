@@ -109,7 +109,7 @@ object TestCDGPState {
 }
 
 final class TestCDGPState {
-  implicit val emptyOpt = Options(s"--searchAlgorithm Lexicase ${Global.solverConfig}")
+  implicit val emptyOpt = Options(s"--selection lexicase --evolutionMode generational ${Global.solverConfig}")
   implicit val coll = CollectorStdout(emptyOpt)
   implicit val rng = Rng(emptyOpt)
 
