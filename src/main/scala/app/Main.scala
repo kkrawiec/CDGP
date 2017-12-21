@@ -32,9 +32,9 @@ object Main {
 
   def getOptions(args: Array[String]): Options = {
     val opt = Options(args)
-    if (opt.getOption("loadOptionsFromFile").isDefined) {
-      println("Options loaded from file: " + opt.paramString("loadOptionsFromFile"))
-      val tmp = Options.loadFromFile(new File(opt.getOption("loadOptionsFromFile").get))
+    if (opt.getOption("optionsFile").isDefined) {
+      println("Options loaded from file: " + opt.paramString("optionsFile"))
+      val tmp = Options.loadFromFile(new File(opt.getOption("optionsFile").get))
       new OptionsMap(tmp.allOptions.filter{ case (k, v) => !k.startsWith("result") })
     }
     else opt
