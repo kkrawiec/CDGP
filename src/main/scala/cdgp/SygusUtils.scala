@@ -167,7 +167,7 @@ object SygusSynthesisTask {
     'ite -> ('B, 'I, 'I)))
   def intProd_const: (Any, Seq[Any]) = 'I_const -> Seq(ConstantMarker("Int"))
   def boolProd(vars: Seq[Any]): (Any, Seq[Any]) = 'B -> (vars ++ Seq(
-    true, false,
+    //true, false, // Never useful
     '= -> ('I, 'I),
     '< -> ('I, 'I),
     '<= -> ('I, 'I),
