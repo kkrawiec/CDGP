@@ -30,8 +30,8 @@ class CDGPState(val sygusProblem: SyGuS16)
   // Other parameters
   val GPRminInt: Int = opt('GPRminInt, -100)
   val GPRmaxInt: Int = opt('GPRmaxInt, 100)
-  val CDGPtestsRatio: Double = opt('CDGPtestsRatio, 1.0, (x: Double) => x >= 0.0 && x <= 1.0)
-  val GPRtestsRatio: Double = opt('GPRtestsRatio, 1.0, (x: Double) => x >= 0.0 && x <= 1.0)
+  val testsAbsDiff: Option[Int] = opt.getOptionInt("testsAbsDiff")
+  val testsRatio: Double = opt('testsRatio, 1.0, (x: Double) => x >= 0.0 && x <= 1.0)
   val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, Int.MaxValue, (x: Int) => x > 0)
   val timeout: Int = opt('solverTimeout, if (opt('solverType, "z3") == "z3") 5000 else 0)
   val silent = opt('silent, false)
@@ -48,11 +48,10 @@ class CDGPState(val sygusProblem: SyGuS16)
 
   // Initializing population of test cases
   testsManager.addNewTests(sygusData.testCasesConstrToTests)
-  // testsManager.flushHelpers() // This is done elsewhere
+  // testsManager.flushHelpers() // This is done elsewhere (at the beginning of evolution)
 
 
-  // Currently the domain is hardcoded. This matters only for problems which
-  // can be domain-evaluated.
+  // Currently the domain is hardcoded. This matters only for problems which can be domain-evaluated.
   val domain = SLIA(synthTask.argNames, Symbol(synthTask.fname), opt("recDepthLimit", 1000))
 
 
@@ -69,7 +68,6 @@ class CDGPState(val sygusProblem: SyGuS16)
   lazy val templateFindOutput = new TemplateFindOutput(sygusProblem, sygusData, timeout = timeout)
   lazy val templateFindOutputNeg = new TemplateFindOutput(sygusProblem, sygusData, negateConstr = true, timeout = timeout)
   lazy val templateSimplify = new TemplateSimplify(sygusProblem, sygusData, timeout = timeout)
-
 
   // For statistic/diagnostic info
   var numRejectedCounterex = 0
@@ -367,49 +365,47 @@ class CDGPState(val sygusProblem: SyGuS16)
         (false, evalTests)
     }
 
+  def doVerify(evalTests: Seq[Int]): Boolean = {
+    val numPassed = evalTests.count(_ == 0).asInstanceOf[Double]
+    if (testsAbsDiff.isDefined)
+      numPassed <= testsAbsDiff.get
+    else
+      evalTests.isEmpty || (numPassed / evalTests.size) >= testsRatio
+  }
+
   /** Fitness is always computed on the tests that were flushed. */
   def fitnessCDGPGeneral: Op => (Boolean, Seq[Int]) =
-    new Function1[Op, (Boolean, Seq[Int])] {
-      def doVerify(evalTests: Seq[Int]): Boolean = {
-        val numPassed = evalTests.count(_ == 0).asInstanceOf[Double]
-        (numPassed / evalTests.size) >= CDGPtestsRatio || evalTests.isEmpty
-      }
-      def apply(s: Op): (Boolean, Seq[Int]) = {
-        val evalTests = evalOnTests(s, testsManager.getTests())
-        // If the program passes the specified ratio of test cases, it will be verified
-        // and a counterexample will be produced (or program will be deemed correct).
-        // NOTE: if the program does not pass all test cases, then the probability is high
-        // that the produced counterexample will already be in the set of test cases.
-        if (!doVerify(evalTests))
+    (s: Op) => {
+      val evalTests = evalOnTests(s, testsManager.getTests())
+      // If the program passes the specified ratio of test cases, it will be verified
+      // and a counterexample will be produced (or program will be deemed correct).
+      // NOTE: if the program does not pass all test cases, then the probability is high
+      // that the produced counterexample will already be in the set of test cases.
+      if (!doVerify(evalTests))
+        (false, evalTests)
+      else {
+        val (decision, r) = verify(s)
+        if (decision == "unsat" && evalTests.sum == 0 && (!(sygusData.sygusLogic == "SLIA") || evalTests.nonEmpty))
+          (true, evalTests) // perfect program found; end of run
+        else if (decision == "sat") {
+          if (testsManager.newTests.size < maxNewTestsPerIter) {
+            val newTest = createTestFromFailedVerification(r.get)
+            if (newTest.isDefined)
+              testsManager.addNewTest(newTest.get)
+          }
           (false, evalTests)
+        }
         else {
-          val (decision, r) = verify(s)
-          if (decision == "unsat" && evalTests.sum == 0 && (!(sygusData.sygusLogic == "SLIA") || evalTests.nonEmpty) )
-            (true, evalTests)  // perfect program found; end of run
-          else if (decision == "sat") {
-            if (testsManager.newTests.size < maxNewTestsPerIter) {
-              val newTest = createTestFromFailedVerification(r.get)
-              if (newTest.isDefined)
-                testsManager.addNewTest(newTest.get)
-            }
-            (false, evalTests)
-          }
-          else {
-            // The 'unknown' or 'timeout' solver's decision. Program potentially may be the optimal
-            // solution, but solver is not able to verify this. We proceed by adding no new tests
-            // and treating the program as incorrect.
-            (false, evalTests)
-          }
+          // The 'unknown' or 'timeout' solver's decision. Program potentially may be the optimal
+          // solution, but solver is not able to verify this. We proceed by adding no new tests
+          // and treating the program as incorrect.
+          (false, evalTests)
         }
       }
     }
 
   def fitnessGPR: Op => (Boolean, Seq[Int]) = {
     new Function1[Op, (Boolean, Seq[Int])] {
-      def doSearchForCounterexample(evalTests: Seq[Int]): Boolean = {
-        val numPassed = evalTests.count(_ == 0).asInstanceOf[Double]
-        (numPassed / evalTests.size) >= GPRtestsRatio || evalTests.isEmpty
-      }
       def allTestsPassed(evalTests: Seq[Int]): Boolean =
         evalTests.count(_ == 0) == evalTests.size
       def generateAndAddRandomTest(): Unit = {
@@ -421,7 +417,7 @@ class CDGPState(val sygusProblem: SyGuS16)
       }
       def apply(s: Op): (Boolean, Seq[Int]) = {
         val evalTests = evalOnTests(s, testsManager.getTests())
-        if (!doSearchForCounterexample(evalTests))
+        if (!doVerify(evalTests))
           (false, evalTests)
         else if (allTestsPassed(evalTests)) {
           // program passes all tests - verify if it is correct
