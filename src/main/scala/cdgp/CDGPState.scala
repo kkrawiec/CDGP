@@ -368,7 +368,7 @@ class CDGPState(val sygusProblem: SyGuS16)
   def doVerify(evalTests: Seq[Int]): Boolean = {
     val numPassed = evalTests.count(_ == 0).asInstanceOf[Double]
     if (testsAbsDiff.isDefined)
-      numPassed <= testsAbsDiff.get
+      numPassed >= evalTests.size - testsAbsDiff.get
     else
       evalTests.isEmpty || (numPassed / evalTests.size) >= testsRatio
   }
