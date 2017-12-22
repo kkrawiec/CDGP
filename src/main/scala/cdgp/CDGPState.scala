@@ -1,7 +1,7 @@
 package cdgp
 
 import fuel.util.{Collector, Options, TRandom}
-import swim.Grammar
+import swim.{Grammar, RecursiveDomain}
 import swim.tree.Op
 import sygus.{BoolSortExpr, IntSortExpr, RealSortExpr, SortExpr}
 import sygus16.SyGuS16
@@ -53,16 +53,14 @@ class CDGPState(val sygusProblem: SyGuS16)
   testsManager.addNewTests(sygusData.testCasesConstrToTests)
   // testsManager.flushHelpers() // This is done elsewhere (at the beginning of evolution)
 
-
-  // Currently the domain is hardcoded. This matters only for problems which can be domain-evaluated.
-  val domain = DomainSLIA(synthTask.argNames, Symbol(synthTask.fname), opt("recDepthLimit", 1000))
-
-
   // Creating solver manager
   private def solverPath = opt('solverPath)
   private def solverArgs = opt.getOption("solverArgs")
   private def moreSolverArgs = opt.getOption("moreSolverArgs", "")
   lazy val solver = new SolverManager(solverPath, solverArgs, moreSolverArgs, verbose=false)
+
+  // Creating a domain for evaluation by program execution
+  lazy val domain: RecursiveDomain[Any, Any] = getDomain(sygusData.logic)
 
   // Templates for solver queries
   lazy val templateVerification = new TemplateVerification(sygusProblem, sygusData, timeout = timeout)
@@ -77,6 +75,14 @@ class CDGPState(val sygusProblem: SyGuS16)
 
   printProblemInfo()
 
+  def getDomain(logic: String): RecursiveDomain[Any,Any] = logic match {
+    case "SLIA" | "NIA" | "LIA" | "QF_NIA" | "QF_LIA" | "S" | "QF_S" | "ALL" =>
+      DomainSLIA(synthTask.argNames, Symbol(synthTask.fname), opt("recDepthLimit", 1000))
+    case "NRA" | "LRA" | "QF_NRA" | "QF_LRA"=>
+      DomainReals(synthTask.argNames, Symbol(synthTask.fname), opt("recDepthLimit", 1000))
+    case _ =>
+      throw new Exception(s"Trying to create domain for the unsupported logic: $logic")
+  }
 
   def printProblemInfo() {
     println(s"(singleInvocationProperty ${sygusData.singleInvocFormal})")
@@ -394,7 +400,7 @@ class CDGPState(val sygusProblem: SyGuS16)
         (false, evalTests)
       else {
         val (decision, r) = verify(s)
-        if (decision == "unsat" && evalTests.sum == 0 && (!(sygusData.sygusLogic == "SLIA") || evalTests.nonEmpty))
+        if (decision == "unsat" && evalTests.sum == 0 && (!(sygusData.logic == "SLIA") || evalTests.nonEmpty))
           (true, evalTests) // perfect program found; end of run
         else if (decision == "sat") {
           if (testsManager.newTests.size < maxNewTestsPerIter) {
@@ -431,7 +437,7 @@ class CDGPState(val sygusProblem: SyGuS16)
         else if (allTestsPassed(evalTests)) {
           // program passes all tests - verify if it is correct
           val (decision, _) = verify(s)
-          if (decision == "unsat" && evalTests.sum == 0 && (!(sygusData.sygusLogic == "SLIA") || evalTests.nonEmpty))
+          if (decision == "unsat" && evalTests.sum == 0 && (!(sygusData.logic == "SLIA") || evalTests.nonEmpty))
             (true, evalTests)  // perfect program found; end of run
           else {
             generateAndAddRandomTest()  // program incorrect; generate random test
