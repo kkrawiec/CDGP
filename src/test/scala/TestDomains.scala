@@ -14,29 +14,20 @@ import sygus.{BoolSortExpr, IntSortExpr, VarDeclCmd}
 
 final class TestDomains {
   @Test
-  def test_LIA(): Unit = {
-    val domainLIA = DomainSLIA(List("x", "y", "z"), 'rec)
+  def test_SLIA(): Unit = {
+    val domain = DomainSLIA(List("x", "y", "z"), 'rec)
     val inputs = Seq(2, 10, 6)
     val op = Op('nt, 'x)
-    assertEquals(2, domainLIA(op)(inputs).get)
+    assertEquals(2, domain(op)(inputs).get)
     val op2 = Op('nt, '+, Op('nt, 3), Op('nt, 'z))
-    assertEquals(9, domainLIA(op2)(inputs).get)
+    assertEquals(9, domain(op2)(inputs).get)
     val op3 = Op.fromStr("ite(<=(x 0) 0 +(2 rec(-(x 1) y z)))", useSymbols = true)
-    assertEquals(4, domainLIA(op3)(inputs).get)
+    assertEquals(4, domain(op3)(inputs).get)
 
-    val semantics = domainLIA.operationalSemantics(Seq()) _
+    val semantics = domain.operationalSemantics(Seq()) _
 
     // More information about String in CVC4: http://cvc4.cs.stanford.edu/wiki/Strings
     // Script to verify below expected answers: resources/str_test.smt2
-//    println("Starting ...")
-//    val start = System.currentTimeMillis()
-//    val op = Op('+, Op('x), Op('x))
-//    1.to(500000).foreach{ i =>
-//      val semantics = domainLIA.operationalSemantics(Seq(i)) _
-//      domainLIA(op)(inputs)
-//    }
-//    val dur = System.currentTimeMillis() - start
-//    println("Duration (ms): " + dur)
 
     // str.prefixof
     assertEquals(true, semantics(Seq(Symbol("str.prefixof"), "", "")))

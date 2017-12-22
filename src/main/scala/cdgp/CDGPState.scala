@@ -3,6 +3,7 @@ package cdgp
 import fuel.util.{Collector, Options, TRandom}
 import swim.Grammar
 import swim.tree.Op
+import sygus.{BoolSortExpr, IntSortExpr, RealSortExpr, SortExpr}
 import sygus16.SyGuS16
 
 
@@ -30,6 +31,8 @@ class CDGPState(val sygusProblem: SyGuS16)
   // Other parameters
   val GPRminInt: Int = opt('GPRminInt, -100)
   val GPRmaxInt: Int = opt('GPRmaxInt, 100)
+  val GPRminDouble: Double = opt('GPRminDouble, 0.0)
+  val GPRmaxDouble: Double = opt('GPRmaxDouble, 1.0)
   val testsAbsDiff: Option[Int] = opt.getOptionInt("testsAbsDiff")
   val testsRatio: Double = opt('testsRatio, 1.0, (x: Double) => x >= 0.0 && x <= 1.0)
   val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, Int.MaxValue, (x: Int) => x > 0)
@@ -309,7 +312,13 @@ class CDGPState(val sygusProblem: SyGuS16)
   }
 
   def createRandomTest(): Option[TestCase[I, O]] = {
-    val model = sygusData.varDeclsNames.map(a => (a, GPRminInt + rng.nextInt(GPRmaxInt+1-GPRminInt))).toMap
+    def sample(tpe: SortExpr): Any = tpe match {
+      case IntSortExpr() => GPRminInt + rng.nextInt(GPRmaxInt+1-GPRminInt)
+      case RealSortExpr() => GPRminDouble + rng.nextDouble() * (GPRmaxDouble+1-GPRminDouble)
+      case BoolSortExpr() => rng.nextBoolean()
+      case _: Throwable => throw new Exception(s"Trying to run GPR for unsupported type: ${tpe.name}.")
+    }
+    val model = sygusData.varDecls.map(v => (v.sym, sample(v.sortExpr))).toMap
     if (testsManager.tests.contains(model))
       createRandomTest() // try again
     else if (gprRetryIfUndefined) {
