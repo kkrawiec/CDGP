@@ -145,7 +145,7 @@ class DomainReals(val funArgsNames: Seq[String], funName: Symbol, recDepth: Int 
   extends RecursiveDomain[Any, Any](funArgsNames.size, recDepth, recSymbol = funName, iteSymbol = 'ite) {
 
   def divide(x: Double, y: Double): Double = {
-    if (y == 0) throw new Exception("Division by 0 during evaluation!")
+    if (y == 0.0) throw new Exception("Division by 0 during evaluation!")
     else x / y
   }
 

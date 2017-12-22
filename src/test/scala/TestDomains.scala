@@ -28,6 +28,15 @@ final class TestDomains {
 
     // More information about String in CVC4: http://cvc4.cs.stanford.edu/wiki/Strings
     // Script to verify below expected answers: resources/str_test.smt2
+//    println("Starting ...")
+//    val start = System.currentTimeMillis()
+//    val op = Op('+, Op('x), Op('x))
+//    1.to(500000).foreach{ i =>
+//      val semantics = domainLIA.operationalSemantics(Seq(i)) _
+//      domainLIA(op)(inputs)
+//    }
+//    val dur = System.currentTimeMillis() - start
+//    println("Duration (ms): " + dur)
 
     // str.prefixof
     assertEquals(true, semantics(Seq(Symbol("str.prefixof"), "", "")))
