@@ -52,7 +52,7 @@ class CDGPState(val sygusProblem: SyGuS16)
 
 
   // Currently the domain is hardcoded. This matters only for problems which can be domain-evaluated.
-  val domain = SLIA(synthTask.argNames, Symbol(synthTask.fname), opt("recDepthLimit", 1000))
+  val domain = DomainSLIA(synthTask.argNames, Symbol(synthTask.fname), opt("recDepthLimit", 1000))
 
 
   // Creating solver manager
@@ -451,6 +451,7 @@ class CDGPState(val sygusProblem: SyGuS16)
 }
 
 
+
 object CDGPState {
   def apply(benchmark: String)
            (implicit opt: Options, coll: Collector, rng: TRandom): CDGPState =
@@ -467,6 +468,5 @@ object CDGPState {
     */
   def modelToSynthFunInputs(model: Map[String, Any], invocation: Seq[String],
                             sfArgNames: Seq[String]): Map[String, Any] =
-    // FIXME: exception when invocations are empty
     SygusUtils.renameVars(model, invocation, sfArgNames)
 }
