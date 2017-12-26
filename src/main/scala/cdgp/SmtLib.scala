@@ -58,10 +58,17 @@ object SimplifyQuery {
   */
 class TemplateVerification(problem: SyGuS16,
                            sygusData: SygusProblemData,
+                           includeTestConstr: Boolean = false,
                            timeout: Int = 0) extends Function1[Op, CheckSatQuery] {
   def createTemplate: String = {
     val constraintsPre = SMTLIBFormatter.getCodeForConstraints(sygusData.precond)
-    val constraintsPost = SMTLIBFormatter.getCodeForMergedConstraints(sygusData.formalConstr)
+    val constraintsPost =
+      if (includeTestConstr)
+        // Rather not useful, because counterexamples cannot be find for test cases (no free vars in function call)
+        // There are, however, some cases in which test can constrain the space of correct programs.
+        SMTLIBFormatter.getCodeForMergedConstraints(sygusData.allConstr)
+      else
+        SMTLIBFormatter.getCodeForMergedConstraints(sygusData.formalConstr)
     val auxiliaries = SMTLIBFormatter.getCodeForAuxiliaries(problem)
     s"(set-logic ${SMTLIBFormatter.getLogicName(problem)})\n" +
       (if (timeout > 0) s"(set-option :timeout $timeout)\n" else "") +

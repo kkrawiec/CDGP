@@ -36,7 +36,7 @@ object VerificationExperiments extends App {
   val collection = "/resources/LIA/other"
   //val files = Tools.getRecursiveListOfFiles(new File(root + collection)).filter{ f =>
   //  !f.getName.matches(".+[0-9][0-9].+") && f.getName.endsWith(".sl")}
-  val files = List(new File(root + "/resources/LIA/Median3_tests.sl"))
+  val files = List(new File(root + "/resources/LIA/Median3_t.sl"))
   val solver = SolverInteractive(Global.solverPath, verbose = false)
 
   for (file <- files) {
