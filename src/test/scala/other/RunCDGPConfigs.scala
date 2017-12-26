@@ -42,7 +42,7 @@ object RunCDGPConfigs extends App {
 
   val root = System.getProperty("user.dir")
   println(s"Working directory: $root")
-  val collection = "/resources/LIA/cdgp_paper17"
+  val collection = "/resources/LIA/cdgp_paper17" //LIA/tests
   val files = Tools.getRecursiveListOfFiles(new File(root + collection)).
     filter{ f =>f.getName.endsWith(".sl") }
 
@@ -51,7 +51,7 @@ object RunCDGPConfigs extends App {
     println(s"File: ${file.getAbsolutePath}")
     println("-" * 100)
     for (method <- Seq("CDGP", "GPR"))
-      for (sel <- Seq("generational", "lexicase"))
+      for (sel <- Seq("tournament", "lexicase"))
         for (evoMode <- Seq("generational", "steadyState")) {
           val options = Options(Global.solverConfig + s" --benchmark ${file.getAbsolutePath}" +
             s" --method $method --selection $sel --evolutionMode $evoMode --populationSize 50 --maxGenerations 10 --seed 0")

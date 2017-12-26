@@ -372,7 +372,6 @@ class CDGPState(val sygusProblem: SyGuS16)
     */
   def fitnessOnlyTestCases: Op => (Boolean, Seq[Int]) =
     (s: Op) => {
-      println("fitnessOnlyTestCases")
       val evalTests = evalOnTests(s, testsManager.getTests())
       if (evalTests.sum == 0)
         (true, evalTests)

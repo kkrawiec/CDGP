@@ -81,7 +81,7 @@ object VerificationExperiments extends App {
           println("\tExpected output for counterex: " + GetValueParser(res.get).head._2)
         }
         catch {
-          case e: Throwable => println(s"	Error during evalution: ${e.getMessage}")
+          case e: Throwable => println(s"	Error during evalution/computing expected output: ${e.getMessage}")
         }
       }
       else { println("\tCorrect program found") }
