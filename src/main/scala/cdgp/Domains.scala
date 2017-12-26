@@ -7,7 +7,7 @@ import swim.RecursiveDomain
 import scala.collection.Seq
 
 
-class SLIA(val funArgsNames: Seq[String], funName: Symbol, recDepth: Int = 100)
+class DomainSLIA(val funArgsNames: Seq[String], funName: Symbol, recDepth: Int = 100)
   extends RecursiveDomain[Any, Any](funArgsNames.size, recDepth, recSymbol = funName, iteSymbol = 'ite) {
 
   def divide(m: Int, n: Int, smtlibSem: Boolean = true): Int = {
@@ -116,7 +116,7 @@ class SLIA(val funArgsNames: Seq[String], funName: Symbol, recDepth: Int = 100)
         try {
           val x = s.toInt
           if (x < 0) -1 else x
-        } catch {case _ => -1}
+        } catch {case _: Throwable => -1}
 
       // Exceptions
       case Seq(_: String, xs@_*) =>
@@ -128,7 +128,72 @@ class SLIA(val funArgsNames: Seq[String], funName: Symbol, recDepth: Int = 100)
 }
 
 
-object SLIA {
+object DomainSLIA {
   def apply(funArgsNames: Seq[String], funName: Symbol, recDepth: Int = 100) =
-    new SLIA(funArgsNames, funName, recDepth)
+    new DomainSLIA(funArgsNames, funName, recDepth)
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+
+class DomainReals(val funArgsNames: Seq[String], funName: Symbol, recDepth: Int = 100)
+  extends RecursiveDomain[Any, Any](funArgsNames.size, recDepth, recSymbol = funName, iteSymbol = 'ite) {
+
+  def divide(x: Double, y: Double): Double = {
+    if (y == 0.0) throw new Exception("Division by 0 during evaluation!")
+    else x / y
+  }
+
+  def operationalSemantics(input: Seq[Any])(childRes: Seq[Any]): Any = {
+    childRes match {
+      // Arithmetic
+      case Seq('+, x: Double, y: Double)           => x + y
+      case Seq('-, x: Double)                      => -x
+      case Seq('-, x: Double, y: Double)           => x - y
+      case Seq('*, x: Double, y: Double)           => x * y  // in LIA x or y must be a constant
+      case Seq(Symbol("\\"), x: Double, y: Double) => divide(x, y)
+      case Seq('abs, x: Double)                    => if (x >= 0) x else -x
+      case Seq('<, x: Double, y: Double)           => x < y
+      case Seq('<=, x: Double, y: Double)          => x <= y
+      case Seq('>, x: Double, y: Double)           => x > y
+      case Seq('>=, x: Double, y: Double)          => x >= y
+
+      // ite is handled specially by the RecursiveDomain
+      // case Seq('ite, b: Boolean, x: Int, y: Int) => if (b) x else y
+      case Seq('and, a: Boolean, b: Boolean)      => a && b
+      case Seq('or, a: Boolean, b: Boolean)       => a || b
+      case Seq('xor, a: Boolean, b: Boolean)      => a ^ b
+      case Seq('=>, a: Boolean, b: Boolean)       => !a || b
+      case Seq('not, b: Boolean)                  => !b
+
+      // Universal operations
+      case Seq('=, x: Any, y: Any)                => x == y
+      case Seq('distinct, x: Any, y: Any)         => x != y
+
+      // Variables and constants
+      case Seq(s: Symbol) if funArgsNames.contains(s.name) =>
+        val i = funArgsNames.indexOf(s.name)
+        if (i == -1) throw new Exception("Unrecognized variable name!")
+        input(i)
+      case Seq(v: Double)                          => v
+      case Seq(v: Boolean)                         => v
+
+      // Exceptions
+      case Seq(_: String, xs@_*) =>
+        throw new Exception("In evaluation Strings for op names are not supported. Use Symbols instead.")
+      case instr @ _ =>
+        throw new Exception("Invalid instruction: " + instr)
+    }
+  }
+}
+
+
+object DomainReals {
+  def apply(funArgsNames: Seq[String], funName: Symbol, recDepth: Int = 100) =
+    new DomainReals(funArgsNames, funName, recDepth)
 }

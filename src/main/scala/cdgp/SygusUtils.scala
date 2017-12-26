@@ -32,13 +32,13 @@ class UnsupportedFeatureException(message: String = "", cause: Throwable = null)
 case class SygusProblemData(problem: SyGuS16,
                             mixedSpecAllowed: Boolean = true) {
   private def getSynthTask = {
-    val synthTasks = SygusSynthesisTask(problem)
+    val synthTasks = SygusSynthTask(problem)
     if (synthTasks.size > 1)
       throw new Exception("Multiple synth-fun commands detected. Cannot handle such problems.")
     synthTasks.head
   }
-  val synthTask: SygusSynthesisTask = getSynthTask
-  val sygusLogic: String = s"${problem.setLogic.get.id}"
+  val synthTask: SygusSynthTask = getSynthTask
+  val logic: String = s"${problem.setLogic.get.id}"
 
   val varDecls: Seq[VarDeclCmd] = problem.cmds.collect { case v: VarDeclCmd => v }
   val varDeclsNames: Seq[String] = varDecls.map(_.sym)
@@ -87,10 +87,10 @@ case class SygusProblemData(problem: SyGuS16,
   * @param args Arguments of the function.
   * @param outputType Output type of the function.
   */
-case class SygusSynthesisTask(fname: String,
-                              grammarSygus: Seq[(Any, Seq[Any])],
-                              args: Seq[(String, SortExpr)],
-                              outputType: SortExpr) {
+case class SygusSynthTask(fname: String,
+                          grammarSygus: Seq[(Any, Seq[Any])],
+                          args: Seq[(String, SortExpr)],
+                          outputType: SortExpr) {
   val argNames: Seq[String] = args.unzip._1
   val uninterpSwimGrammar: Grammar = SygusUtils.getSwimGrammar(grammarSygus)
   val canBeRecursive: Boolean = uninterpSwimGrammar.contains(Symbol(fname)) || uninterpSwimGrammar.contains(fname)
@@ -125,15 +125,15 @@ case class SygusSynthesisTask(fname: String,
 case class ConstantMarker(tpe: String)
 
 
-object SygusSynthesisTask {
-  def apply(tree: SyGuS16): List[SygusSynthesisTask] = tree.cmds.collect {
+object SygusSynthTask {
+  def apply(tree: SyGuS16): List[SygusSynthTask] = tree.cmds.collect {
     case SynthFunCmd14(sym: String, args: List[(String, SortExpr)], se: SortExpr, ntDefs: List[NTDef]) => {
       val grammar = retrieveGrammar(ntDefs)
-      SygusSynthesisTask(sym, grammar, args, se) // name, function syntax, args list, output type
+      SygusSynthTask(sym, grammar, args, se) // name, function syntax, args list, output type
     }
     case SynthFunCmd16(sym: String, args: List[(String, SortExpr)], se: SortExpr) => {
       val grammarSygus = createDefaultGrammar(args, se)
-      SygusSynthesisTask(sym, grammarSygus, args, se)
+      SygusSynthTask(sym, grammarSygus, args, se)
     }
   }
 
@@ -167,7 +167,7 @@ object SygusSynthesisTask {
     'ite -> ('B, 'I, 'I)))
   def intProd_const: (Any, Seq[Any]) = 'I_const -> Seq(ConstantMarker("Int"))
   def boolProd(vars: Seq[Any]): (Any, Seq[Any]) = 'B -> (vars ++ Seq(
-    true, false,
+    //true, false, // Never useful
     '= -> ('I, 'I),
     '< -> ('I, 'I),
     '<= -> ('I, 'I),
@@ -221,7 +221,7 @@ object SygusUtils {
   }
 
   def getPostcondSymbols(problem: SyGuS16): Set[String] = {
-    val synthFunNames = SygusSynthesisTask(problem).map(_.fname)
+    val synthFunNames = SygusSynthTask(problem).map(_.fname)
     val dmap = getFunDefDependencyMap(problem)
     getPostcondSymbols(synthFunNames.toSet, dmap)
   }
@@ -265,7 +265,7 @@ object SygusUtils {
     * In the CompositeTerm arguments may be reversed. This function will return
     * standardized ConstraintCmd with synthFun always on the left side.
     */
-  def divideOnTestsAndFormalConstr(constrCmds: Seq[ConstraintCmd], synthFun: SygusSynthesisTask): (Seq[ConstraintCmd], Seq[ConstraintCmd]) = {
+  def divideOnTestsAndFormalConstr(constrCmds: Seq[ConstraintCmd], synthFun: SygusSynthTask): (Seq[ConstraintCmd], Seq[ConstraintCmd]) = {
     def checkEqualityArgs(eqTerm: CompositeTerm): (Boolean, Option[CompositeTerm]) = {
       assert(eqTerm.symbol == "=")
       def args = eqTerm.terms
@@ -467,7 +467,7 @@ object SygusUtils {
     * f(x,y) == f(y,x)
     */
   def hasSingleInvocationPropertyAllConstr(problem: SyGuS16): Boolean = {
-    val sfs = SygusSynthesisTask(problem)
+    val sfs = SygusSynthTask(problem)
     val setNames = sfs.map(_.fname).toSet
     val constrCmds = getAllConstraints(problem)
     val invInfo = getSynthFunsInvocationsInfo(constrCmds, setNames)
@@ -486,7 +486,7 @@ object SygusUtils {
     * while this one does not:
     * f(x,y) == f(y,x)
     */
-  def hasSingleInvocationProperty(synthTask: SygusSynthesisTask,
+  def hasSingleInvocationProperty(synthTask: SygusSynthTask,
                                   constrCmds: Seq[ConstraintCmd]): Boolean = {
     val invInfo = getSynthFunsInvocationsInfo(constrCmds, Set(synthTask.fname))
     invInfo.forall{ case (n, lst) => singleInvocationProp(lst) }
@@ -544,7 +544,7 @@ object SygusUtils {
   }
 
   def checkUnsupportedTermsForGPMode(problem: SyGuS16) {
-    val synthFunNames = SygusSynthesisTask(problem).map(_.fname).toSet
+    val synthFunNames = SygusSynthTask(problem).map(_.fname).toSet
     def checkExpr(term: Term, letVars: Set[String]): Unit = term match {
       case LetTerm(list, t) =>
         val newLetVars = list.map{case (name, _, _) => name}

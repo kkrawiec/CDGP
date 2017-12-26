@@ -16,9 +16,8 @@ object RunTestFindOutput extends App {
   println(s"Working directory: $root")
   
   val collection = "/resources/LIA/cdgp_paper17/"
-  // val files = Tools.getRecursiveListOfFiles(new File(root + collection)).filter{ f => f.getName.endsWith(".sl")}
+  val files = Tools.getRecursiveListOfFiles(new File(root + collection)).filter{ f => f.getName.endsWith(".sl")}
   // val files = List(new File(root + "/resources/LIA/Median3_tests.sl"))
-  val files = List(new File(root + "/resources/NIA/rsconf_tc.sl"))
   val solverPath = Global.solverPath
   val solver = SolverInteractive(solverPath, verbose = false)
 

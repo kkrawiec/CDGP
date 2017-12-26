@@ -113,7 +113,7 @@ final class TestSygusUtils {
 (synth-fun funSynth ((a Int) (b Int) (c Int)) Int ((Start Int (a b c (funSynth Start Start Start)))))
       """
     val problem = LoadSygusBenchmark.parseText(code)
-    val st = SygusSynthesisTask(problem).head
+    val st = SygusSynthTask(problem).head
     assertEquals(true, st.canBeRecursive)
   }
 
@@ -140,7 +140,7 @@ final class TestSygusUtils {
         |(check-synth)
       """.stripMargin
     val problem = LoadSygusBenchmark.parseText(code)
-    val st = SygusSynthesisTask(problem).head
+    val st = SygusSynthTask(problem).head
     assertEquals(true, st.canBeRecursive)
     assertEquals("(define-fun-rec recfun ((a Int)) Int (recfun 1))", st.getSynthFunCode("(recfun 1)"))
     assertEquals("(define-fun recfun ((a Int)) Int (recfun2 1))", st.getSynthFunCode("(recfun2 1)"))
@@ -182,7 +182,7 @@ final class TestSygusUtils {
     assertEquals(Set("rsconf"), SygusUtils.getPostcondSymbols(problem))
     assertEquals(5, precond.size)
     assertEquals("(>= a 0)", SMTLIBFormatter.termToSmtlib(precond(0)))
-    val st = SygusSynthesisTask(problem).head
+    val st = SygusSynthTask(problem).head
     assertEquals(false, st.canBeRecursive)
   }
 

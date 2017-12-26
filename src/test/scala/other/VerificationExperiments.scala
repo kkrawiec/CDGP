@@ -22,7 +22,7 @@ object VerificationExperiments extends App {
     sb.toString
   }
 
-  def generateRandomPrograms(synthTask: SygusSynthesisTask): Seq[Op] = {
+  def generateRandomPrograms(synthTask: SygusSynthTask): Seq[Op] = {
     val cf = new CodeFactory(synthTask.getSwimGrammar(rng), stoppingDepth = 4, maxDepth = 8)
     for (i <- 0 until 100) yield cf.randomProgram
   }
@@ -36,7 +36,7 @@ object VerificationExperiments extends App {
   val collection = "/resources/LIA/other"
   //val files = Tools.getRecursiveListOfFiles(new File(root + collection)).filter{ f =>
   //  !f.getName.matches(".+[0-9][0-9].+") && f.getName.endsWith(".sl")}
-  val files = List(new File(root + "/resources/LIA/Median3_tests.sl"))
+  val files = List(new File(root + "/resources/LIA/Median3_t.sl"))
   val solver = SolverInteractive(Global.solverPath, verbose = false)
 
   for (file <- files) {
@@ -48,12 +48,12 @@ object VerificationExperiments extends App {
     def synthTask = sygusData.synthTask
     val tests = sygusData.testCasesConstrToTests
     val testsSeq = tests.map{ test => test._1.toList.map(_._2)}
-    val domainLIA = SLIA(synthTask.argNames, Symbol(synthTask.fname))
+    val domainLIA = DomainSLIA(synthTask.argNames, Symbol(synthTask.fname))
 
 
     val fv = sygusData.varDecls
     val templateFindOutput = new TemplateFindOutput(sygusProblem, sygusData)
-    val templateVerify = new TemplateVerification(sygusProblem, sygusData)
+    val templateVerify = new TemplateVerification(sygusProblem, sygusData, includeTestConstr = true)
 
     val progs = generateRandomPrograms(synthTask)
     val allCounterEx = mutable.MutableList[Map[String,Any]]()
@@ -81,7 +81,7 @@ object VerificationExperiments extends App {
           println("\tExpected output for counterex: " + GetValueParser(res.get).head._2)
         }
         catch {
-          case e: Throwable => println(s"	Error during evalution: ${e.getMessage}")
+          case e: Throwable => println(s"	Error during evalution/computing expected output: ${e.getMessage}")
         }
       }
       else { println("\tCorrect program found") }

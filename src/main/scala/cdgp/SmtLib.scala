@@ -58,10 +58,17 @@ object SimplifyQuery {
   */
 class TemplateVerification(problem: SyGuS16,
                            sygusData: SygusProblemData,
+                           includeTestConstr: Boolean = false,
                            timeout: Int = 0) extends Function1[Op, CheckSatQuery] {
   def createTemplate: String = {
     val constraintsPre = SMTLIBFormatter.getCodeForConstraints(sygusData.precond)
-    val constraintsPost = SMTLIBFormatter.getCodeForMergedConstraints(sygusData.formalConstr)
+    val constraintsPost =
+      if (includeTestConstr)
+        // Rather not useful, because counterexamples cannot be find for test cases (no free vars in function call)
+        // There are, however, some cases in which test can constrain the space of correct programs.
+        SMTLIBFormatter.getCodeForMergedConstraints(sygusData.allConstr)
+      else
+        SMTLIBFormatter.getCodeForMergedConstraints(sygusData.formalConstr)
     val auxiliaries = SMTLIBFormatter.getCodeForAuxiliaries(problem)
     s"(set-logic ${SMTLIBFormatter.getLogicName(problem)})\n" +
       (if (timeout > 0) s"(set-option :timeout $timeout)\n" else "") +
@@ -363,12 +370,12 @@ object SMTLIBFormatter {
     else s"($opStr ${op.args.map(opToString(_)).mkString(" ")})"
   }
 
-  def synthSolutionToString(sst: SygusSynthesisTask, solution: Op): String = {
+  def synthSolutionToString(sst: SygusSynthTask, solution: Op): String = {
     val bestBody = opToString(solution)
     synthSolutionToString(sst, bestBody)
   }
 
-  def synthSolutionToString(sst: SygusSynthesisTask, solutionSmtlib: String): String = {
+  def synthSolutionToString(sst: SygusSynthTask, solutionSmtlib: String): String = {
     val args = synthFunArgsToString(sst)
     val tpe = sortToString(sst.outputType)
     s"(define-fun ${sst.fname} ($args) $tpe\n\t$solutionSmtlib)"
@@ -386,7 +393,7 @@ object SMTLIBFormatter {
     }.mkString("", "\n", "\n")
   }
 
-  def synthFunArgsToString(sst: SygusSynthesisTask): String = {
+  def synthFunArgsToString(sst: SygusSynthTask): String = {
     sst.args.map { case (k, v) => s"($k ${sortToString(v)})" }.mkString
   }
 

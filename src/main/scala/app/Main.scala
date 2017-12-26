@@ -17,9 +17,12 @@ import scala.concurrent.ExecutionContext.Implicits.global
   * Entry point to run various pre-built variants of CDGP.
   *
   * Obligatory options:
-  * --searchAlgorithm, accepted values: GP, GPSteadyState, Lexicase, LexicaseSteadyState
   * --benchmark, path to the SyGuS benchmark
   * --solverPath, path to the SMT solver (e.g. Z3)
+  *
+  * Main evolution options:
+  * --selection, selection algorithm. Values: lexicase, tournament
+  * --evolutionMode, Values: generational, steadyState
   */
 object Main {
 
@@ -29,9 +32,9 @@ object Main {
 
   def getOptions(args: Array[String]): Options = {
     val opt = Options(args)
-    if (opt.getOption("loadOptionsFromFile").isDefined) {
-      println("Options loaded from file: " + opt.paramString("loadOptionsFromFile"))
-      val tmp = Options.loadFromFile(new File(opt.getOption("loadOptionsFromFile").get))
+    if (opt.getOption("optionsFile").isDefined) {
+      println("Options loaded from file: " + opt.paramString("optionsFile"))
+      val tmp = Options.loadFromFile(new File(opt.getOption("optionsFile").get))
       new OptionsMap(tmp.allOptions.filter{ case (k, v) => !k.startsWith("result") })
     }
     else opt
@@ -91,23 +94,29 @@ object Main {
       println(s"Benchmark: $benchmark")
       val cdgpState = CDGPState(benchmark)
 
-      val (res, bestOfRun) = opt('searchAlgorithm) match {
-        case "GP" =>
+      val selection = opt('selection, "lexicase")
+      val evoMode = opt('evolutionMode, "generational")
+      assert(evoMode == "generational" || evoMode == "steadyState")
+      assert(selection == "tournament" || selection == "lexicase",
+        s"Invalid selection: '$selection'! Possible values: 'tournament', 'lexicase'.")
+
+      val (res, bestOfRun) = (selection, evoMode) match {
+        case ("tournament", "generational") =>
           val alg = CDGPGenerational(cdgpState)
           val finalPop = watchTimeFInt(alg, RunExperiment(alg))
           (finalPop, alg.bsf.bestSoFar)
 
-        case "GPSteadyState" =>
+        case ("tournament", "steadyState") =>
           val alg = CDGPSteadyState(cdgpState)
           val finalPop = watchTimeFInt(alg, RunExperiment(alg))
           (finalPop, alg.bsf.bestSoFar)
 
-        case "Lexicase" =>
+        case ("lexicase", "generational") =>
           val alg = CDGPGenerationalLexicase(cdgpState)
           val finalPop = watchTimeFSeqInt(alg, RunExperiment(alg))
           (finalPop, alg.bsf.bestSoFar)
 
-        case "LexicaseSteadyState" =>
+        case ("lexicase", "steadyState") =>
           val alg = CDGPSteadyStateLexicase(cdgpState)
           val finalPop = watchTimeFSeqInt(alg, RunExperiment(alg))
           (finalPop, alg.bsf.bestSoFar)

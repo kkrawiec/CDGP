@@ -12,19 +12,19 @@ import sygus.{BoolSortExpr, IntSortExpr, VarDeclCmd}
 
 
 
-final class TestLIA {
+final class TestDomains {
   @Test
-  def test_LIA(): Unit = {
-    val domainLIA = SLIA(List("x", "y", "z"), 'rec)
+  def test_SLIA(): Unit = {
+    val domain = DomainSLIA(List("x", "y", "z"), 'rec)
     val inputs = Seq(2, 10, 6)
     val op = Op('nt, 'x)
-    assertEquals(2, domainLIA(op)(inputs).get)
+    assertEquals(2, domain(op)(inputs).get)
     val op2 = Op('nt, '+, Op('nt, 3), Op('nt, 'z))
-    assertEquals(9, domainLIA(op2)(inputs).get)
+    assertEquals(9, domain(op2)(inputs).get)
     val op3 = Op.fromStr("ite(<=(x 0) 0 +(2 rec(-(x 1) y z)))", useSymbols = true)
-    assertEquals(4, domainLIA(op3)(inputs).get)
+    assertEquals(4, domain(op3)(inputs).get)
 
-    val semantics = domainLIA.operationalSemantics(Seq()) _
+    val semantics = domain.operationalSemantics(Seq()) _
 
     // More information about String in CVC4: http://cvc4.cs.stanford.edu/wiki/Strings
     // Script to verify below expected answers: resources/str_test.smt2
@@ -128,6 +128,18 @@ final class TestLIA {
     assertEquals("1", semantics(Seq(Symbol("int.to.str"), 1)))
     assertEquals("1234567", semantics(Seq(Symbol("int.to.str"),1234567)))
   }
+
+  @Test
+  def test_Reals(): Unit = {
+    val domain = DomainReals(List("x", "y", "z"), 'rec)
+    val inputs = Seq(2.0, 10.0, 6.0)
+    val op = Op('nt, 'x)
+    assertEquals(2.0, domain(op)(inputs).get)
+    val op2 = Op('nt, '+, Op('nt, 3.0), Op('nt, 'z))
+    assertEquals(9.0, domain(op2)(inputs).get)
+    val op3 = Op.fromStr("ite(<=(x 0.0) 0.0 +(2.0 rec(-(x 1.0) y z)))", useSymbols = true)
+    assertEquals(4.0, domain(op3)(inputs).get)
+  }
 }
 
 
@@ -164,7 +176,7 @@ object TestRunLIA extends IApp('maxGenerations -> 25, 'printResults -> false, 'p
       case (name, BoolSortExpr()) => name -> rng.nextBoolean
     }
     val inputAsMap: Map[String, Any] = input.toMap
-    val domainLIA = SLIA(synthTask.argNames, Symbol(synthTask.fname))
+    val domainLIA = DomainSLIA(synthTask.argNames, Symbol(synthTask.fname))
     for (p <- progs)
       try {
         println("Program " + p + " applied to " + input.unzip._2 +
