@@ -151,6 +151,14 @@ class DomainReals(val funArgsNames: Seq[String], funName: Symbol, recDepth: Int 
 
   def operationalSemantics(input: Seq[Any])(childRes: Seq[Any]): Any = {
     childRes match {
+      // Variables and constants
+      case Seq(s: Symbol) if funArgsNames.contains(s.name) =>
+        val i = funArgsNames.indexOf(s.name)
+        if (i == -1) throw new Exception("Unrecognized variable name!")
+        input(i)
+      case Seq(v: Double)                          => v
+      case Seq(v: Boolean)                         => v
+
       // Arithmetic
       case Seq('+, x: Double, y: Double)           => x + y
       case Seq('-, x: Double)                      => -x
@@ -175,13 +183,20 @@ class DomainReals(val funArgsNames: Seq[String], funName: Symbol, recDepth: Int 
       case Seq('=, x: Any, y: Any)                => x == y
       case Seq('distinct, x: Any, y: Any)         => x != y
 
-      // Variables and constants
-      case Seq(s: Symbol) if funArgsNames.contains(s.name) =>
-        val i = funArgsNames.indexOf(s.name)
-        if (i == -1) throw new Exception("Unrecognized variable name!")
-        input(i)
-      case Seq(v: Double)                          => v
-      case Seq(v: Boolean)                         => v
+      // Transcendental functions
+      case Seq('sqrt, x: Double) => math.sqrt(x)
+      case Seq('exp, x: Double) => math.exp(x)
+      case Seq('log | 'ln, x: Double) => math.log(x)  // natural logarithm
+      case Seq('^ | 'pow, x: Double, y: Double) => math.pow(x, y)
+      case Seq('sin, x: Double) => math.sin(x)  // x in radians
+      case Seq('cos, x: Double) => math.cos(x)  // x in radians
+      case Seq('tan, x: Double) => math.tan(x)  // x in radians
+      case Seq('asin | 'arcsin, x: Double) => math.asin(x)  // x in radians
+      case Seq('acos | 'arccos, x: Double) => math.acos(x)  // x in radians
+      case Seq('atan | 'arctan, x: Double) => math.atan(x)  // x in radians
+      case Seq('sinh, x: Double) => math.sinh(x)  // x in radians
+      case Seq('cosh, x: Double) => math.cosh(x)  // x in radians
+      case Seq('tanh, x: Double) => math.tanh(x)  // x in radians
 
       // Exceptions
       case Seq(_: String, xs@_*) =>
