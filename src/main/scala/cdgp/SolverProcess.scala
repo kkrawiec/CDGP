@@ -123,8 +123,8 @@ object SolverFromScript {
 /**
   * Executes solver binaries one and works in the interactive mode.
   */
-case class SolverInteractive(path: String, args: String = SolverInteractive.ARGS_Z3,
-                             verbose: Boolean = false, logAllQueries: Boolean = false)
+class SolverInteractive(path: String, args: String = SolverInteractive.ARGS_Z3,
+                        verbose: Boolean = false, logAllQueries: Boolean = false)
             extends SolverSMT {
 
   private[this] var is: OutputStream = _
@@ -241,6 +241,55 @@ object SolverInteractive {
   // To use timeout with CVC4: --moreSolverArgs "--tlimit-per 1000"
   def ARGS_CVC4: String = "--lang=smt2.5 --strings-exp --default-dag-thresh=0 --incremental "
   def ARGS_OTHER: String = ""
+}
+
+
+
+/**
+  * Executes query by providing it to the solver through the standard input.
+  */
+case class SolverStdin(path: String, args: String = SolverInteractive.ARGS_Z3,
+                       verbose: Boolean = false, logAllQueries: Boolean = false)
+                       extends SolverSMT {
+
+  def apply(input: String): String = {
+    val stdout = new StringBuilder
+    val stderr = new StringBuilder
+    val pl = ProcessLogger(stdout append _, stderr append _)
+    val cmd = s"$path $args"
+    try {
+      val status = cmd ! pl
+    } catch {
+      case e: RuntimeException =>
+        throw new Exception(s"Solver failed for input:\n$input\nwith output:\n$stdout\n----- stderr -----\n$stderr\n", e)
+    }
+    stdout.toString()
+  }
+
+  def solve(query: Query): (String, Option[String]) = {
+    val inputStr = s"${query.getScript}\n"
+    val output = normalizeOutput(executeQuery(inputStr))
+    // Sometimes Z3 may return something like this:
+    //   "unsat(error "line 23 column 11: model is not available")"
+    // Normalization introduces \n before the first parenthesis.
+    val lines = output.split("\n").map(_.trim)
+    val outputDec = lines.head
+    val outputRest = if (lines.size == 1) None else Some(lines.tail.mkString("\n"))
+    if (outputDec == "sat" || outputDec == "unsat" || outputDec == "unknown" || outputDec == "timeout")
+      (outputDec, outputRest)
+    else throw new UnknownSolverOutputException(s"Solver did not return sat, unsat, nor unknown, but this: $output.\nQuery:\n$query")
+  }
+
+  /** Executes a query and returns raw output as a String. */
+  def executeQuery(query: Query): String = executeQuery(query.getScript)
+
+  /** Executes a query and returns raw output as a String. */
+  private def executeQuery(inputStr: String): String = {
+    if (verbose) println(s"Input to the solver:\n$inputStr\n")
+    val output = apply(inputStr).trim
+    if (verbose) print("Solver output:\n" + output)
+    output
+  }
 }
 
 
@@ -364,7 +413,7 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
   }
 
   /**
-    * Executes the provided query using the SMT solver. Output is returned as is.
+    * Executes the provided query using the SMT solver. Solver's output is returned without any processing.
     * @param query A full query for the solver. Nothing will be added to it except from
     *              the "(reset)" in the beginning in case of interactive solver.
     */
