@@ -1,12 +1,12 @@
 package tests
 
+import cdgp.solvers.OutputParserDreal3
 import org.junit.Test
 import org.junit.Assert._
 import cdgp.{ConstParser, GetValueParser, ValueParseException}
 
 
 class TestGetValueParser {
-
   @Test
   def testPass(): Unit = {
     assertEquals( Map( "x" -> 1, "y" -> -2 ), GetValueParser("""((x 1)
@@ -41,7 +41,6 @@ class TestGetValueParser {
       parsed)
   }
 
-
   @Test(expected=classOf[ValueParseException])
   def testFail(): Unit = {
     GetValueParser(""" ((x (- 7787))
@@ -58,7 +57,6 @@ class TestGetValueParser {
 
 
 class TestConstParser {
-
   @Test
   def testPass(): Unit = {
     assertEquals(true, ConstParser("true"))
@@ -82,5 +80,56 @@ class TestConstParser {
   @Test(expected=classOf[ValueParseException])
   def testFail(): Unit = {
     ConstParser("[1, 2, 3]")
+  }
+}
+
+
+class TestOutputParserDreal3 {
+  @Test
+  def test_parse_unsat(): Unit = {
+    val s = "unsat"
+    val (dec, model) = OutputParserDreal3(s)
+    assertEquals("unsat", dec)
+    assertEquals(None, model)
+  }
+
+  @Test
+  def test_parse_satPlain(): Unit = {
+    val s = "delta-sat with delta = 0.00100000000000000"
+    val (dec, model) = OutputParserDreal3(s)
+    assertEquals("sat", dec)
+    assertEquals(None, model)
+  }
+
+  @Test
+  def test_parse_satModel1(): Unit = {
+    val s = """Solution:
+              |x : [ ENTIRE ] = [-2, -2]
+              |delta-sat with delta = 0.00100000000000000""".stripMargin
+    val (dec, model) = OutputParserDreal3(s)
+    assertEquals("sat", dec)
+    assertEquals(Some(Map("x"->(-2.0, -2.0))), model)
+  }
+
+  @Test
+  def test_parse_satModel2(): Unit = {
+    val s = """Solution:
+              |x : [ ENTIRE ] = [-1.25, 1.25]
+              |delta-sat with delta = 0.00100000000000000""".stripMargin
+    val (dec, model) = OutputParserDreal3(s)
+    assertEquals("sat", dec)
+    assertEquals(Some(Map("x"->(-1.25, 1.25))), model)
+  }
+
+  @Test
+  def test_parse_satModel3(): Unit = {
+    val s = """Solution:
+              |x : [ ENTIRE ] = [-INFTY, -INFTY]
+              |y : [ ENTIRE ] = [INFTY, INFTY]
+              |delta-sat with delta = 0.00100000000000000""".stripMargin
+    val (dec, model) = OutputParserDreal3(s)
+    assertEquals("sat", dec)
+    assertEquals(Some(Map("x"->(Double.NegativeInfinity, Double.NegativeInfinity),
+                          "y"->(Double.PositiveInfinity, Double.PositiveInfinity))), model)
   }
 }
