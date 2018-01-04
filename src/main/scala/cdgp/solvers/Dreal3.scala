@@ -1,14 +1,26 @@
 package cdgp.solvers
 
-import cdgp.ValueParseException
+import cdgp.{SMTLIBFormatter, SygusProblemData, ValueParseException}
+import swim.tree.Op
 
 import scala.util.matching.Regex
 import scala.util.parsing.combinator.RegexParsers
 
 object Dreal3 {
 
-  def verify(): Unit = {
-
+  /**
+    * Produces a query to verify if the real-valued function meets certain formal
+    * properties.
+    */
+  def verificationQuery(op: Op, sygusData: SygusProblemData): String = {
+    val query = """(set-logic QF_NRA)
+      |%1$s
+      |%2$s
+      |(check-sat)
+      |(exit)""".stripMargin
+    val vars = SMTLIBFormatter.produceVarDeclsForSynthFunArgs(sygusData)
+    val constr = s"(assert (>= ${SMTLIBFormatter.apply(op)} 0))"
+    query.format(vars, constr)
   }
 
   /**
@@ -17,8 +29,8 @@ object Dreal3 {
     * @param s Output of the dReal3 solver.
     * @return Decision and, if sat, a model assigning to each variable a bound on its values.
     */
-  def parseResult(s: String): (Boolean, Option[Map[String, (Double, Double)]]) = {
-    ???
+  def parseResult(s: String): (String, Option[Map[String, (Double, Double)]]) = {
+    OutputParserDreal3(s)
   }
 
 }

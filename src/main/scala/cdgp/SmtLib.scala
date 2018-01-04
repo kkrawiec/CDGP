@@ -381,8 +381,8 @@ object SMTLIBFormatter {
     s"(define-fun ${sst.fname} ($args) $tpe\n\t$solutionSmtlib)"
   }
 
-  def produceVarDecls(sygusConstr: SygusProblemData): String = {
-    sygusConstr.varDecls.map{v =>
+  def produceVarDecls(sygusData: SygusProblemData): String = {
+    sygusData.varDecls.map{v =>
       s"(declare-fun ${v.sym} () ${SMTLIBFormatter.sortToString(v.sortExpr)})"
     }.mkString("", "\n", "\n")
   }
