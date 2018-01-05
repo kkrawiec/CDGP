@@ -14,4 +14,9 @@ object RealsExperiments extends App {
   }
 
   // TODO: test dReal3 against Z3
+  val path = "/home/iwob/Programy/dReal3/dReal3"
+  val solver = SolverStdin(path)
+
+  //val programs = generateRandomPrograms()
+
 }

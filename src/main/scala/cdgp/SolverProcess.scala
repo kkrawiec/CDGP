@@ -15,6 +15,20 @@ class UnknownSolverOutputException(message: String = "", cause: Throwable = null
 
 object SolverSMT {
   val LOG_FILE: String = "solver_log.txt"
+
+  /**
+    * Adds a newline before the first occurence of a left parenthesis.
+    * Sometimes Z3 may return something like this:
+    *   "unsat(error "line 23 column 11: model is not available")"
+    * Normalization introduces \n before the first parenthesis.
+    */
+  def normalizeOutput(output: String): String = {
+    val firstPar = output.indexOf("(")
+    if (firstPar == -1)
+      output
+    else
+      output.take(firstPar) + "\n" + output.drop(firstPar)
+  }
 }
 
 trait SolverSMT extends Closeable {
@@ -37,6 +51,8 @@ trait SolverSMT extends Closeable {
   def log(s: String): Unit = {
     logFilePrinter.print(s)
   }
+
+  def close(): Unit = {}
 }
 
 
@@ -68,20 +84,9 @@ case class SolverFromScript(path: String, args: String = SolverFromScript.ARGS_Z
     stdout.toString()
   }
 
-  def normalizeOutput(output: String): String = {
-    val firstPar = output.indexOf("(")
-    if (firstPar == -1)
-      output
-    else
-      output.take(firstPar) + "\n" + output.drop(firstPar)
-  }
-
   override def solve(query: Query): (String, Option[String]) = {
     val inputStr = s"${query.getScript}\n"
-    val output = normalizeOutput(executeQuery(inputStr))
-    // Sometimes Z3 may return something like this:
-    //   "unsat(error "line 23 column 11: model is not available")"
-    // Normalization introduces \n before the first parenthesis.
+    val output = SolverSMT.normalizeOutput(executeQuery(inputStr))
     val lines = output.split("\n").map(_.trim)
     val outputDec = lines.head
     val outputRest = if (lines.size == 1) None else Some(lines.tail.mkString("\n"))
@@ -108,7 +113,6 @@ case class SolverFromScript(path: String, args: String = SolverFromScript.ARGS_Z
     pw.print(s)
     pw.close()
   }
-  override def close(): Unit = {}
 }
 
 object SolverFromScript {
@@ -123,9 +127,9 @@ object SolverFromScript {
 /**
   * Executes solver binaries one and works in the interactive mode.
   */
-class SolverInteractive(path: String, args: String = SolverInteractive.ARGS_Z3,
-                        verbose: Boolean = false, logAllQueries: Boolean = false)
-            extends SolverSMT {
+case class SolverInteractive(path: String, args: String = SolverInteractive.ARGS_Z3,
+                             verbose: Boolean = false, logAllQueries: Boolean = false)
+  extends SolverSMT {
 
   private[this] var is: OutputStream = _
   private[this] var os: InputStream = _
@@ -248,7 +252,7 @@ object SolverInteractive {
 /**
   * Executes query by providing it to the solver through the standard input.
   */
-case class SolverStdin(path: String, args: String = SolverInteractive.ARGS_Z3,
+case class SolverStdin(path: String, args: String = "",
                        verbose: Boolean = false, logAllQueries: Boolean = false)
                        extends SolverSMT {
 
@@ -268,11 +272,8 @@ case class SolverStdin(path: String, args: String = SolverInteractive.ARGS_Z3,
 
   def solve(query: Query): (String, Option[String]) = {
     val inputStr = s"${query.getScript}\n"
-    val output = normalizeOutput(executeQuery(inputStr))
-    // Sometimes Z3 may return something like this:
-    //   "unsat(error "line 23 column 11: model is not available")"
-    // Normalization introduces \n before the first parenthesis.
-    val lines = output.split("\n").map(_.trim)
+    val output = SolverSMT.normalizeOutput(executeQuery(inputStr))
+    val lines = output.split("\n").filter(_.nonEmpty).map(_.trim)
     val outputDec = lines.head
     val outputRest = if (lines.size == 1) None else Some(lines.tail.mkString("\n"))
     if (outputDec == "sat" || outputDec == "unsat" || outputDec == "unknown" || outputDec == "timeout")
