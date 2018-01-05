@@ -132,7 +132,7 @@ object SygusSynthTask {
       SygusSynthTask(sym, grammar, args, se) // name, function syntax, args list, output type
     }
     case SynthFunCmd16(sym: String, args: List[(String, SortExpr)], se: SortExpr) => {
-      val grammarSygus = createDefaultGrammar(args, se)
+      val grammarSygus = defaultGrammarLIA(args, se)
       SygusSynthTask(sym, grammarSygus, args, se)
     }
   }
@@ -141,15 +141,28 @@ object SygusSynthTask {
     * Creates a default grammar for Ints and Bools if it was not specified. Sort of the synth-fun is
     * used to determine the initial symbol. of the grammar.
     */
-  def createDefaultGrammar(args: List[(String, SortExpr)], se: SortExpr): Seq[(Any, Seq[Any])] = {
-    // Add the variables
-    val bp = boolProd(args.filter(_._2 == BoolSortExpr()).map{ x => Symbol(x._1) })
-    val ip = intProd(args.filter(_._2 == IntSortExpr()).map{ x => Symbol(x._1) })
-    // The first symbol in the grammar is the initial symbol, and that symbol depends
-    // on the output type of the function:
+  def defaultGrammarLIA(args: List[(String, SortExpr)], se: SortExpr): Seq[(Any, Seq[Any])] = {
+    val bp = prodLIA_bool(args.filter(_._2 == BoolSortExpr()).map{ x => Symbol(x._1) })
+    val ip = prodLIA(args.filter(_._2 == IntSortExpr()).map{ x => Symbol(x._1) })
+    // The first symbol in the grammar is the initial symbol, which depends on the output type of the function
     se match {
-      case BoolSortExpr() => List(bp, ip, intProd_const)
-      case IntSortExpr()  => List(ip, bp, intProd_const)
+      case BoolSortExpr() => List(bp, ip, constInt)
+      case IntSortExpr()  => List(ip, bp, constInt)
+      case _ => throw new Exception(s"Default grammar not supported for $se")
+    }
+  }
+
+  /**
+    * Creates a default grammar for Ints and Bools if it was not specified. Sort of the synth-fun is
+    * used to determine the initial symbol. of the grammar.
+    */
+  def defaultGrammarReals(args: List[(String, SortExpr)], se: SortExpr): Seq[(Any, Seq[Any])] = {
+    val bp = prodLIA_bool(args.filter(_._2 == BoolSortExpr()).map{ x => Symbol(x._1) })
+    val rp = prodLIA(args.filter(_._2 == RealSortExpr()).map{ x => Symbol(x._1) })
+    // The first symbol in the grammar is the initial symbol, which depends on the output type of the function
+    se match {
+      case BoolSortExpr() => List(bp, rp, constReal)
+      case RealSortExpr()  => List(rp, bp, constReal)
       case _ => throw new Exception(s"Default grammar not supported for $se")
     }
   }
@@ -157,7 +170,7 @@ object SygusSynthTask {
   // Default grammar for the language of entire LIA (called 'Conditional Linear Integer
   // arithmetic' in SygusComp16.pdf)
   // Constants are fixed for now:
-  def intProd(vars: Seq[Any]): (Any, Seq[Any]) = 'I -> (vars ++ Seq(
+  def prodLIA(vars: Seq[Any]): (Any, Seq[Any]) = 'I -> (vars ++ Seq(
     ConstantMarker("Int"),
     '+ -> ('I, 'I),
     '- -> ('I, 'I),
@@ -165,14 +178,39 @@ object SygusSynthTask {
     'div -> ('I, 'I_const),
     'mod -> ('I, 'I_const),
     'ite -> ('B, 'I, 'I)))
-  def intProd_const: (Any, Seq[Any]) = 'I_const -> Seq(ConstantMarker("Int"))
-  def boolProd(vars: Seq[Any]): (Any, Seq[Any]) = 'B -> (vars ++ Seq(
+  def prodLRA(vars: Seq[Any]): (Any, Seq[Any]) = 'R -> (vars ++ Seq(
+    ConstantMarker("Real"),
+    //'ite -> ('B, 'R, 'R), // don't use in regression (common usage of LRA)
+    '+ -> ('R, 'R),
+    '- -> ('R, 'R),
+    '* -> ('R_const, 'R),
+    '/ -> ('R, 'R_const)))
+  def prodNRA(vars: Seq[Any]): (Any, Seq[Any]) = 'R -> (vars ++ Seq(
+    ConstantMarker("Real"),
+    //'ite -> ('B, 'R, 'R), // don't use in regression (common usage of NRA)
+    '+ -> ('R, 'R),
+    '- -> ('R, 'R),
+    '* -> ('R, 'R),
+    '/ -> ('R, 'R)))
+  def constInt: (Any, Seq[Any]) = 'I_const -> Seq(ConstantMarker("Int"))
+  def constReal: (Any, Seq[Any]) = 'R_const -> Seq(ConstantMarker("Real"))
+  def prodLIA_bool(vars: Seq[Any]): (Any, Seq[Any]) = 'B -> (vars ++ Seq(
     //true, false, // Never useful
     '= -> ('I, 'I),
     '< -> ('I, 'I),
     '<= -> ('I, 'I),
     '> -> ('I, 'I),
     '>= -> ('I, 'I),
+    'and -> ('B, 'B),
+    'or -> ('B, 'B),
+    'not -> 'B))
+  def prodLRA_bool(vars: Seq[Any]): (Any, Seq[Any]) = 'B -> (vars ++ Seq(
+    //true, false, // Never useful
+    '= -> ('R, 'R),
+    '< -> ('R, 'R),
+    '<= -> ('R, 'R),
+    '> -> ('R, 'R),
+    '>= -> ('R, 'R),
     'and -> ('B, 'B),
     'or -> ('B, 'B),
     'not -> 'B))
