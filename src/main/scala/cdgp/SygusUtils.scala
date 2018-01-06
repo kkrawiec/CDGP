@@ -126,50 +126,42 @@ case class ConstantMarker(tpe: String)
 
 
 object SygusSynthTask {
-  def apply(tree: SyGuS16): List[SygusSynthTask] = tree.cmds.collect {
-    case SynthFunCmd14(sym: String, args: List[(String, SortExpr)], se: SortExpr, ntDefs: List[NTDef]) => {
-      val grammar = retrieveGrammar(ntDefs)
-      SygusSynthTask(sym, grammar, args, se) // name, function syntax, args list, output type
-    }
-    case SynthFunCmd16(sym: String, args: List[(String, SortExpr)], se: SortExpr) => {
-      val grammarSygus = defaultGrammarLIA(args, se)
-      SygusSynthTask(sym, grammarSygus, args, se)
-    }
-  }
-
-  /**
-    * Creates a default grammar for Ints and Bools if it was not specified. Sort of the synth-fun is
-    * used to determine the initial symbol. of the grammar.
-    */
-  def defaultGrammarLIA(args: List[(String, SortExpr)], se: SortExpr): Seq[(Any, Seq[Any])] = {
-    val bp = prodLIA_bool(args.filter(_._2 == BoolSortExpr()).map{ x => Symbol(x._1) })
-    val ip = prodLIA(args.filter(_._2 == IntSortExpr()).map{ x => Symbol(x._1) })
-    // The first symbol in the grammar is the initial symbol, which depends on the output type of the function
-    se match {
-      case BoolSortExpr() => List(bp, ip, constInt)
-      case IntSortExpr()  => List(ip, bp, constInt)
-      case _ => throw new Exception(s"Default grammar not supported for $se")
+  def apply(tree: SyGuS16): List[SygusSynthTask] = {
+    val logic = if (tree.setLogic.isDefined) s"${tree.setLogic.get.id}" else "ALL"
+    tree.cmds.collect {
+      case SynthFunCmd14(sym: String, args: List[(String, SortExpr)], se: SortExpr, ntDefs: List[NTDef]) => {
+        val grammar = retrieveGrammar(ntDefs)
+        SygusSynthTask(sym, grammar, args, se) // name, function syntax, args list, output type
+      }
+      case SynthFunCmd16(sym: String, args: List[(String, SortExpr)], se: SortExpr) => {
+        val grammarSygus = defaultGrammar(logic, args, se)
+        SygusSynthTask(sym, grammarSygus, args, se)
+      }
     }
   }
 
   /**
-    * Creates a default grammar for Ints and Bools if it was not specified. Sort of the synth-fun is
-    * used to determine the initial symbol. of the grammar.
+    * Returns a list of symbols for all variables of the given type.
     */
-  def defaultGrammarReals(args: List[(String, SortExpr)], se: SortExpr): Seq[(Any, Seq[Any])] = {
-    val bp = prodLIA_bool(args.filter(_._2 == BoolSortExpr()).map{ x => Symbol(x._1) })
-    val rp = prodLIA(args.filter(_._2 == RealSortExpr()).map{ x => Symbol(x._1) })
-    // The first symbol in the grammar is the initial symbol, which depends on the output type of the function
-    se match {
-      case BoolSortExpr() => List(bp, rp, constReal)
-      case RealSortExpr()  => List(rp, bp, constReal)
-      case _ => throw new Exception(s"Default grammar not supported for $se")
+  def varsForGrammar(vars: List[(String, SortExpr)], se: SortExpr): List[Symbol] =
+    vars.filter(_._2 == se).map{ x => Symbol(x._1) }
+
+  def defaultGrammar(logic: String, vars: List[(String, SortExpr)], se: SortExpr): Seq[(Any, Seq[Any])] = {
+    lazy val bp_int = prodLIA_bool(varsForGrammar(vars, BoolSortExpr()))
+    lazy val bp_real = prodLRA_bool(varsForGrammar(vars, BoolSortExpr()))
+    val prods = logic match {
+      case "LIA" | "QF_LIA" => List(bp_int, prodLIA(varsForGrammar(vars, IntSortExpr())), constInt)
+      case "NIA" | "QF_NIA" => List(bp_int, prodNIA(varsForGrammar(vars, IntSortExpr())))
+      case "LRA" | "QF_LRA" => List(bp_real, prodLRA(varsForGrammar(vars, RealSortExpr())), constReal)
+      case "NRA" | "QF_NRA" => List(bp_real, prodNRA(varsForGrammar(vars, RealSortExpr())))
+      case _ => throw new Exception(s"No default grammar defined for logic: $logic")
     }
+    if (se.name == "Bool") prods
+    else prods.tail :+ prods.head  // set different initial symbol
   }
 
-  // Default grammar for the language of entire LIA (called 'Conditional Linear Integer
-  // arithmetic' in SygusComp16.pdf)
-  // Constants are fixed for now:
+  // Default grammar for the LIA logic (called 'Conditional Linear Integer arithmetic'
+  // in SygusComp16.pdf).
   def prodLIA(vars: Seq[Any]): (Any, Seq[Any]) = 'I -> (vars ++ Seq(
     ConstantMarker("Int"),
     '+ -> ('I, 'I),
@@ -177,6 +169,14 @@ object SygusSynthTask {
     '* -> ('I_const, 'I),
     'div -> ('I, 'I_const),
     'mod -> ('I, 'I_const),
+    'ite -> ('B, 'I, 'I)))
+  def prodNIA(vars: Seq[Any]): (Any, Seq[Any]) = 'I -> (vars ++ Seq(
+    ConstantMarker("Int"),
+    '+ -> ('I, 'I),
+    '- -> ('I, 'I),
+    '* -> ('I, 'I),
+    'div -> ('I, 'I),
+    'mod -> ('I, 'I),
     'ite -> ('B, 'I, 'I)))
   def prodLRA(vars: Seq[Any]): (Any, Seq[Any]) = 'R -> (vars ++ Seq(
     ConstantMarker("Real"),
