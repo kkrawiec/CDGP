@@ -66,8 +66,8 @@ object OutputParserDreal3 extends RegexParsers {
 
   def posNumber: Parser[Double] = double ^^ { _.toDouble }
   def number: Parser[Double] =
-    "INFTY" ^^^ { Double.PositiveInfinity } |
-    "-INFTY" ^^^ { Double.NegativeInfinity } |
+    ("+INFTY" | "inf") ^^^ { Double.PositiveInfinity } |
+    ("-INFTY" | "-inf") ^^^ { Double.NegativeInfinity } |
     posNumber
 
   def assignmentRange: Parser[(Double, Double)] =
@@ -79,7 +79,7 @@ object OutputParserDreal3 extends RegexParsers {
     }
 
   def satModel: Parser[(String, Option[Map[String, (Double, Double)]])] =
-    "Solution:" ~> rep1(assignment) ~ satPlain ^^ { case list ~ _ =>
+    "Solution:" ~> rep(assignment) ~ satPlain ^^ { case list ~ _ =>
       ("sat", Some(list.toMap))
     }
 

@@ -81,7 +81,13 @@ case class SolverFromScript(path: String, args: String = SolverFromScript.ARGS_Z
         throw new Exception(s"Solver failed for input:\n$input\nwith output:\n$stdout\n----- stderr -----\n$stderr\n", e)
     }
     tmpfile.delete
-    stdout.toString()
+    val out = stdout.toString().trim
+    val err = stderr.toString().trim
+    if (!out.startsWith("(sat") && !out.startsWith("(unsat") &&
+        !out.startsWith("(unknown") && !out.startsWith("(timeout") &&
+        err != "")
+      throw new Exception(s"Solver encountered an error: $err")
+    out
   }
 
   override def solve(query: Query): (String, Option[String]) = {
@@ -119,6 +125,7 @@ object SolverFromScript {
   // pp.min-alias-size=1000000 pp.max_depth=1000000 are needed for simplification to not have let expressions
   def ARGS_Z3: String = "-smt2 pp.min-alias-size=1000000 pp.max_depth=1000000 " //-file:
   def ARGS_CVC4: String = "--lang=smt2.5 --strings-exp --default-dag-thresh=0 "
+  def ARGS_DREAL3: String = "--model "
   def ARGS_OTHER: String = ""
 }
 
@@ -179,6 +186,7 @@ case class SolverInteractive(path: String, args: String = SolverInteractive.ARGS
     sb.toString
   }
 
+  /*
   private[this] def scanWholeOutput: String = {
     // This method blocks forever...
     val sb = new StringBuilder
@@ -188,6 +196,7 @@ case class SolverInteractive(path: String, args: String = SolverInteractive.ARGS
     } while (scanner.hasNextLine)
     sb.toString
   }
+  */
 
   def solve(query: Query): (String, Option[String]) = {
     this.synchronized {
@@ -249,49 +258,7 @@ object SolverInteractive {
 
 
 
-/**
-  * Executes query by providing it to the solver through the standard input.
-  */
-case class SolverStdin(path: String, args: String = "",
-                       verbose: Boolean = false, logAllQueries: Boolean = false)
-                       extends SolverSMT {
 
-  def apply(input: String): String = {
-    val stdout = new StringBuilder
-    val stderr = new StringBuilder
-    val pl = ProcessLogger(stdout append _, stderr append _)
-    val cmd = s"$path $args"
-    try {
-      val status = cmd ! pl
-    } catch {
-      case e: RuntimeException =>
-        throw new Exception(s"Solver failed for input:\n$input\nwith output:\n$stdout\n----- stderr -----\n$stderr\n", e)
-    }
-    stdout.toString()
-  }
-
-  def solve(query: Query): (String, Option[String]) = {
-    val inputStr = s"${query.getScript}\n"
-    val output = SolverSMT.normalizeOutput(executeQuery(inputStr))
-    val lines = output.split("\n").filter(_.nonEmpty).map(_.trim)
-    val outputDec = lines.head
-    val outputRest = if (lines.size == 1) None else Some(lines.tail.mkString("\n"))
-    if (outputDec == "sat" || outputDec == "unsat" || outputDec == "unknown" || outputDec == "timeout")
-      (outputDec, outputRest)
-    else throw new UnknownSolverOutputException(s"Solver did not return sat, unsat, nor unknown, but this: $output.\nQuery:\n$query")
-  }
-
-  /** Executes a query and returns raw output as a String. */
-  def executeQuery(query: Query): String = executeQuery(query.getScript)
-
-  /** Executes a query and returns raw output as a String. */
-  private def executeQuery(inputStr: String): String = {
-    if (verbose) println(s"Input to the solver:\n$inputStr\n")
-    val output = apply(inputStr).trim
-    if (verbose) print("Solver output:\n" + output)
-    output
-  }
-}
 
 
 

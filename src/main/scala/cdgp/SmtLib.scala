@@ -10,6 +10,9 @@ import scala.collection.mutable
 
 class Query(val code: String, val mainCmd: String = "(check-sat)\n",
             val satCmds: String = "", val unsatCmds: String = "") {
+  /**
+    * @return Full script with both a sat and unsat branches placed in that order.
+    */
   def getScript: String = {
     code +
       (if (mainCmd != "") mainCmd + "\n" else "") +
@@ -20,6 +23,7 @@ class Query(val code: String, val mainCmd: String = "(check-sat)\n",
   override def toString: String = getScript
 }
 
+class PlainQuery(code: String) extends Query(code, "", "")
 
 class CheckSatQuery(code: String, satCmds: String, unsatCmds: String = "")
   extends Query(code, "(check-sat)", satCmds, unsatCmds) {}

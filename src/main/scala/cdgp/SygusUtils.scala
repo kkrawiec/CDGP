@@ -100,8 +100,8 @@ case class SygusSynthTask(fname: String,
       (k, seq.map{
         case cm @ SygusUtils.ConstantMarker(tpe) =>
           if (tpe == "Int") ConstantProviderUniformI(-10, 10)(rng)
-          if (tpe == "Real") ConstantProviderUniformD(-1.0, 1.0)(rng)
-          else throw new Exception(s"Unsupported constant type: $tpe!")
+          else if (tpe == "Real") ConstantProviderUniformD(-1.0, 1.0)(rng)
+          else throw new Exception(s"Unsupported constant type: $tpe")
         case x => x
       })
     }

@@ -125,7 +125,7 @@ class TestOutputParserDreal3 {
   def test_parse_satModel3(): Unit = {
     val s = """Solution:
               |x : [ ENTIRE ] = [-INFTY, -INFTY]
-              |y : [ ENTIRE ] = [INFTY, INFTY]
+              |y : [ ENTIRE ] = [+INFTY, +INFTY]
               |delta-sat with delta = 0.00100000000000000""".stripMargin
     val (dec, model) = OutputParserDreal3(s)
     assertEquals("sat", dec)
