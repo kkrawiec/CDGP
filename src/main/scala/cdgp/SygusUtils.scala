@@ -4,7 +4,7 @@ import java.io.File
 
 import fuel.util.TRandom
 import swim.Grammar
-import swim.tree.ConstantProviderUniformI
+import swim.tree.{ConstantProviderUniformD, ConstantProviderUniformI}
 import sygus._
 import sygus16.SyGuS16
 
@@ -88,9 +88,9 @@ case class SygusProblemData(problem: SyGuS16,
   * @param outputType Output type of the function.
   */
 case class SygusSynthTask(fname: String,
-                          grammarSygus: Seq[(Any, Seq[Any])],
                           args: Seq[(String, SortExpr)],
-                          outputType: SortExpr) {
+                          outputType: SortExpr,
+                          grammarSygus: Seq[(Any, Seq[Any])]) {
   val argNames: Seq[String] = args.unzip._1
   val uninterpSwimGrammar: Grammar = SygusUtils.getSwimGrammar(grammarSygus)
   val canBeRecursive: Boolean = uninterpSwimGrammar.contains(Symbol(fname)) || uninterpSwimGrammar.contains(fname)
@@ -98,8 +98,9 @@ case class SygusSynthTask(fname: String,
   def getSwimGrammar(rng: TRandom): Grammar = {
     val modGrammar = grammarSygus.map{ case (k, seq) =>
       (k, seq.map{
-        case cm @ ConstantMarker(tpe) =>
+        case cm @ SygusUtils.ConstantMarker(tpe) =>
           if (tpe == "Int") ConstantProviderUniformI(-10, 10)(rng)
+          if (tpe == "Real") ConstantProviderUniformD(-1.0, 1.0)(rng)
           else throw new Exception(s"Unsupported constant type: $tpe!")
         case x => x
       })
@@ -122,7 +123,6 @@ case class SygusSynthTask(fname: String,
 }
 
 
-case class ConstantMarker(tpe: String)
 
 
 object SygusSynthTask {
@@ -130,23 +130,34 @@ object SygusSynthTask {
     val logic = if (tree.setLogic.isDefined) s"${tree.setLogic.get.id}" else "ALL"
     tree.cmds.collect {
       case SynthFunCmd14(sym: String, args: List[(String, SortExpr)], se: SortExpr, ntDefs: List[NTDef]) => {
-        val grammar = retrieveGrammar(ntDefs)
-        SygusSynthTask(sym, grammar, args, se) // name, function syntax, args list, output type
+        val grammar = SygusUtils.retrieveGrammar(ntDefs)
+        SygusSynthTask(sym, args, se, grammar) // name, function syntax, args list, output type
       }
       case SynthFunCmd16(sym: String, args: List[(String, SortExpr)], se: SortExpr) => {
-        val grammarSygus = defaultGrammar(logic, args, se)
-        SygusSynthTask(sym, grammarSygus, args, se)
+        val grammarSygus = SygusUtils.defaultGrammar(logic, args, se)
+        SygusSynthTask(sym, args, se, grammarSygus)
       }
     }
   }
 
+  def apply(name: String, vars: Seq[(String, SortExpr)], outputTpe: SortExpr, logic: String): SygusSynthTask = {
+    val grammar = SygusUtils.defaultGrammar(logic, vars, outputTpe)
+    SygusSynthTask(name, vars, outputTpe, grammar)
+  }
+}
+
+
+
+object SygusUtils {
+  case class ConstantMarker(tpe: String)
+
   /**
     * Returns a list of symbols for all variables of the given type.
     */
-  def varsForGrammar(vars: List[(String, SortExpr)], se: SortExpr): List[Symbol] =
+  def varsForGrammar(vars: Seq[(String, SortExpr)], se: SortExpr): Seq[Symbol] =
     vars.filter(_._2 == se).map{ x => Symbol(x._1) }
 
-  def defaultGrammar(logic: String, vars: List[(String, SortExpr)], se: SortExpr): Seq[(Any, Seq[Any])] = {
+  def defaultGrammar(logic: String, vars: Seq[(String, SortExpr)], se: SortExpr): Seq[(Any, Seq[Any])] = {
     lazy val bp_int = prodLIA_bool(varsForGrammar(vars, BoolSortExpr()))
     lazy val bp_real = prodLRA_bool(varsForGrammar(vars, BoolSortExpr()))
     val prods = logic match {
@@ -238,12 +249,11 @@ object SygusSynthTask {
         })
       }
   }
-}
 
 
+  ////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-object SygusUtils {
   /**
     * Returns a set of fun-defined symbols which can be used only in postconditions.
     */

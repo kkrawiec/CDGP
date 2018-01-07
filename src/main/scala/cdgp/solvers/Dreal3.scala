@@ -1,6 +1,6 @@
 package cdgp.solvers
 
-import cdgp.{SMTLIBFormatter, SygusProblemData, ValueParseException}
+import cdgp.{SMTLIBFormatter, SygusProblemData, SygusSynthTask, ValueParseException}
 import swim.tree.Op
 
 import scala.util.matching.Regex
@@ -12,13 +12,13 @@ object Dreal3 {
     * Produces a query to verify if the real-valued function meets certain formal
     * properties.
     */
-  def verificationQuery(op: Op, sygusData: SygusProblemData): String = {
+  def verificationQuery(op: Op, synthTask: SygusSynthTask): String = {
     val query = """(set-logic QF_NRA)
       |%1$s
       |%2$s
       |(check-sat)
       |(exit)""".stripMargin
-    val vars = SMTLIBFormatter.produceVarDeclsForSynthFunArgs(sygusData)
+    val vars = SMTLIBFormatter.produceVarDeclsForSynthFunArgs(synthTask)
     val constr = s"(assert (>= ${SMTLIBFormatter.apply(op)} 0))"
     query.format(vars, constr)
   }
