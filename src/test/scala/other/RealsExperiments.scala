@@ -14,7 +14,7 @@ object RealsExperiments extends App {
   implicit val rng = Rng(Options("--seed 0"))
 
   def generateRandomPrograms(grammar: Grammar, num: Int = 100): Seq[Op] = {
-    val cf = new CodeFactory(grammar, stoppingDepth = 4, maxDepth = 8)
+    val cf = new CodeFactory(grammar, stoppingDepth = 6, maxDepth = 9)
     for (i <- 0 until num) yield cf.randomProgram
   }
 
@@ -29,7 +29,7 @@ object RealsExperiments extends App {
   println("dReal3")
   println("-" * 100)
   val statsDreal3 = mutable.Map[String, Int]()
-  val solverDreal3 = SolverFromScript("/home/iwob/Programy/dReal/dReal3", args=SolverFromScript.ARGS_DREAL3)
+  val solverDreal3 = SolverFromScript("/home/iwob/Programy/dReal/dReal3", args="")
   val startDreal3 = System.currentTimeMillis()
   programs.foreach { p =>
     println(p)

@@ -1,6 +1,6 @@
 package cdgp.solvers
 
-import cdgp.{SMTLIBFormatter, SygusProblemData, SygusSynthTask, ValueParseException}
+import cdgp.{SMTLIBFormatter, SygusSynthTask, ValueParseException}
 import swim.tree.Op
 
 import scala.util.matching.Regex
