@@ -48,7 +48,7 @@ class CDGPGenerational(moves: GPMoves,
       extends SimpleGP(moves, cdgpEval.eval, Common.correctInt) with CDGPAlgorithm[Op, FInt] {
   override def cdgpState: CDGPState = cdgpEval.state
   override def initialize  = super.initialize
-  override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalInt(cdgpEval.state, bsf)
+  override def epilogue = super.epilogue andThen bsf andThen Common.reportStats(cdgpEval.state, bsf)
   override def iter = super.iter andThen Common.saveCurrentPop(this)// andThen super.report // uncomment report to change the result (FUEL issue #6)
   override def evaluate = cdgpEval
 }
@@ -95,7 +95,7 @@ class CDGPSteadyState(moves: GPMoves,
   override def cdgpState: CDGPState = cdgpEval.state
   override def initialize  = super.initialize
   override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests andThen Common.saveCurrentPop(this)
-  override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalInt(cdgpEval.state, bsf)
+  override def epilogue = super.epilogue andThen bsf andThen Common.reportStats(cdgpEval.state, bsf)
   override def report = s => s
   override def evaluate = // used only for the initial population
     (s: StatePop[Op]) => {
@@ -158,7 +158,7 @@ class CDGPGenerationalLexicase(moves: GPMoves,
   override val selection = new LexicaseSelection01[Op, FSeqInt]
   override def cdgpState: CDGPState = cdgpEval.state
   override def initialize  = super.initialize
-  override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalSeqInt(cdgpEval.state, bsf)
+  override def epilogue = super.epilogue andThen bsf andThen Common.reportStats(cdgpEval.state, bsf)
   override def iter = super.iter andThen super.report andThen Common.saveCurrentPop(this)
   override def evaluate = cdgpEval
 }
@@ -208,7 +208,7 @@ class CDGPSteadyStateLexicase(moves: GPMoves,
   override def cdgpState: CDGPState = cdgpEval.state
   override def initialize  = super.initialize
   override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests andThen Common.saveCurrentPop(this)
-  override def epilogue = super.epilogue andThen bsf andThen Common.epilogueEvalSeqInt(cdgpEval.state, bsf)
+  override def epilogue = super.epilogue andThen bsf andThen Common.reportStats(cdgpEval.state, bsf)
   override def evaluate = // used only for the initial population
     (s: StatePop[Op]) => {
       cdgpEval.state.testsManager.flushHelpers()
@@ -314,27 +314,12 @@ object Common {
     new CDGPState(LoadSygusBenchmark(benchmark))
   }
 
-  def epilogueEvalInt(cdgpState: CDGPState, bsf: BestSoFar[Op, FInt])
-                     (s: StatePop[(Op, FInt)])
-                     (implicit opt: Options, coll: Collector): StatePop[(Op, FInt)] = {
-    val (_, e) = bsf.bestSoFar.get
-    e.saveInColl(coll)
-    reportStats(cdgpState, bsf)(s)
-  }
-
-  def epilogueEvalSeqInt(cdgpState: CDGPState, bsf: BestSoFar[Op, FSeqInt])
-                        (s: StatePop[(Op, FSeqInt)])
-                        (implicit opt: Options, coll: Collector): StatePop[(Op, FSeqInt)] = {
-    val (_, e) = bsf.bestSoFar.get
-    e.saveInColl(coll)
-    reportStats(cdgpState, bsf)(s)
-  }
-
-  def reportStats[E](cdgpState: CDGPState, bsf: BestSoFar[Op, E])
+  def reportStats[E <: Fitness](cdgpState: CDGPState, bsf: BestSoFar[Op, E])
                     (s: StatePop[(Op, E)])
                     (implicit opt: Options, coll: Collector): StatePop[(Op, E)] = {
     if (bsf.bestSoFar.isDefined) {
-      val (bestOfRun, _) = bsf.bestSoFar.get
+      val (bestOfRun, e) = bsf.bestSoFar.get
+      e.saveInColl(coll)
       val solutionOriginal = SMTLIBFormatter.opToString(bestOfRun)
       val solutionSimplified = cdgpState.simplifySolution(solutionOriginal)
       val solution = solutionSimplified.getOrElse(solutionOriginal)
@@ -374,11 +359,13 @@ trait Fitness {
   def saveInColl(coll: Collector): Unit
 }
 
+
 case class FSeqInt(correct: Boolean, value: Seq[Int], progSize: Int)
   extends Seq[Int] with Fitness {
   override def length: Int = value.length
   override def apply(idx: Int) = value(idx)
   override def iterator = value.iterator
+
   override def saveInColl(coll: Collector): Unit = {
     val passedTests = if (correct) this.size else this.count(_ == 0)
     val ratio = if (this.isEmpty) 1.0 else passedTests.toDouble / this.size
@@ -386,11 +373,12 @@ case class FSeqInt(correct: Boolean, value: Seq[Int], progSize: Int)
     coll.setResult("best.passedTests", passedTests)
     coll.setResult("best.numTests", this.size)
     coll.setResult("best.passedTestsRatio", roundedRatio)
-    coll.setResult("best.isOptimal", this.correct)
-    coll.setResult("best.isApproximate", !this.correct)
+    coll.setResult("best.isOptimal", correct)
   }
   override def toString: String = s"Fit($correct, $value, progSize=$progSize)"
 }
+
+
 case class FInt(correct: Boolean, value: Int, progSize: Int, totalTests: Int) extends Fitness {
   override def saveInColl(coll: Collector): Unit = {
     val passedTests = if (correct) totalTests else totalTests - value
@@ -400,7 +388,6 @@ case class FInt(correct: Boolean, value: Int, progSize: Int, totalTests: Int) ex
     coll.setResult("best.numTests", totalTests)
     coll.setResult("best.passedTestsRatio", roundedRatio)
     coll.setResult("best.isOptimal", correct)
-    coll.setResult("best.isApproximate", !correct)
   }
   override def toString: String = s"Fit($correct, $value, progSize=$progSize)"
 }
@@ -408,6 +395,17 @@ case class FInt(correct: Boolean, value: Int, progSize: Int, totalTests: Int) ex
 object FInt {
   def apply(correct: Boolean, list: Seq[Int], progSize: Int): FInt =
     FInt(correct, list.sum, progSize, list.size)
+}
+
+
+case class FitnessMSE(correct: Boolean, value: Double, progSize: Int)
+  extends Fitness {
+  override def saveInColl(coll: Collector): Unit = {
+    val mse = BigDecimal(value).setScale(5, BigDecimal.RoundingMode.HALF_UP).toDouble
+    coll.setResult("best.mse", correct)
+    coll.setResult("best.isOptimal", correct)
+  }
+  override def toString: String = s"Fit($correct, $value, progSize=$progSize)"
 }
 
 

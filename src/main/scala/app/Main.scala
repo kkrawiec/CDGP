@@ -58,7 +58,7 @@ object Main {
           coll.set("result.totalTimeSystem", maxTime)  // save in ms
           if (alg.pop.isDefined) {
             alg.bsf(alg.pop.get) // update bsf
-            Common.epilogueEvalInt(alg.cdgpState, alg.bsf)(alg.pop.get)
+            Common.reportStats(alg.cdgpState, alg.bsf)(alg.pop.get)
           }
           coll.saveSnapshot("cdgp")
           alg.pop
@@ -78,7 +78,7 @@ object Main {
           coll.set("result.totalTimeSystem", maxTime)  // save in ms
           if (alg.pop.isDefined) {
             alg.bsf(alg.pop.get) // update bsf
-            Common.epilogueEvalSeqInt(alg.cdgpState, alg.bsf)(alg.pop.get)
+            Common.reportStats(alg.cdgpState, alg.bsf)(alg.pop.get)
           }
           coll.saveSnapshot("cdgp")
           alg.pop
