@@ -42,10 +42,10 @@ trait CDGPAlgorithm[S, E] {
   * @param rng Pseudorandom numbers generator.
   * @param ordering Generates order on the fitness values.
   */
-class CDGPGenerational(moves: GPMoves,
-                       cdgpEval: CDGPEvaluation[Op, FInt])
-                      (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[FInt])
-      extends SimpleGP(moves, cdgpEval.eval, Common.correctInt) with CDGPAlgorithm[Op, FInt] {
+class CDGPGenerational[E <: Fitness](moves: GPMoves,
+                       cdgpEval: CDGPEvaluation[Op, E])
+                      (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
+      extends SimpleGP(moves, cdgpEval.eval, Common.correct) with CDGPAlgorithm[Op, E] {
   override def cdgpState: CDGPState = cdgpEval.state
   override def initialize  = super.initialize
   override def epilogue = super.epilogue andThen bsf andThen Common.reportStats(cdgpEval.state, bsf)
@@ -55,11 +55,11 @@ class CDGPGenerational(moves: GPMoves,
 
 object CDGPGenerational {
   def apply(benchmark: String)
-           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerational = {
+           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerational[FInt] = {
     apply(Common.getCDGPState(benchmark))
   }
   def apply(cdgpState: CDGPState)
-           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerational = {
+           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerational[FInt] = {
     implicit val ordering = FIntOrdering
     val moves = GPMoves(cdgpState.grammar, Common.isFeasible(cdgpState.synthTask.fname, opt))
     val cdgpEval = new CDGPEvaluation[Op, FInt](cdgpState, Common.evalInt(cdgpState.fitness))
@@ -248,6 +248,8 @@ object CDGPSteadyStateLexicase {
 
 
 object Common {
+  def correct: (Any, Fitness) => Boolean =
+    (_: Any, e: Fitness) => e.correct
   def correctInt: (Any, FInt) => Boolean =
     (_: Any, e: FInt) => e.correct
   def correctSeqInt: (Any, FSeqInt) => Boolean =
@@ -353,6 +355,7 @@ object Common {
 
 
 trait Fitness {
+  def correct: Boolean
   /**
     * Saves all the fitness-relevant data using the provided collector.
     */
@@ -398,11 +401,10 @@ object FInt {
 }
 
 
-case class FitnessMSE(correct: Boolean, value: Double, progSize: Int)
-  extends Fitness {
+case class FitnessMSE(correct: Boolean, value: Double, progSize: Int) extends Fitness {
   override def saveInColl(coll: Collector): Unit = {
     val mse = BigDecimal(value).setScale(5, BigDecimal.RoundingMode.HALF_UP).toDouble
-    coll.setResult("best.mse", correct)
+    coll.setResult("best.mse", mse)
     coll.setResult("best.isOptimal", correct)
   }
   override def toString: String = s"Fit($correct, $value, progSize=$progSize)"

@@ -3,7 +3,7 @@ package app
 import java.io.{File, PrintWriter, StringWriter}
 
 import fuel.func.RunExperiment
-import fuel.util.{CollectorFile, Options, OptionsMap, Rng}
+import fuel.util._
 import swim.tree.Op
 import cdgp._
 import fuel.core.StatePop
@@ -30,6 +30,7 @@ object Main {
     Await.result(Future(f), Duration(timeoutMs, MILLISECONDS))
   }
 
+
   def getOptions(args: Array[String]): Options = {
     val opt = Options(args)
     if (opt.getOption("optionsFile").isDefined) {
@@ -40,55 +41,66 @@ object Main {
     else opt
   }
 
+
+  def watchTime[E <: Fitness](alg: CDGPAlgorithm[Op, E], f: => Option[StatePop[(Op, E)]])
+                             (implicit coll: Collector, opt: Options): Option[StatePop[(Op, E)]] = {
+    val maxTime = opt('maxTime, 86400000)  // 24h in miliseconds
+    try {
+      val res = runWithTimeout(maxTime)(f)
+      res
+    }
+    catch {
+      case e: java.util.concurrent.TimeoutException =>
+        println("Timeout!!!!!!!!!!!!!!!!!!!")
+        coll.set("cdgp.wasTimeout", true)
+        coll.set("result.totalTimeSystem", maxTime)  // save in ms
+        if (alg.pop.isDefined) {
+          alg.bsf(alg.pop.get) // update bsf
+          Common.reportStats(alg.cdgpState, alg.bsf)(alg.pop.get)
+        }
+        coll.saveSnapshot("cdgp")
+        alg.pop
+    }
+  }
+
+
+  def runConfig(cdgpState: CDGPState, selection: String, evoMode: String)
+               (implicit coll: Collector, opt: Options, rng: TRandom):
+               (Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]) = {
+    (selection, evoMode) match {
+      case ("tournament", "generational") =>
+        val alg = CDGPGenerational(cdgpState)
+        val finalPop = watchTime(alg, RunExperiment(alg))
+        (finalPop, alg.bsf.bestSoFar)
+
+      case ("tournament", "steadyState") =>
+        val alg = CDGPSteadyState(cdgpState)
+        val finalPop = watchTime(alg, RunExperiment(alg))
+        (finalPop, alg.bsf.bestSoFar)
+
+      case ("lexicase", "generational") =>
+        val alg = CDGPGenerationalLexicase(cdgpState)
+        val finalPop = watchTime(alg, RunExperiment(alg))
+        (finalPop, alg.bsf.bestSoFar)
+
+      case ("lexicase", "steadyState") =>
+        val alg = CDGPSteadyStateLexicase(cdgpState)
+        val finalPop = watchTime(alg, RunExperiment(alg))
+        (finalPop, alg.bsf.bestSoFar)
+    }
+  }
+
+
+
+  // --------------------------------------------------------------------------
+  //                                 MAIN
+  // --------------------------------------------------------------------------
+
   def main(args: Array[String]): Unit = {
     implicit val opt = getOptions(args)
     implicit val coll = CollectorFile(opt)
     implicit val rng = Rng(opt)
 
-    def watchTimeFInt(alg: CDGPAlgorithm[Op, FInt], f: => Option[StatePop[(Op, FInt)]]): Option[StatePop[(Op, FInt)]] = {
-      val maxTime = opt('maxTime, 86400000)  // 24h in miliseconds
-      try {
-        val res = runWithTimeout(maxTime)(f)
-        res
-      }
-      catch {
-        case e: java.util.concurrent.TimeoutException =>
-          println("Timeout!!!!!!!!!!!!!!!!!!!")
-          coll.set("cdgp.wasTimeout", true)
-          coll.set("result.totalTimeSystem", maxTime)  // save in ms
-          if (alg.pop.isDefined) {
-            alg.bsf(alg.pop.get) // update bsf
-            Common.reportStats(alg.cdgpState, alg.bsf)(alg.pop.get)
-          }
-          coll.saveSnapshot("cdgp")
-          alg.pop
-      }
-    }
-
-    def watchTimeFSeqInt(alg: CDGPAlgorithm[Op, FSeqInt], f: => Option[StatePop[(Op, FSeqInt)]]): Option[StatePop[(Op, FSeqInt)]] = {
-      val maxTime = opt('maxTime, 86400000)  // 24h in miliseconds
-      try {
-        val res = runWithTimeout(maxTime)(f)
-        res
-      }
-      catch {
-        case e: java.util.concurrent.TimeoutException =>
-          println("Timeout!!!!!!!!!!!!!!!!!!!")
-          coll.set("cdgp.wasTimeout", true)
-          coll.set("result.totalTimeSystem", maxTime)  // save in ms
-          if (alg.pop.isDefined) {
-            alg.bsf(alg.pop.get) // update bsf
-            Common.reportStats(alg.cdgpState, alg.bsf)(alg.pop.get)
-          }
-          coll.saveSnapshot("cdgp")
-          alg.pop
-      }
-    }
-
-
-    // --------------------------------------------------------------------------
-    //                             MAIN LOOP
-    // --------------------------------------------------------------------------
     try {
       val benchmark = opt('benchmark)
       println(s"Benchmark: $benchmark")
@@ -96,41 +108,18 @@ object Main {
 
       val selection = opt('selection, "lexicase")
       val evoMode = opt('evolutionMode, "generational")
-      assert(evoMode == "generational" || evoMode == "steadyState")
+      assert(evoMode == "generational" || evoMode == "steadyState",
+        s"Invalid evolutionMode: '$evoMode'! Possible values: 'generational', 'steadyState'.")
       assert(selection == "tournament" || selection == "lexicase",
         s"Invalid selection: '$selection'! Possible values: 'tournament', 'lexicase'.")
+      val regression = opt('regression, false)
 
-      val (res, bestOfRun) = (selection, evoMode) match {
-        case ("tournament", "generational") =>
-          val alg = CDGPGenerational(cdgpState)
-          val finalPop = watchTimeFInt(alg, RunExperiment(alg))
-          (finalPop, alg.bsf.bestSoFar)
-
-        case ("tournament", "steadyState") =>
-          val alg = CDGPSteadyState(cdgpState)
-          val finalPop = watchTimeFInt(alg, RunExperiment(alg))
-          (finalPop, alg.bsf.bestSoFar)
-
-        case ("lexicase", "generational") =>
-          val alg = CDGPGenerationalLexicase(cdgpState)
-          val finalPop = watchTimeFSeqInt(alg, RunExperiment(alg))
-          (finalPop, alg.bsf.bestSoFar)
-
-        case ("lexicase", "steadyState") =>
-          val alg = CDGPSteadyStateLexicase(cdgpState)
-          val finalPop = watchTimeFSeqInt(alg, RunExperiment(alg))
-          (finalPop, alg.bsf.bestSoFar)
-      }
+      val (res, bestOfRun) = runConfig(cdgpState, selection, evoMode)
       coll.saveSnapshot("cdgp")
 
       /////////////////////// Printing results ///////////////////////////////
 
-      def isOptimal(bestOfRun: (Op, Any)): Boolean = {
-        bestOfRun._2 match {
-          case a if a.isInstanceOf[FInt] => a.asInstanceOf[FInt].correct
-          case a if a.isInstanceOf[FSeqInt] => a.asInstanceOf[FSeqInt].correct
-        }
-      }
+      def isOptimal(bestOfRun: (Op, Fitness)): Boolean = bestOfRun._2.correct
 
 
       assume(bestOfRun.isDefined, "No solution (optimal or approximate) to the problem was found.")
