@@ -91,6 +91,68 @@ object Main {
   }
 
 
+  def runConfigRegression(cdgpState: CDGPState, selection: String, evoMode: String)
+                         (implicit coll: Collector, opt: Options, rng: TRandom):
+  (Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]) = {
+    (selection, evoMode) match {
+      case ("tournament", "generational") =>
+        ???
+
+      case ("tournament", "steadyState") =>
+        ???
+
+      case ("lexicase", "generational") =>
+        val alg = CDGPGenerationalLexicase(cdgpState)
+        val finalPop = watchTime(alg, RunExperiment(alg))
+        (finalPop, alg.bsf.bestSoFar)
+
+      case ("lexicase", "steadyState") =>
+        val alg = CDGPSteadyStateLexicase(cdgpState)
+        val finalPop = watchTime(alg, RunExperiment(alg))
+        (finalPop, alg.bsf.bestSoFar)
+    }
+  }
+
+
+  def printResults(cdgpState: CDGPState, bestOfRun: Option[(Op, Fitness)])
+                  (implicit coll: Collector, opt: Options, rng: TRandom) {
+    assume(bestOfRun.isDefined, "No solution (optimal or approximate) to the problem was found.")
+    def isOptimal(bestOfRun: (Op, Fitness)): Boolean = bestOfRun._2.correct
+
+    val passedTestsRatio = coll.getResult("best.passedTestsRatio").getOrElse("n/a")
+    val pn = 26
+    println("\n")
+    println("Best program found:".padTo(pn, ' ') + coll.getResult("bestOrig.smtlib").getOrElse("n/a"))
+    println("Simplified:".padTo(pn, ' ') + coll.getResult("best.smtlib").getOrElse("n/a"))
+    println("Evaluation:".padTo(pn, ' ') + coll.getResult("best.eval").getOrElse("n/a"))
+    println("Program size:".padTo(pn, ' ') + coll.getResult("best.size").get)
+    println("Ratio of passed tests:".padTo(pn, ' ') + passedTestsRatio)
+    println("Tests total:".padTo(pn, ' ') + cdgpState.testsManager.getNumberOfTests)
+    println("Tests known outputs:".padTo(pn, ' ') + cdgpState.testsManager.getNumberOfKnownOutputs)
+    println("Total solver calls:".padTo(pn, ' ') + cdgpState.solver.getNumCalls)
+    println("Generations:".padTo(pn, ' ') + coll.getResult("best.generation").get)
+    println("Total time [s]:".padTo(pn, ' ') + coll.getResult("totalTimeSystem").get.toString.toDouble / 1000.0)
+    println("Log file:".padTo(pn, ' ') + coll.get("thisFileName").get.toString)
+
+    if (opt("printTests", false)) {
+      println("\nCollected tests:")
+      cdgpState.testsManager.tests.foreach(println(_))
+      println("")
+    }
+
+    val sol = coll.getResult("best.smtlib").get.toString
+    val solutionFull = SMTLIBFormatter.synthSolutionToString(cdgpState.synthTask, sol)
+
+    println("\nOPTIMAL SOLUTION:")
+    if (isOptimal(bestOfRun.get))
+      println(solutionFull) else println("unknown")
+
+    if (!isOptimal(bestOfRun.get)) {
+      println(s"\nAPPROXIMATED SOLUTION:\n(passedTestsRatio $passedTestsRatio)")
+      println(solutionFull)
+    }
+  }
+
 
   // --------------------------------------------------------------------------
   //                                 MAIN
@@ -104,6 +166,8 @@ object Main {
     try {
       val benchmark = opt('benchmark)
       println(s"Benchmark: $benchmark")
+
+      // Create CDGP state
       val cdgpState = CDGPState(benchmark)
 
       val selection = opt('selection, "lexicase")
@@ -114,48 +178,16 @@ object Main {
         s"Invalid selection: '$selection'! Possible values: 'tournament', 'lexicase'.")
       val regression = opt('regression, false)
 
-      val (res, bestOfRun) = runConfig(cdgpState, selection, evoMode)
+
+      // Run algorithm
+      val (_, bestOfRun) =
+        if (regression) runConfigRegression(cdgpState, selection, evoMode)
+        else runConfig(cdgpState, selection, evoMode)
+
+
+      // Print and save results
       coll.saveSnapshot("cdgp")
-
-      /////////////////////// Printing results ///////////////////////////////
-
-      def isOptimal(bestOfRun: (Op, Fitness)): Boolean = bestOfRun._2.correct
-
-
-      assume(bestOfRun.isDefined, "No solution (optimal or approximate) to the problem was found.")
-      val passedTestsRatio = coll.getResult("best.passedTestsRatio").getOrElse("n/a")
-      val pn = 26
-      println("\n")
-      println("Best program found:".padTo(pn, ' ') + coll.getResult("bestOrig.smtlib").getOrElse("n/a"))
-      println("Simplified:".padTo(pn, ' ') + coll.getResult("best.smtlib").getOrElse("n/a"))
-      println("Evaluation:".padTo(pn, ' ') + coll.getResult("best.eval").getOrElse("n/a"))
-      println("Program size:".padTo(pn, ' ') + coll.getResult("best.size").get)
-      println("Ratio of passed tests:".padTo(pn, ' ') + passedTestsRatio)
-      println("Tests total:".padTo(pn, ' ') + cdgpState.testsManager.getNumberOfTests)
-      println("Tests known outputs:".padTo(pn, ' ') + cdgpState.testsManager.getNumberOfKnownOutputs)
-      println("Total solver calls:".padTo(pn, ' ') + cdgpState.solver.getNumCalls)
-      println("Generations:".padTo(pn, ' ') + coll.getResult("best.generation").get)
-      println("Total time [s]:".padTo(pn, ' ') + coll.getResult("totalTimeSystem").get.toString.toDouble / 1000.0)
-      println("Log file:".padTo(pn, ' ') + coll.get("thisFileName").get.toString)
-
-      if (opt("printTests", false)) {
-        println("\nCollected tests:")
-        cdgpState.testsManager.tests.foreach(println(_))
-        println("")
-      }
-
-
-      val sol = coll.getResult("best.smtlib").get.toString
-      val solutionFull = SMTLIBFormatter.synthSolutionToString(cdgpState.synthTask, sol)
-
-      println("\nOPTIMAL SOLUTION:")
-      if (isOptimal(bestOfRun.get))
-        println(solutionFull) else println("unknown")
-
-      if (!isOptimal(bestOfRun.get)) {
-        println(s"\nAPPROXIMATED SOLUTION:\n(passedTestsRatio $passedTestsRatio)")
-        println(solutionFull)
-      }
+      printResults(cdgpState, bestOfRun)
     }
     catch {
       case e: NoSolutionException =>
