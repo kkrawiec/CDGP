@@ -355,6 +355,9 @@ class CDGPState(val sygusProblem: SyGuS16)
     new CDGPEvaluationSteadyState(this, eval, updateEval)
 
 
+  /**
+    * A fitness function which assigns 0 to passed tests and 1 to failed tests.
+    */
   val fitness: (Op) => (Boolean, Seq[Int]) =
     method match {
       case _ if sygusData.formalInvocations.isEmpty => fitnessOnlyTestCases
