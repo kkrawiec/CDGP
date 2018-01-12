@@ -1,4 +1,4 @@
-package tests
+package tests.other
 
 import cdgp._
 import cdgp.solvers.Dreal3
@@ -6,6 +6,7 @@ import fuel.util.{Options, Rng}
 import swim.Grammar
 import swim.tree.{CodeFactory, Op}
 import sygus.RealSortExpr
+import tests.Global
 
 import scala.collection.mutable
 

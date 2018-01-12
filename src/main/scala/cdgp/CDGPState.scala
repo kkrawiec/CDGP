@@ -452,7 +452,7 @@ class CDGPState(val sygusProblem: SyGuS16)
   }
 
   def updateEvalInt(s: (Op, FInt)): (Op, FInt) = {
-    val newFit = FInt(s._2.correct, s._2.value + evalOnTests(s._1, testsManager.newTests.toList).sum, s._1.size)
+    val newFit = FInt(s._2.correct, s._2.value + evalOnTests(s._1, testsManager.newTests.toList).sum, s._1.size, testsManager.getNumberOfTests)
     (s._1, newFit)
   }
   def updateEvalSeqInt(s: (Op, FSeqInt)): (Op, FSeqInt) =

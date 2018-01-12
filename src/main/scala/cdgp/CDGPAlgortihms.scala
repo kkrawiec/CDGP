@@ -269,7 +269,7 @@ object Common {
 
   def evalInt(fitness: (Op) => (Boolean, Seq[Int]))(s: Op): FInt = {
     val (isPerfect, r) = fitness(s)
-    FInt(isPerfect, r.sum, s.size)
+    FInt(isPerfect, r, s.size)
   }
   def evalSeqInt(fitness: (Op) => (Boolean, Seq[Int]))(s: Op): FSeqInt = {
     val (isPerfect, r) = fitness(s)
@@ -289,11 +289,11 @@ object Common {
   def evalPopNoVerificationFInt(state: CDGPState)(s: StatePop[Op]): StatePop[(Op, FInt)] = {
     StatePop(s.map{ op =>
       val f = state.fitnessNoVerification(op)
-      (op, FInt(f._1, f._2.sum, op.size))
+      (op, FInt(f._1, f._2, op.size))
     })
   }
-  def evalPopToDefaultFInt(dec: Boolean, fit: Int)(s: StatePop[Op]): StatePop[(Op, FInt)] = {
-    StatePop(s.map{ op => (op, FInt(dec, fit, op.size))})
+  def evalPopToDefaultFInt(dec: Boolean, fit: Int, totalTests: Int = 0)(s: StatePop[Op]): StatePop[(Op, FInt)] = {
+    StatePop(s.map{ op => (op, FInt(dec, fit, op.size, totalTests))})
   }
 
   def saveCurrentPop[S, E](alg: CDGPAlgorithm[S, E])(s: StatePop[(S, E)]): StatePop[(S, E)] = {
@@ -318,15 +318,7 @@ object Common {
                      (s: StatePop[(Op, FInt)])
                      (implicit opt: Options, coll: Collector): StatePop[(Op, FInt)] = {
     val (_, e) = bsf.bestSoFar.get
-    val totalTests = cdgpState.testsManager.getNumberOfTests
-    val passedTests = if (e.correct) totalTests else totalTests - e.value
-    val ratio = if (totalTests == 0) 1.0 else passedTests.toDouble / totalTests
-    val roundedRatio = BigDecimal(ratio).setScale(3, BigDecimal.RoundingMode.HALF_UP).toDouble
-    coll.setResult("best.passedTests", passedTests)
-    coll.setResult("best.numTests", totalTests)
-    coll.setResult("best.passedTestsRatio", roundedRatio)
-    coll.setResult("best.isOptimal", e.correct)
-    coll.setResult("best.isApproximate", !e.correct)
+    e.saveInColl(coll)
     reportStats(cdgpState, bsf)(s)
   }
 
@@ -334,14 +326,7 @@ object Common {
                         (s: StatePop[(Op, FSeqInt)])
                         (implicit opt: Options, coll: Collector): StatePop[(Op, FSeqInt)] = {
     val (_, e) = bsf.bestSoFar.get
-    val passedTests = if (e.correct) e.size else e.count(_ == 0)
-    val ratio = if (e.isEmpty) 1.0 else passedTests.toDouble / e.size
-    val roundedRatio = BigDecimal(ratio).setScale(3, BigDecimal.RoundingMode.HALF_UP).toDouble
-    coll.setResult("best.passedTests", passedTests)
-    coll.setResult("best.numTests", e.size)
-    coll.setResult("best.passedTestsRatio", roundedRatio)
-    coll.setResult("best.isOptimal", e.correct)
-    coll.setResult("best.isApproximate", !e.correct)
+    e.saveInColl(coll)
     reportStats(cdgpState, bsf)(s)
   }
 
@@ -382,16 +367,49 @@ object Common {
 }
 
 
+trait Fitness {
+  /**
+    * Saves all the fitness-relevant data using the provided collector.
+    */
+  def saveInColl(coll: Collector): Unit
+}
 
-case class FSeqInt(correct: Boolean, value: Seq[Int], progSize: Int) extends Seq[Int] {
-  override def length = value.length
+case class FSeqInt(correct: Boolean, value: Seq[Int], progSize: Int)
+  extends Seq[Int] with Fitness {
+  override def length: Int = value.length
   override def apply(idx: Int) = value(idx)
   override def iterator = value.iterator
+  override def saveInColl(coll: Collector): Unit = {
+    val passedTests = if (correct) this.size else this.count(_ == 0)
+    val ratio = if (this.isEmpty) 1.0 else passedTests.toDouble / this.size
+    val roundedRatio = BigDecimal(ratio).setScale(3, BigDecimal.RoundingMode.HALF_UP).toDouble
+    coll.setResult("best.passedTests", passedTests)
+    coll.setResult("best.numTests", this.size)
+    coll.setResult("best.passedTestsRatio", roundedRatio)
+    coll.setResult("best.isOptimal", this.correct)
+    coll.setResult("best.isApproximate", !this.correct)
+  }
   override def toString: String = s"Fit($correct, $value, progSize=$progSize)"
 }
-case class FInt(correct: Boolean, value: Int, progSize: Int) {
+case class FInt(correct: Boolean, value: Int, progSize: Int, totalTests: Int) extends Fitness {
+  override def saveInColl(coll: Collector): Unit = {
+    val passedTests = if (correct) totalTests else totalTests - value
+    val ratio = if (totalTests == 0) 1.0 else passedTests.toDouble / totalTests
+    val roundedRatio = BigDecimal(ratio).setScale(3, BigDecimal.RoundingMode.HALF_UP).toDouble
+    coll.setResult("best.passedTests", passedTests)
+    coll.setResult("best.numTests", totalTests)
+    coll.setResult("best.passedTestsRatio", roundedRatio)
+    coll.setResult("best.isOptimal", correct)
+    coll.setResult("best.isApproximate", !correct)
+  }
   override def toString: String = s"Fit($correct, $value, progSize=$progSize)"
 }
+
+object FInt {
+  def apply(correct: Boolean, list: Seq[Int], progSize: Int): FInt =
+    FInt(correct, list.sum, progSize, list.size)
+}
+
 
 object FSeqIntOrdering extends Ordering[FSeqInt] {
   override def compare(a: FSeqInt, b: FSeqInt): Int = {

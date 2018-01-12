@@ -15,18 +15,18 @@ final class TestCDGPAlgorithm {
   implicit val rng = Rng(Options("--seed 0"))
   @Test
   def test_FInt(): Unit = {
-    val t0_20 = FInt(true, 0, 20)
-    val t0_50 = FInt(true, 0, 50)
-    val t0_90 = FInt(true, 0, 90)
-    val t1_20 = FInt(true, 1, 20)
-    val t1_50 = FInt(true, 1, 50)
-    val t1_90 = FInt(true, 1, 90)
-    val f0_20 = FInt(false, 0, 20)
-    val f0_50 = FInt(false, 0, 50)
-    val f0_90 = FInt(false, 0, 90)
-    val f1_20 = FInt(false, 1, 20)
-    val f1_50 = FInt(false, 1, 50)
-    val f1_90 = FInt(false, 1, 90)
+    val t0_20 = FInt(true, 0, 20, 1)
+    val t0_50 = FInt(true, 0, 50, 1)
+    val t0_90 = FInt(true, 0, 90, 1)
+    val t1_20 = FInt(true, 1, 20, 1)
+    val t1_50 = FInt(true, 1, 50, 1)
+    val t1_90 = FInt(true, 1, 90, 1)
+    val f0_20 = FInt(false, 0, 20, 1)
+    val f0_50 = FInt(false, 0, 50, 1)
+    val f0_90 = FInt(false, 0, 90, 1)
+    val f1_20 = FInt(false, 1, 20, 1)
+    val f1_50 = FInt(false, 1, 50, 1)
+    val f1_90 = FInt(false, 1, 90, 1)
     assertEquals(1,  ordFInt.compare(t0_50, t0_20))
     assertEquals(0,  ordFInt.compare(t0_50, t0_50))
     assertEquals(-1, ordFInt.compare(t0_50, t0_90))
@@ -57,8 +57,8 @@ final class TestCDGPAlgorithm {
     // No assertions in this test, because TournamentSelection is with replacement
     // and it is possible that the same element is chosen several times.
     // This serves rather as a sanity test and code example.
-    def s(fit: Int, size: Int) = (Op('nt, "a"), FInt(false, fit, size))
-    def r() = (Op('nt, "a"), FInt(false, 1+rng.nextInt(2), 21+rng.nextInt(40)))
+    def s(fit: Int, size: Int) = (Op('nt, "a"), FInt(false, fit, size, 1))
+    def r() = (Op('nt, "a"), FInt(false, 1+rng.nextInt(2), 21+rng.nextInt(40), 1))
     def generatePop() = StatePop(List(r(), r(), r(), r(), s(1, 20)))
     1.to(20).foreach { _ =>
       val pop = generatePop()
