@@ -411,6 +411,7 @@ case class FitnessMSE(correct: Boolean, value: Double, progSize: Int) extends Fi
 }
 
 
+
 object FSeqIntOrdering extends Ordering[FSeqInt] {
   override def compare(a: FSeqInt, b: FSeqInt): Int = {
     val c = if (a.correct && !b.correct) -1
@@ -426,6 +427,16 @@ object FIntOrdering extends Ordering[FInt] {
     val c = if (a.correct && !b.correct) -1
             else if (!a.correct && b.correct) 1
             else a.value compare b.value
+    // lexicographic parsimony pressure
+    if (c == 0) a.progSize compare b.progSize
+    else c
+  }
+}
+object FitnessMSEOrdering extends Ordering[FitnessMSE] {
+  override def compare(a: FitnessMSE, b: FitnessMSE): Int = {
+    val c = if (a.correct && !b.correct) -1
+    else if (!a.correct && b.correct) 1
+    else a.value compare b.value
     // lexicographic parsimony pressure
     if (c == 0) a.progSize compare b.progSize
     else c

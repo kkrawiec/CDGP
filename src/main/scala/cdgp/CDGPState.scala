@@ -367,7 +367,7 @@ class CDGPState(val sygusProblem: SyGuS16)
   }
 
   /**
-    * Fitness is computed on the tests cases. No verications is performed.
+    * Fitness is computed on the test cases. No verification is performed.
     * A solution passing all test cases is considered optimal.
     */
   def fitnessOnlyTestCases: Op => (Boolean, Seq[Int]) =
