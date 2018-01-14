@@ -13,20 +13,20 @@ import sygus.IntSortExpr
 object LexicaseTests extends App {
   implicit val rng = Rng(Options("--seed 0"))
 
-  def generateRandomPop(grammar: Grammar, num: Int = 500): StatePop[(Op, Seq[Int])] = {
-    val cf = new CodeFactory(grammar, stoppingDepth = 6, maxDepth = 9)
-    val progs = for (i <- 0 until num) yield cf.randomProgram
+  def generateRandomPop(grammar: Grammar, numProgs: Int = 500, numTests: Int = 200): StatePop[(Op, Seq[Int])] = {
+    val cf = new CodeFactory(grammar, stoppingDepth = 1, maxDepth = 3)
+    val progs = for (i <- 0 until numProgs) yield cf.randomProgram
     StatePop(progs.map{ p =>
-      val f = for (i <- 0 until 200) yield rng.nextInt(2)
+      val f = for (i <- 0 until numTests) yield rng.nextInt(2)
       (p, f)
     })
   }
 
-  def generateRandomPopRegression(grammar: Grammar, num: Int = 500): StatePop[(Op, Seq[Double])] = {
-    val cf = new CodeFactory(grammar, stoppingDepth = 6, maxDepth = 9)
-    val progs = for (i <- 0 until num) yield cf.randomProgram
+  def generateRandomPopRegression(grammar: Grammar, numProgs: Int = 500, numTests: Int = 200): StatePop[(Op, Seq[Double])] = {
+    val cf = new CodeFactory(grammar, stoppingDepth = 1, maxDepth = 3)
+    val progs = for (i <- 0 until numProgs) yield cf.randomProgram
     StatePop(progs.map{ p =>
-      val f = for (i <- 0 until 200) yield rng.nextDouble()
+      val f = for (i <- 0 until numTests) yield rng.nextDouble()
       (p, f)
     })
   }
@@ -34,7 +34,6 @@ object LexicaseTests extends App {
   def testSelection[E](pop: StatePop[(Op, E)], selection: Selection[Op, E]): Long = {
     val start = System.currentTimeMillis()
     for (i <- 0 until 500) {
-      // println(s"Selection #$i")
       val c = selection(pop)
       // println("Chosen el: " + c)
     }
@@ -45,20 +44,46 @@ object LexicaseTests extends App {
 
   def testSelectionEpsLexicase[E <: Seq[Double]](pop: StatePop[(Op, E)], selection: EpsLexicaseSelection[Op, E]): Long = {
     val start = System.currentTimeMillis()
-    // val epsForTests = EpsLexicaseSelection.medianAbsDev(pop)
-    val epsForTests = pop.head._2.map{ _ => 0.1 }.toVector
+    val epsForTests = EpsLexicaseSelection.medianAbsDev(pop)
+    // val epsForTests = pop.head._2.map{ _ => 0.1 }.toVector
     for (i <- 0 until 500) {
-      // println(s"Selection #$i")
       val c = selection(pop, epsForTests)
-      // println("Chosen el: " + c)
+      println("Chosen el: " + c)
     }
     val d = System.currentTimeMillis() - start
     println("Time [ms]: " + d)
     d
   }
 
+  def printPop(pop: StatePop[(Op, Seq[Double])]): Unit = {
+    pop.foreach{ p =>
+      println(s"${p._1}".padTo(50, ' ') + s"${p._2}")
+    }
+  }
+
+  def readableExperiment(): Unit = {
+    println("\n\n")
+    println("Tests on small example")
+    val selection = new EpsLexicaseSelection[Op, Seq[Double]]
+    val pop = generateRandomPopRegression(gr, 5, 5)
+    println("Population:")
+    printPop(pop)
+
+    val epsForTests = EpsLexicaseSelection.medianAbsDev(pop)
+    println(s"\nepsForTests:\n$epsForTests\n")
+    for (i <- 0 until 10) {
+      val c = selection(pop, epsForTests)
+      //Add this in appropriate line in EpsLexicase: println(s"Shuffle: $t")
+      println("Chosen el: " + c)
+    }
+  }
+
+
+
+
   val NUM_PROGRAMS = 10000
-  val gr = SygusUtils.getSwimGrammar(SygusUtils.defaultGrammar("LIA", Seq(), IntSortExpr()))
+  val vars = Seq("a", "b", "c", "d", "e").map{ s => (s, IntSortExpr()) }
+  val gr = SygusUtils.getSwimGrammar(SygusUtils.defaultGrammar("LIA", vars, IntSortExpr()))
   val pop = generateRandomPop(gr, NUM_PROGRAMS)
   val popRegr = generateRandomPopRegression(gr, NUM_PROGRAMS)
 
@@ -80,6 +105,9 @@ object LexicaseTests extends App {
 
   println("SELECTION: epsLex")
   val epsLex = new EpsLexicaseSelection[Op, Seq[Double]]
-  val times = 0.until(10).map{ _ => testSelectionEpsLexicase(popRegr, epsLex) }
-  println("Avg of 10 runs [ms]: " + (times.sum / times.size.toDouble))
+  testSelectionEpsLexicase(popRegr, epsLex)
+  // val times = 0.until(10).map{ _ => testSelectionEpsLexicase(popRegr, epsLex) }
+  // println("Avg of 10 runs [ms]: " + (times.sum / times.size.toDouble))
+
+  readableExperiment()
 }
