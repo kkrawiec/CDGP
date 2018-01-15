@@ -44,10 +44,8 @@ object LexicaseTests extends App {
 
   def testSelectionEpsLexicase[E <: Seq[Double]](pop: StatePop[(Op, E)], selection: EpsLexicaseSelection[Op, E]): Long = {
     val start = System.currentTimeMillis()
-    val epsForTests = EpsLexicaseSelection.medianAbsDev(pop)
-    // val epsForTests = pop.head._2.map{ _ => 0.1 }.toVector
     for (i <- 0 until 500) {
-      val c = selection(pop, epsForTests)
+      val c = selection(pop)
       println("Chosen el: " + c)
     }
     val d = System.currentTimeMillis() - start
@@ -61,18 +59,20 @@ object LexicaseTests extends App {
     }
   }
 
+
   def readableExperiment(): Unit = {
     println("\n\n")
     println("Tests on small example")
-    val selection = new EpsLexicaseSelection[Op, Seq[Double]]
     val pop = generateRandomPopRegression(gr, 5, 5)
     println("Population:")
     printPop(pop)
 
     val epsForTests = EpsLexicaseSelection.medianAbsDev(pop)
     println(s"\nepsForTests:\n$epsForTests\n")
+    val selection = new EpsLexicaseSelection[Op, Seq[Double]](epsForTests)
+
     for (i <- 0 until 10) {
-      val c = selection(pop, epsForTests)
+      val c = selection(pop)
       //Add this in appropriate line in EpsLexicase: println(s"Shuffle: $t")
       println("Chosen el: " + c)
     }
@@ -104,7 +104,7 @@ object LexicaseTests extends App {
   testSelection(popRegr, lexSel2)
 
   println("SELECTION: epsLex")
-  val epsLex = new EpsLexicaseSelection[Op, Seq[Double]]
+  val epsLex = EpsLexicaseSelection(popRegr)
   testSelectionEpsLexicase(popRegr, epsLex)
   // val times = 0.until(10).map{ _ => testSelectionEpsLexicase(popRegr, epsLex) }
   // println("Avg of 10 runs [ms]: " + (times.sum / times.size.toDouble))

@@ -3,10 +3,10 @@ package app
 import java.io.{File, PrintWriter, StringWriter}
 
 import fuel.func.RunExperiment
+import fuel.core.StatePop
 import fuel.util._
 import swim.tree.Op
 import cdgp._
-import fuel.core.StatePop
 
 import scala.concurrent._
 import scala.concurrent.duration._
@@ -67,24 +67,25 @@ object Main {
   def runConfig(cdgpState: CDGPState, selection: String, evoMode: String)
                (implicit coll: Collector, opt: Options, rng: TRandom):
                (Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]) = {
+    val cdgpFit = new CDGPFitnessD(cdgpState)
     (selection, evoMode) match {
       case ("tournament", "generational") =>
-        val alg = CDGPGenerational(cdgpState)
+        val alg = CDGPGenerational(cdgpFit)
         val finalPop = watchTime(alg, RunExperiment(alg))
         (finalPop, alg.bsf.bestSoFar)
 
       case ("tournament", "steadyState") =>
-        val alg = CDGPSteadyState(cdgpState)
+        val alg = CDGPSteadyState(cdgpFit)
         val finalPop = watchTime(alg, RunExperiment(alg))
         (finalPop, alg.bsf.bestSoFar)
 
       case ("lexicase", "generational") =>
-        val alg = CDGPGenerationalLexicase(cdgpState)
+        val alg = CDGPGenerationalLexicase(cdgpFit)
         val finalPop = watchTime(alg, RunExperiment(alg))
         (finalPop, alg.bsf.bestSoFar)
 
       case ("lexicase", "steadyState") =>
-        val alg = CDGPSteadyStateLexicase(cdgpState)
+        val alg = CDGPSteadyStateLexicase(cdgpFit)
         val finalPop = watchTime(alg, RunExperiment(alg))
         (finalPop, alg.bsf.bestSoFar)
     }
@@ -94,6 +95,7 @@ object Main {
   def runConfigRegression(cdgpState: CDGPState, selection: String, evoMode: String)
                          (implicit coll: Collector, opt: Options, rng: TRandom):
   (Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]) = {
+    val cdgpFit = new CDGPFitnessR(cdgpState)
     (selection, evoMode) match {
       case ("tournament", "generational") =>
         ???
@@ -102,14 +104,13 @@ object Main {
         ???
 
       case ("lexicase", "generational") =>
-        val alg = CDGPGenerationalLexicase(cdgpState)
+        println("---------  REGRESSION -----------")
+        val alg = CDGPGenerationalLexicaseR(cdgpFit)
         val finalPop = watchTime(alg, RunExperiment(alg))
         (finalPop, alg.bsf.bestSoFar)
 
       case ("lexicase", "steadyState") =>
-        val alg = CDGPSteadyStateLexicase(cdgpState)
-        val finalPop = watchTime(alg, RunExperiment(alg))
-        (finalPop, alg.bsf.bestSoFar)
+        ???
     }
   }
 
@@ -167,9 +168,6 @@ object Main {
       val benchmark = opt('benchmark)
       println(s"Benchmark: $benchmark")
 
-      // Create CDGP state
-      val cdgpState = CDGPState(benchmark)
-
       val selection = opt('selection, "lexicase")
       val evoMode = opt('evolutionMode, "generational")
       assert(evoMode == "generational" || evoMode == "steadyState",
@@ -177,6 +175,9 @@ object Main {
       assert(selection == "tournament" || selection == "lexicase",
         s"Invalid selection: '$selection'! Possible values: 'tournament', 'lexicase'.")
       val regression = opt('regression, false)
+
+      // Create CDGP state
+      val cdgpState = CDGPState(benchmark)
 
 
       // Run algorithm
