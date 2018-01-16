@@ -139,6 +139,8 @@ final class TestDomains {
     assertEquals(9.0, domain(op2)(inputs).get)
     val op3 = Op.fromStr("ite(<=(x 0.0) 0.0 +(2.0 rec(-(x 1.0) y z)))", useSymbols = true)
     assertEquals(4.0, domain(op3)(inputs).get)
+    val op4 = Op.fromStr("/(4.0 2.0)", useSymbols = true)
+    assertEquals(2.0, domain(op4)(inputs).get)
   }
 }
 

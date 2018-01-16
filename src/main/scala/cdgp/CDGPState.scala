@@ -47,16 +47,16 @@ class CDGPState(val sygusProblem: SyGuS16)
   val invocations: Seq[Seq[String]] = sygusData.formalInvocations
   def synthTask: SygusSynthTask = sygusData.synthTask
   val grammar: Grammar = synthTask.getSwimGrammar(rng)
-  val singleAnswerFormal: Boolean = sygusData.singleInvocFormal && hasSingleAnswerForEveryInput(sygusProblem).getOrElse(false)
+  lazy val singleAnswerFormal: Boolean = sygusData.singleInvocFormal && hasSingleAnswerForEveryInput(sygusProblem).getOrElse(false)
 
   // Initializing population of test cases
   testsManager.addNewTests(sygusData.testCasesConstrToTests)
   // testsManager.flushHelpers() // This is done elsewhere (at the beginning of evolution)
 
   // Creating solver manager
-  private def solverPath = opt('solverPath)
-  private def solverArgs = opt.getOption("solverArgs")
-  private def moreSolverArgs = opt.getOption("moreSolverArgs", "")
+  private val solverPath = opt('solverPath)
+  private val solverArgs = opt.getOption("solverArgs")
+  private val moreSolverArgs = opt.getOption("moreSolverArgs", "")
   lazy val solver = new SolverManager(solverPath, solverArgs, moreSolverArgs, verbose=false)
 
   // Creating a domain for evaluation by program execution

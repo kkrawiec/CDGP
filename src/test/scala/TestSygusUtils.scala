@@ -225,6 +225,25 @@ final class TestSygusUtils {
   }
 
   @Test
+  def test_collectConstants1(): Unit = {
+    val code = """(set-logic LIA)
+(synth-fun funSynth ((a Int) (b Int) (c Int)) Int ((Start Int (a b c))))
+(declare-var d Int)
+(declare-var c Int)
+(declare-var b Int)
+(declare-var a Int)
+(constraint (> d 0))
+(constraint (=> (= (- b 1.0) (- c "asd")) (= (funSynth a b c) 1)))
+(constraint (=> (not (= (- 100 a) (- c b))) (= (funSynth a b c) 0)))
+(check-synth)"""
+    val problem = LoadSygusBenchmark.parseText(code)
+    val precond = SygusUtils.getPreconditions(problem)
+    val postcond = SygusUtils.getPostconditions(problem)
+    assertEquals(Set(1.0, "asd", 100, 1, 0), SygusUtils.collectConstants(postcond))
+    assertEquals(Set(0), SygusUtils.collectConstants(precond))
+  }
+
+  @Test
   def test_forallExists(): Unit = {
     val code = """(set-logic LIA)
 (synth-fun funSynth ((a Int)(b Int)) Int ((Start Int (a b))))

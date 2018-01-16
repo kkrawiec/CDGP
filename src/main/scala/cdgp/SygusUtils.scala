@@ -460,6 +460,34 @@ object SygusUtils {
   }
 
   /**
+    * Collects all constants in constraint commands.
+    */
+  def collectConstants(p: Term): Set[Any] = {
+    p match {
+      case CompositeTerm(name, terms) => terms.flatMap(collectConstants(_)).toSet
+      case LiteralTerm(IntConst(v)) => Set(v)
+      case LiteralTerm(RealConst(v)) => Set(v)
+      case LiteralTerm(BoolConst(v)) => Set(v)
+      case LiteralTerm(StringConst(v)) => Set(v)
+      case LiteralTerm(BVConst(v)) => Set(v)
+      case LetTerm(list, term) => collectConstants(term)
+      case ExistsTerm(list, term) => collectConstants(term)
+      case ForallTerm(list, term) => collectConstants(term)
+      case _ => Set()
+    }
+  }
+
+  /**
+    * Collects all constants in constraint commands.
+    */
+  def collectConstants(cmds: Seq[Cmd]): Set[Any] = {
+    cmds.collect {
+      case ConstraintCmd(t) => collectConstants(t)
+    }.foldRight(Set[Any]()){ (a, b) => a ++ b }
+  }
+
+
+  /**
     * Collects names of all free symbols (i.e. symbols not bounded by let expression)
     * in the term. Function names are included.
     */

@@ -15,7 +15,18 @@ class CDGPFitnessR(val state: CDGPState)
   type I = Map[String, Any]
   type O = Any
 
+  checkValidity()
+
   val eps: Double = opt.paramDouble('eps, 0.0001)
+
+
+  def checkValidity(): Unit = {
+    val consts = SygusUtils.collectConstants(state.sygusData.allConstr)
+    consts.foreach {c =>
+      if (!c.isInstanceOf[Double])
+        throw new Exception(s"Regression problem require all constants in constraints to be of type Real. Problematic constant: $c")
+    }
+  }
 
   /**
     * Tests a program on the available tests and returns the vector of 0s (passed test)

@@ -168,8 +168,8 @@ object CDGPSteadyState {
 class CDGPGenerationalLexicase(moves: GPMoves,
                                cdgpEval: CDGPEvaluation[Op, FSeqInt])
                               (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[Int])
-      extends LexicaseGPMain[Int, FSeqInt](moves, cdgpEval.eval, Common.correctSeqInt, FSeqIntOrdering)
-        with CDGPAlgorithm[Op, FSeqInt] {
+  extends LexicaseGPMain[Int, FSeqInt](moves, cdgpEval.eval, Common.correctSeqInt, FSeqIntOrdering)
+     with CDGPAlgorithm[Op, FSeqInt] {
   override val selection = new LexicaseSelection01[Op, FSeqInt]
   override def cdgpState = cdgpEval.state
   override def initialize  = super.initialize
@@ -205,7 +205,7 @@ class CDGPGenerationalLexicaseR(moves: GPMoves,
      with CDGPAlgorithm[Op, FSeqDouble] {
   val bsf = BestSoFar[Op, FSeqDouble](ordering, it)
   override def cdgpState = cdgpEval.state
-  override def initialize = super.initialize andThen Common.printPop
+  override def initialize = super.initialize// andThen Common.printPop
   override def epilogue = super.epilogue andThen bsf andThen Common.reportStats(cdgpEval.state, bsf)
   override def iter = (s: StatePop[(Op, FSeqDouble)]) =>
     (createBreeder(s) andThen evaluate andThen super.report andThen Common.saveCurrentPop(this))(s)
