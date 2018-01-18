@@ -95,7 +95,7 @@ class CDGPFitnessR(val state: CDGPState)
     if (output.isEmpty)
       Double.MaxValue   // Recurrence depth was exceeded
     else if (testOutput.isDefined)
-      output.get.asInstanceOf[Double] - testOutput.get.asInstanceOf[Double]
+      math.abs(output.get.asInstanceOf[Double] - testOutput.get.asInstanceOf[Double])
     else {
       // Situation, when the test case has None as the expected output
       // We don't allow such a situation

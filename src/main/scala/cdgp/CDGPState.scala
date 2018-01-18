@@ -204,16 +204,20 @@ class CDGPState(val sygusProblem: SyGuS16)
     * any input.
     */
   def hasSingleAnswerForEveryInput(problem: SyGuS16): Option[Boolean] = {
-    val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(problem, sygusData, solverTimeout=timeout)
-    printQuery("\nQuery checkIfSingleAnswerForEveryInput:\n" + query)
-    val (dec, model) = solver.runSolver(query)
-    if (dec == "sat") {
-      val values = GetValueParser(model.get)
-      if (!silent) println("Example of multiple correct answers: " + values.mkString(" "))
+    if (sygusData.formalConstr.isEmpty)
       Some(false)
+    else {
+      val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(problem, sygusData, solverTimeout = timeout)
+      // printQuery("\nQuery checkIfSingleAnswerForEveryInput:\n" + query)
+      val (dec, model) = solver.runSolver(query)
+      if (dec == "sat") {
+        val values = GetValueParser(model.get)
+        if (!silent) println("Example of multiple correct answers: " + values.mkString(" "))
+        Some(false)
+      }
+      else if (dec == "unsat") Some(true)
+      else None
     }
-    else if (dec == "unsat") Some(true)
-    else None
   }
 
   def verify(s: Op): (String, Option[String]) = {
