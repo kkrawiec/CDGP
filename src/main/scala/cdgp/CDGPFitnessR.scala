@@ -2,6 +2,7 @@ package cdgp
 
 import fuel.util.{Collector, Options, TRandom}
 import swim.tree.Op
+import sygus.{IntConst, LiteralTerm, StringConst, Term}
 import sygus16.SyGuS16
 
 
@@ -21,11 +22,18 @@ class CDGPFitnessR(val state: CDGPState)
 
 
   def checkValidity(): Unit = {
-    val consts = SygusUtils.collectConstants(state.sygusData.allConstr)
-    consts.foreach {c =>
-      if (!c.isInstanceOf[Double])
-        throw new Exception(s"Regression problem require all constants in constraints to be of type Real. Problematic constant: $c")
+    var isCorrect = true
+    var c: Any = null
+    def traverseFun = (t: Term) => {
+      t match {
+        case LiteralTerm(IntConst(v))    => isCorrect = false; c = v
+        case LiteralTerm(StringConst(v)) => isCorrect = false; c = v
+        case _ =>
+      }
     }
+    SygusUtils.traverse(state.sygusData.allConstr, traverseFun)
+    if (!isCorrect)
+        throw new Exception(s"Regression problem require all constants in constraints to be of type Real. Problematic constant: $c")
   }
 
   /**
@@ -48,7 +56,10 @@ class CDGPFitnessR(val state: CDGPState)
           evalOnTestsDomain(s, test)
         else evalOnTestsSolver(s, test)
       }
-      catch { case e: Throwable => handleException(test, e.getMessage); 1 }
+      catch { case e: Throwable =>
+        handleException(test, e.getMessage)
+        Double.PositiveInfinity  // return PositiveInfinity for situations like division by 0
+      }
     }
   }
 
@@ -60,7 +71,7 @@ class CDGPFitnessR(val state: CDGPState)
   def evalOnTestsSolver(s: Op, test: (I, Option[O])): Double = {
     val testModel: Map[String, Any] = test._1
     val (dec, _) = state.checkIsProgramCorrectForInput(s, testModel)
-    if (dec == "sat") 0 else 1
+    if (dec == "sat") 0.0 else 1.0
   }
 
   /**
@@ -76,19 +87,19 @@ class CDGPFitnessR(val state: CDGPState)
     * They will be renamed for those in the function's declaration.
     */
   def evalOnTestsDomain(s: Op, test: (I, Option[O])): Double = {
-    assert(test._2.isDefined, "Trying to evaluate using the domain a test without defined expected output.")
+    assert(test._2.isDefined, "Trying to domain-evaluate using a test without defined expected output.")
     val testInput: Map[String, Any] = test._1
     val testOutput: Option[Any] = test._2
     val inputVector = state.synthTask.argNames.map(testInput(_))
     val output = state.domain(s)(inputVector)
     if (output.isEmpty)
-      Double.MaxValue   // None means that recurrence depth was exceeded
+      Double.MaxValue   // Recurrence depth was exceeded
     else if (testOutput.isDefined)
       output.get.asInstanceOf[Double] - testOutput.get.asInstanceOf[Double]
     else {
       // Situation, when the test case has None as the expected output
       // We don't allow such a situation
-      throw new Exception("Trying to domain-evaluate a test without defined correct answer!")
+      throw new Exception("Trying to domain-evaluate using a test without defined expected output.")
 
       // The code below can be used to try to find the expected output for the test
       //val (dec, _) = checkIsOutputCorrectForInput(s, testInput, output.get)

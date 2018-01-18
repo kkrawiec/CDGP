@@ -439,6 +439,28 @@ object SygusUtils {
   /**
     * Collects names of all free variables in the term.
     */
+  def traverse(t: Term, f: Term => Unit) {
+    t match {
+      case CompositeTerm(name, terms) => terms.foreach(traverse(_, f))
+      case SymbolTerm(symb) => f(t)
+      case LiteralTerm(lit) => f(t)
+      case LetTerm(list, term) => traverse(term, f)
+      case ExistsTerm(list, term) => traverse(term, f)
+      case ForallTerm(list, term) => traverse(term, f)
+      case _ => traverse(t, f)
+    }
+  }
+
+  def traverse(cmds: Seq[Cmd], f: Term => Unit) {
+    cmds.foreach {
+      case ConstraintCmd(t) => traverse(t, f)
+    }
+  }
+
+
+  /**
+    * Collects names of all free variables in the term.
+    */
   def collectFreeVars(p: Term, boundVars: Set[String] = Set()): Set[String] = {
     p match {
       case CompositeTerm(name, terms) => terms.flatMap(collectFreeVars(_, boundVars)).toSet -- boundVars

@@ -165,7 +165,7 @@ class DomainReals(val funArgsNames: Seq[String], funName: Symbol, recDepth: Int 
       case Seq('-, x: Double, y: Double)           => x - y
       case Seq('*, x: Double, y: Double)           => x * y  // in LIA x or y must be a constant
       case Seq(Symbol("/"), x: Double, y: Double)  => divide(x, y)
-      case Seq('abs, x: Double)                    => if (x >= 0) x else -x
+      case Seq('abs, x: Double)                    => if (x >= 0.0) x else -x
       case Seq('<, x: Double, y: Double)           => x < y
       case Seq('<=, x: Double, y: Double)          => x <= y
       case Seq('>, x: Double, y: Double)           => x > y
