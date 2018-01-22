@@ -19,20 +19,37 @@ object RegressionBenchmarks extends App {
 
 
   def generateSygusDesc(b: Benchmark): String = {
+    val sfName = b.name
     var s = "(set-logic QF_NRA)\n"
-    s += s"(synth-fun ${b.name} ${b.argsSignature} Real)\n\n"
+    s += s"(synth-fun $sfName ${b.argsSignature} Real)\n"
+    s += b.vars.map{ x => s"(declare-fun $x () Real)" }.mkString("", "\n", "\n")
+    s += b.vars.map{ x => s"(declare-fun ${x}_2 () Real)" }.mkString("", "\n", "\n")
 
     b.tests.foreach{ case (in, out) =>
-      s += s"(constraint (= (${b.name} ${in.mkString(" ")}) $out))\n"
+      s += s"(constraint (= ($sfName ${in.mkString(" ")}) $out))\n"
     }
     s += "\n"
 
-    b.props.foreach{
-      case PropOutputBound(lb, ub, range) =>
-      case PropAscending(range) =>
-      case PropDescending(range) =>
-      case PropVarSymmetry(vars, range) =>
-    }
+    val constr = b.props.flatMap {
+      p => p match {
+        case PropOutputBound(lb, ub, range) =>
+          var tmp = List[String]()
+          if (lb.isDefined)
+            tmp = s"(>= ($sfName ${b.vars.mkString(" ")}) ${lb.get})" :: tmp
+          if (ub.isDefined)
+            tmp = s"(<= ($sfName ${b.vars.mkString(" ")}) ${ub.get})" :: tmp
+          tmp
+        case PropAscending(range) =>
+          var tmp = ""
+          if (range.isDefined)
+            tmp =
+
+          List()
+        case PropDescending(range) => List()
+        case PropVarSymmetry(vars, range) => List()
+    }}
+
+    s += constr.mkString("(constraint (not (or\n    ", "\n  ", ")))\n")
     s += "(check-synth)\n"
     s
   }
@@ -57,7 +74,7 @@ object RegressionBenchmarks extends App {
 
 
 
-  def fGravity(vars: Seq[Double]): Double = vars(0) * vars(1) / vars(2)
+  def fGravity(vars: Seq[Double]): Double = 6.674e-11 * vars(0) * vars(1) / vars(2)
 
   val benchmarks = Seq(
     Benchmark("gravity", Seq("m1", "m2", "r"),
