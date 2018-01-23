@@ -7,14 +7,63 @@ object RegressionBenchmarks extends App {
 
   abstract class Property(val name: String)
 
-  case class PropOutputBound(lb: Option[Double], ub: Option[Double], range: Option[(Double, Double)] = None) extends Property("PropOutputBound")
-  case class PropAscending(range: Option[(Double, Double)] = None) extends Property("PropAscending")
-  case class PropDescending(range: Option[(Double, Double)] = None) extends Property("PropDescending")
-  case class PropVarSymmetry(vars: Seq[String], range: Option[(Double, Double)] = None) extends Property("PropVarSymmetry")
+  case class PropOutputBound(lb: Option[Double], ub: Option[Double], range: Seq[PropRange] = Seq()) extends Property("PropOutputBound")
+  case class PropAscending(range: Seq[PropRange] = Seq()) extends Property("PropAscending")
+  case class PropDescending(range: Seq[PropRange] = Seq()) extends Property("PropDescending")
+  case class PropVarSymmetry(vars: Seq[String], range: Seq[PropRange] = Seq()) extends Property("PropVarSymmetry")
 
-  case class Benchmark(name: String, vars: Seq[String], props: Seq[Property],
+  case class Benchmark(name: String,
+                       vars: Seq[String],
+                       props: Seq[Property],
                        tests: Seq[(Seq[Double], Double)]) {
     def argsSignature: String = vars.map{ v => s"($v Real)" }.mkString("(", "", ")")
+  }
+
+
+  abstract class PropRange(varName: String, lb: Option[Double] = None, ub: Option[Double] = None) {
+    def getCondition: String = {
+      if (lb.isEmpty && ub.isEmpty)
+        ""
+      else {
+        val implCondParts = List((lb, ">="), (ub, "<=")).collect { case (Some(d), sign) => s"($sign $varName $d)" }
+        val implCond = if (implCondParts.size > 1) implCondParts.mkString("(and ", " ", ")") else implCondParts.head
+        implCond
+      }
+    }
+  }
+  case class Range(varName: String, lb: Option[Double] = None, ub: Option[Double] = None) extends PropRange(varName, lb, ub)
+  case class EmptyRange() extends PropRange("", None, None)
+
+
+  def wrapConstrInRanges(constr: String, ranges: Seq[PropRange]): String = {
+    if (ranges.isEmpty)
+      constr
+    else {
+      val implCond = ranges.map(_.getCondition).mkString("(and ", " ", ")")
+      s"(=> $implCond $constr)"
+    }
+  }
+
+  def getCodeForProp(b: Benchmark, p: Property): List[String] = {
+    val sfName = b.name
+    p match {
+      case PropOutputBound(lb, ub, range) =>
+        var tmp = List[String]()
+        if (lb.isDefined) {
+          val c = s"(>= ($sfName ${b.vars.mkString(" ")}) ${lb.get})"
+          tmp = wrapConstrInRanges(c, range) :: tmp
+        }
+        if (ub.isDefined) {
+          val c = s"(<= ($sfName ${b.vars.mkString(" ")}) ${ub.get})"
+          tmp = wrapConstrInRanges(c, range) :: tmp
+        }
+        tmp
+      case PropAscending(range) =>
+        var tmp = ""
+        List()
+      case PropDescending(range) => List()
+      case PropVarSymmetry(vars, range) => List()
+    }
   }
 
 
@@ -30,26 +79,10 @@ object RegressionBenchmarks extends App {
     }
     s += "\n"
 
-    val constr = b.props.flatMap {
-      p => p match {
-        case PropOutputBound(lb, ub, range) =>
-          var tmp = List[String]()
-          if (lb.isDefined)
-            tmp = s"(>= ($sfName ${b.vars.mkString(" ")}) ${lb.get})" :: tmp
-          if (ub.isDefined)
-            tmp = s"(<= ($sfName ${b.vars.mkString(" ")}) ${ub.get})" :: tmp
-          tmp
-        case PropAscending(range) =>
-          var tmp = ""
-          if (range.isDefined)
-            tmp =
 
-          List()
-        case PropDescending(range) => List()
-        case PropVarSymmetry(vars, range) => List()
-    }}
+    val constr = b.props.flatMap(getCodeForProp(b, _))
 
-    s += constr.mkString("(constraint (not (or\n    ", "\n  ", ")))\n")
+    s += constr.mkString("(constraint (not (or\n    ", "\n    ", ")))\n")
     s += "(check-synth)\n"
     s
   }
@@ -78,7 +111,8 @@ object RegressionBenchmarks extends App {
 
   val benchmarks = Seq(
     Benchmark("gravity", Seq("m1", "m2", "r"),
-              Seq(PropVarSymmetry(Seq("m1", "m2")), PropOutputBound(Some(0.0), None)),
+              Seq(PropVarSymmetry(Seq("m1", "m2")),
+                  PropOutputBound(Some(0.0), None, Seq(Range("m1", lb=Some(0.5), ub=Some(10.0))))),
               generateTestsU(3, 10, fGravity, 0.0, 10.0))
   )
 
