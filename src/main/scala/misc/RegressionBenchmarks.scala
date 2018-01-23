@@ -13,7 +13,7 @@ object RegressionBenchmarks extends App {
   case class PropOutputBound(lb: Option[Double], ub: Option[Double], range: Seq[PropRange] = Seq()) extends Property("PropOutputBound")
   case class PropAscending(range: Seq[PropRange] = Seq()) extends Property("PropAscending")
   case class PropDescending(range: Seq[PropRange] = Seq()) extends Property("PropDescending")
-  case class PropVarSymmetry(vars: Seq[String], range: Seq[PropRange] = Seq()) extends Property("PropVarSymmetry")
+  case class PropVarSymmetry2(var1: String, var2: String, range: Seq[PropRange] = Seq()) extends Property("PropVarSymmetry2")
 
   case class Benchmark(name: String,
                        vars: Seq[String],
@@ -47,17 +47,19 @@ object RegressionBenchmarks extends App {
     }
   }
 
+  def funCall(name: String, vars: Seq[String]): String = s"($name ${vars.mkString(" ")})"
+
   def getCodeForProp(b: Benchmark, p: Property): List[String] = {
     val sfName = b.name
+    var tmp = List[String]()
     p match {
       case PropOutputBound(lb, ub, range) =>
-        var tmp = List[String]()
         if (lb.isDefined) {
-          val c = s"(>= ($sfName ${b.vars.mkString(" ")}) ${lb.get})"
+          val c = s"(>= ${funCall(sfName, b.vars)} ${lb.get})"
           tmp = wrapConstrInRanges(c, range) :: tmp
         }
         if (ub.isDefined) {
-          val c = s"(<= ($sfName ${b.vars.mkString(" ")}) ${ub.get})"
+          val c = s"(<= ${funCall(sfName, b.vars)} ${ub.get})"
           tmp = wrapConstrInRanges(c, range) :: tmp
         }
         tmp
@@ -65,7 +67,13 @@ object RegressionBenchmarks extends App {
         var tmp = ""
         List()
       case PropDescending(range) => List()
-      case PropVarSymmetry(vars, range) => List()
+      case PropVarSymmetry2(var1, var2, range) =>
+        val i1 = b.vars.indexOf(var1)
+        val i2 = b.vars.indexOf(var2)
+        val x = b.vars(i1)
+        val varsExchanged = b.vars.updated(i1, b.vars(i2)).updated(i2, x)
+        val c = s"(= ${funCall(b.name, b.vars)} ${funCall(b.name, varsExchanged)})"
+        List(wrapConstrInRanges(c, range))
     }
   }
 
@@ -111,7 +119,7 @@ object RegressionBenchmarks extends App {
   def generateTestU(numVars: Int, fun: Seq[Double] => Double,
                     minDouble: Double, maxDouble: Double): (Seq[Double], Double) = {
     def rngDouble() = minDouble + rng.nextDouble() * (maxDouble+1-minDouble)
-    val in = 0.until(numVars).map{ i => rngDouble() }
+    val in = 0.until(numVars).map{ i => BigDecimal(rngDouble()).setScale(5, BigDecimal.RoundingMode.HALF_UP).toDouble }
     val out = fun(in)
     (in, out)
   }
@@ -127,7 +135,7 @@ object RegressionBenchmarks extends App {
 
   val benchmarks = Seq(
     Benchmark("gravity", Seq("m1", "m2", "r"),
-              Seq(PropVarSymmetry(Seq("m1", "m2")),
+              Seq(PropVarSymmetry2("m1", "m2", Seq(Range("m1", lb=Some(2.5), ub=Some(12.0)))),
                   PropOutputBound(Some(0.0), None, Seq(Range("m1", lb=Some(0.5), ub=Some(10.0))))),
               generateTestsU(3, 10, fGravity, 0.0, 10.0))
   )
