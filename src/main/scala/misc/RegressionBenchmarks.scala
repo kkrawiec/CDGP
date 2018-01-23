@@ -1,5 +1,8 @@
 package misc
 
+import java.text.{DecimalFormat, DecimalFormatSymbols}
+import java.util.Locale
+
 import scala.util.Random
 
 object RegressionBenchmarks extends App {
@@ -67,6 +70,21 @@ object RegressionBenchmarks extends App {
   }
 
 
+  val df = new DecimalFormat("0", DecimalFormatSymbols.getInstance(Locale.ENGLISH))
+  df.setMaximumFractionDigits(340)
+  def double2str(d: Double): String = df.format(d)
+
+
+  def generateConstrTestCases(b: Benchmark): String = {
+    val sfName = b.name
+    var s = ""
+    b.tests.foreach{ case (in, out) =>
+      s += s"(constraint (= ($sfName ${in.map(double2str(_)).mkString(" ")}) ${double2str(out)}))\n"
+    }
+    s
+  }
+
+
   def generateSygusDesc(b: Benchmark): String = {
     val sfName = b.name
     var s = "(set-logic QF_NRA)\n"
@@ -74,10 +92,8 @@ object RegressionBenchmarks extends App {
     s += b.vars.map{ x => s"(declare-fun $x () Real)" }.mkString("", "\n", "\n")
     s += b.vars.map{ x => s"(declare-fun ${x}_2 () Real)" }.mkString("", "\n", "\n")
 
-    b.tests.foreach{ case (in, out) =>
-      s += s"(constraint (= ($sfName ${in.mkString(" ")}) $out))\n"
-    }
-    s += "\n"
+
+    s += generateConstrTestCases(b) + "\n"
 
 
     val constr = b.props.flatMap(getCodeForProp(b, _))
