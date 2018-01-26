@@ -212,7 +212,6 @@ class CDGPGenerationalLexicaseR(moves: GPMoves,
   override def evaluate = cdgpEval
 
   def createBreeder(s: StatePop[(Op, FSeqDouble)]): (StatePop[(Op, FSeqDouble)] => StatePop[Op]) = {
-    println("createBreeder")
     val epsForTests = EpsLexicaseSelection.medianAbsDev(s)
     val sel = new EpsLexicaseSelection[Op, FSeqDouble](epsForTests)
     SimpleBreeder(sel, moves: _*)
