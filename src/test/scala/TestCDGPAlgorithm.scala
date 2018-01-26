@@ -1,6 +1,6 @@
 package tests
 
-import cdgp.{FInt, FIntOrdering, FSeqInt, FSeqIntOrdering}
+import cdgp._
 import fuel.core.StatePop
 import fuel.func.TournamentSelection
 import fuel.util.{Options, Rng}
@@ -113,5 +113,19 @@ final class TestCDGPAlgorithm {
     assertEquals(1,  ordFSeqInt.compare(f1_90, longer))
     assertEquals(-1,  ordFSeqInt.compare(longer, f0_20))
     assertEquals(0,  ordFSeqInt.compare(longer, longer))
+  }
+
+  @Test
+  def test_FSeqDoubleOrderingMSE(): Unit = {
+    val ord = FSeqDoubleOrderingMSE
+    val a = FSeqDouble(true, Seq(0.0, 0.0), 20)
+    val b = FSeqDouble(true, Seq(0.0, 1.0), 20)
+    val c = FSeqDouble(true, Seq(0.0, 2.0), 20)
+    val d = FSeqDouble(true, Seq(2.0, 0.0), 20)
+
+    assertEquals(-1, ord.compare(a, b))
+    assertEquals(-1, ord.compare(a, c))
+    assertEquals(1, ord.compare(c, b))
+    assertEquals(0, ord.compare(c, d))
   }
 }

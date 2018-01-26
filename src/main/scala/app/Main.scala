@@ -92,29 +92,6 @@ object Main {
   }
 
 
-  def runConfigRegression(cdgpState: CDGPState, selection: String, evoMode: String)
-                         (implicit coll: Collector, opt: Options, rng: TRandom):
-  (Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]) = {
-    val cdgpFit = new CDGPFitnessR(cdgpState)
-    (selection, evoMode) match {
-      case ("tournament", "generational") =>
-        ???
-
-      case ("tournament", "steadyState") =>
-        ???
-
-      case ("lexicase", "generational") =>
-        println("---------  REGRESSION -----------")
-        val alg = CDGPGenerationalLexicaseR(cdgpFit)
-        val finalPop = watchTime(alg, RunExperiment(alg))
-        (finalPop, alg.bsf.bestSoFar)
-
-      case ("lexicase", "steadyState") =>
-        ???
-    }
-  }
-
-
   def printResults(cdgpState: CDGPState, bestOfRun: Option[(Op, Fitness)])
                   (implicit coll: Collector, opt: Options, rng: TRandom) {
     assume(bestOfRun.isDefined, "No solution (optimal or approximate) to the problem was found.")
@@ -174,16 +151,13 @@ object Main {
         s"Invalid evolutionMode: '$evoMode'! Possible values: 'generational', 'steadyState'.")
       assert(selection == "tournament" || selection == "lexicase",
         s"Invalid selection: '$selection'! Possible values: 'tournament', 'lexicase'.")
-      val regression = opt('regression, false)
 
       // Create CDGP state
       val cdgpState = CDGPState(benchmark)
 
 
       // Run algorithm
-      val (_, bestOfRun) =
-        if (regression) runConfigRegression(cdgpState, selection, evoMode)
-        else runConfig(cdgpState, selection, evoMode)
+      val (_, bestOfRun) = runConfig(cdgpState, selection, evoMode)
 
 
       // Print and save results

@@ -70,12 +70,21 @@ object CDGPGenerational {
     val cdgpFit = new CDGPFitnessD(cdgp)
     apply(cdgpFit)
   }
+
   def apply(cdgpFit: CDGPFitnessD)
            (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerational[FInt] = {
     implicit val ordering = FIntOrdering
     val moves = GPMoves(cdgpFit.state.grammar, Common.isFeasible(cdgpFit.state.synthTask.fname, opt))
     val cdgpEval = new CDGPEvaluation[Op, FInt](cdgpFit.state, Common.evalInt(cdgpFit.fitness))
     new CDGPGenerational(moves, cdgpEval)
+  }
+
+  def apply(cdgpFit: CDGPFitnessR)
+           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerational[FSeqDouble] = {
+    implicit val ordering = FSeqDoubleOrderingMSE
+    val moves = GPMoves(cdgpFit.state.grammar, Common.isFeasible(cdgpFit.state.synthTask.fname, opt))
+    val cdgpEval = new CDGPEvaluation[Op, FSeqDouble](cdgpFit.state, Common.evalSeqDouble(cdgpFit.fitness))
+    new CDGPGenerational[FSeqDouble](moves, cdgpEval)
   }
 }
 
@@ -227,7 +236,7 @@ object CDGPGenerationalLexicaseR {
   }
   def apply(cdgpFit: CDGPFitnessR)
            (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalLexicaseR = {
-    implicit val ordering = FSeqDoubleOrdering
+    implicit val ordering = FSeqDoubleOrderingMSE
     val moves = GPMoves(cdgpFit.state.grammar, Common.isFeasible(cdgpFit.state.synthTask.fname, opt))
     val cdgpEval = new CDGPEvaluation[Op, FSeqDouble](cdgpFit.state, Common.evalSeqDouble(cdgpFit.fitness))
     new CDGPGenerationalLexicaseR(moves, cdgpEval)
@@ -518,7 +527,7 @@ object FSeqIntOrdering extends Ordering[FSeqInt] {
     else c
   }
 }
-object FSeqDoubleOrdering extends Ordering[FSeqDouble] {
+object FSeqDoubleOrderingMSE extends Ordering[FSeqDouble] {
   override def compare(a: FSeqDouble, b: FSeqDouble): Int = {
     val c = if (a.correct && !b.correct) -1
     else if (!a.correct && b.correct) 1
