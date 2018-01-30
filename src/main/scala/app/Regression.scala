@@ -53,10 +53,10 @@ object Regression {
       val selection = opt('selection, "lexicase")
       val evoMode = opt('evolutionMode, "generational")
       assert(method == "CDGP" || method == "GP", s"Invalid method '$method'! Possible values: 'CDGP', 'GP'.")
-      assert(evoMode == "generational" || evoMode == "steadyState",
-        s"Invalid evolutionMode: '$evoMode'! Possible values: 'generational', 'steadyState'.")
       assert(selection == "tournament" || selection == "lexicase",
         s"Invalid selection: '$selection'! Possible values: 'tournament', 'lexicase'.")
+      assert(evoMode == "generational" || evoMode == "steadyState",
+        s"Invalid evolutionMode: '$evoMode'! Possible values: 'generational', 'steadyState'.")
 
       // Create CDGP state
       val cdgpState = CDGPState(benchmark)
