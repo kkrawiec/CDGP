@@ -115,7 +115,8 @@ class CDGPFitnessR(val state: CDGPState)
     */
   val fitness: (Op) => (Boolean, Seq[Double]) =
     state.method match {
-      case _ => fitnessOnlyTestCases
+      case "GP" => fitnessOnlyTestCases
+      case "CDGP" => fitnessOnlyTestCases
     }
 
 
@@ -135,6 +136,48 @@ class CDGPFitnessR(val state: CDGPState)
       else
         (false, evalTests)
     }
+
+
+  def doVerify(evalTests: Seq[Double]): Boolean = {
+    val numPassed = evalTests.count(_ == 0).asInstanceOf[Double]
+    if (state.testsAbsDiff.isDefined)
+      numPassed >= evalTests.size - state.testsAbsDiff.get
+    else
+      evalTests.isEmpty || (numPassed / evalTests.size) >= state.testsRatio
+  }
+
+
+  /** Fitness is always computed on the tests that were flushed. */
+  def fitnessCDGPGeneral: Op => (Boolean, Seq[Double]) =
+    (s: Op) => {
+      val evalTests = evalOnTests(s, state.testsManager.getTests())
+      // If the program passes the specified ratio of test cases, it will be verified
+      // and a counterexample will be produced (or program will be deemed correct).
+      // NOTE: if the program does not pass all test cases, then the probability is high
+      // that the produced counterexample will already be in the set of test cases.
+      if (!doVerify(evalTests))
+        (false, evalTests)
+      else {
+        val (decision, r) = state.verify(s)
+        if (decision == "unsat" && evalTests.sum == 0 && (!(state.sygusData.logic == "SLIA") || evalTests.nonEmpty))
+          (true, evalTests) // perfect program found; end of run
+        else if (decision == "sat") {
+          if (state.testsManager.newTests.size < state.maxNewTestsPerIter) {
+            val newTest = state.createTestFromFailedVerification(r.get)
+            if (newTest.isDefined)
+              state.testsManager.addNewTest(newTest.get)
+          }
+          (false, evalTests)
+        }
+        else {
+          // The 'unknown' or 'timeout' solver's decision. Program potentially may be the optimal
+          // solution, but solver is not able to verify this. We proceed by adding no new tests
+          // and treating the program as incorrect.
+          (false, evalTests)
+        }
+      }
+    }
+
 
 
 //  def updateEvalDouble(s: (Op, FDouble)): (Op, FDouble) = {

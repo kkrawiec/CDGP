@@ -5,15 +5,14 @@ import java.io.{PrintWriter, StringWriter}
 import app.Main.{getOptions, printResults, watchTime}
 import cdgp._
 import fuel.core.StatePop
-import fuel.func.RunExperiment
+import fuel.func._
 import fuel.util._
 import swim.tree.Op
 
 object Regression {
 
-
-  def runConfigRegression(cdgpState: CDGPState, selection: String, evoMode: String)
-                         (implicit coll: Collector, opt: Options, rng: TRandom):
+  def runConfigRegressionCDGP(cdgpState: CDGPState, selection: String, evoMode: String)
+                             (implicit coll: Collector, opt: Options, rng: TRandom):
   (Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]) = {
     val cdgpFit = new CDGPFitnessR(cdgpState)
     (selection, evoMode) match {
@@ -50,20 +49,21 @@ object Regression {
       val benchmark = opt('benchmark)
       println(s"Benchmark: $benchmark")
 
+      val method = opt('method)
       val selection = opt('selection, "lexicase")
       val evoMode = opt('evolutionMode, "generational")
+      assert(method == "CDGP" || method == "GP", s"Invalid method '$method'! Possible values: 'CDGP', 'GP'.")
       assert(evoMode == "generational" || evoMode == "steadyState",
         s"Invalid evolutionMode: '$evoMode'! Possible values: 'generational', 'steadyState'.")
       assert(selection == "tournament" || selection == "lexicase",
         s"Invalid selection: '$selection'! Possible values: 'tournament', 'lexicase'.")
-      val regression = opt('regression, false)
 
       // Create CDGP state
       val cdgpState = CDGPState(benchmark)
 
 
       // Run algorithm
-      val (_, bestOfRun) = runConfigRegression(cdgpState, selection, evoMode)
+      val (_, bestOfRun) = runConfigRegressionCDGP(cdgpState, selection, evoMode)
 
 
       // Print and save results
