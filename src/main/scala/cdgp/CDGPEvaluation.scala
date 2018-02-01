@@ -15,20 +15,18 @@ import fuel.util.{Collector, Options, TRandom}
   * the specification by the SMT solver. If such a verification fails, solver returns a counterexample.
   * This counterexample is then added to the test set and the process continues.
   *
-  * @param state Object handling the state of the CDGP.
-  * @param eval Function from a solution to its evaluation. It is also dependent on the cdgpState,
-  *             but because of many possible variants it should be created outside.
+  * @param eval Function from a solution to its evaluation.
   * @param opt Options.
   * @param coll Collector for saving results and stats.
   * @param rng Pseudorandom generator.
   * @tparam S Type of solution representation object (e.g. String, Seq[Int]).
   * @tparam E Type of evaluation object (e.g. Int, Seq[Int]).
   */
-class CDGPEvaluation[S, E](val state: CDGPState,
-                           val eval: S => E)
+class CDGPEvaluation[S, E](val eval: EvalFunction[S, E])
                           (implicit opt: Options, coll: Collector, rng: TRandom)
   extends Evaluation[S, E] {
   private val silent = opt('silent, false)
+  def state: State = eval.state
   def evaluate: Evaluation[S, E] = if (opt('parEval, false)) ParallelEval(eval) else SequentialEval(eval)
 
   override def apply(s: StatePop[S]): StatePop[(S, E)] = cdgpEvaluate(s)
@@ -38,11 +36,11 @@ class CDGPEvaluation[S, E](val state: CDGPState,
 
   def updateTestsManager[T]: StatePop[T] => StatePop[T] =
     (s: StatePop[T]) => {
-      val numNew = state.testsManager.newTests.size
-      state.testsManager.flushHelpers()  // adds newTests to all tests; resets newTests
+      val numNew = eval.state.testsManager.newTests.size
+      eval.state.testsManager.flushHelpers()  // adds newTests to all tests; resets newTests
       if (!silent) {
-        val numKnown = state.testsManager.tests.values.count(_.isDefined)
-        println(s"Tests: found: ${numNew}  total: ${state.testsManager.tests.size}  known outputs: $numKnown")
+        val numKnown = eval.state.testsManager.tests.values.count(_.isDefined)
+        println(s"Tests: found: ${numNew}  total: ${eval.state.testsManager.tests.size}  known outputs: $numKnown")
         // println(state.testsManager.tests.mkString("", "\n", "\n"))
       }
       s
@@ -57,7 +55,6 @@ class CDGPEvaluation[S, E](val state: CDGPState,
   * given iteration. In CDGP the number of test cases can increase, so updatePopulationEvalsAndTests
   * must be invoked after every creation of a new individual.
   *
-  * @param state Object handling the state of the CDGP.
   * @param eval Function from a solution to its evaluation. It is also dependent on the cdgpState,
   *             but because of many possible variants it should be created outside.
   * @param updateEval CDGP may add a new test after evaluation of a selected individual.
@@ -69,11 +66,10 @@ class CDGPEvaluation[S, E](val state: CDGPState,
   * @tparam S Type of solution representation object (e.g. String, Seq[Int]).
   * @tparam E Type of evaluation object (e.g. Int, Seq[Int]).
   */
-class CDGPEvaluationSteadyState[S, E](state: CDGPState,
-                                      eval: S => E,
+class CDGPEvaluationSteadyState[S, E](eval: EvalFunction[S, E],
                                       updateEval: ((S, E)) => (S, E))
                                      (implicit opt: Options, coll: Collector, rng: TRandom)
-  extends CDGPEvaluation[S, E](state, eval) {
+  extends CDGPEvaluation[S, E](eval) {
 
   override def cdgpEvaluate: StatePop[S] => StatePop[(S, E)] =
     updateTestsManager andThen evaluate andThen updatePopulationEvalsAndTests
@@ -85,7 +81,7 @@ class CDGPEvaluationSteadyState[S, E](state: CDGPState,
     */
   def updatePopulationEvalsAndTests(s: StatePop[(S, E)]): StatePop[(S, E)] = {
     val s2 =
-      if (state.testsManager.newTests.nonEmpty)
+      if (eval.state.testsManager.newTests.nonEmpty)
         StatePop(s.map{ case (op, e) => updateEval(op, e) })
       else s
     updateTestsManager(s2)

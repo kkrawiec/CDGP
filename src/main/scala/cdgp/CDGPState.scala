@@ -13,12 +13,6 @@ class NoSolutionException(val badInput: String) extends Exception {
 
 
 
-
-
-
-
-
-
 abstract class State(val sygusData: SygusProblemData)
                     (implicit opt: Options, coll: Collector, rng: TRandom) {
   // The types for input and output
@@ -43,22 +37,12 @@ abstract class State(val sygusData: SygusProblemData)
       case _ => value
     }
 
+  def simplifySolution(smtlib: String): Option[String] = None
+
   // Convenience methods
   def synthTask: SygusSynthTask = sygusData.synthTask
   def invocations: Seq[Seq[String]] = sygusData.formalInvocations
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -170,7 +154,7 @@ class StateSMTSolver(sygusData: SygusProblemData)
     * Simplifies a program by removing redundant elements and making trivial transformations
     * like replacing operations on constants with the result.
     */
-  def simplifySolution(smtlib: String): Option[String] = {
+  override def simplifySolution(smtlib: String): Option[String] = {
     try {
       val query = templateSimplify(smtlib)
       println(s"Simplification query:\n$query")
@@ -308,7 +292,6 @@ class StateCDGP2(sygusData: SygusProblemData)
         numRejectedCounterex += 1
         None
     }
-
   }
 
   /**
@@ -399,7 +382,19 @@ class StateGPR(sygusData: SygusProblemData)
 
 
 
-
+object StateGPR {
+  def apply(benchmark: String)
+           (implicit opt: Options, coll: Collector, rng: TRandom): StateGPR =
+    StateGPR(LoadSygusBenchmark(benchmark))
+  def apply(problem: SyGuS16)
+           (implicit opt: Options, coll: Collector, rng: TRandom): StateGPR = {
+    new StateGPR(SygusProblemData(problem, opt('mixedSpecAllowed, true)))
+  }
+  def apply(problem: SygusProblemData)
+           (implicit opt: Options, coll: Collector, rng: TRandom): StateGPR = {
+    new StateGPR(problem)
+  }
+}
 
 
 
@@ -601,9 +596,9 @@ class CDGPState(val sygusData: SygusProblemData)
     solver.runSolver(query)
   }
 
-  def checkIsOutputCorrectForInput(s: Op,
-                                   testInputsMap: Map[String, Any],
-                                   output: Any): (String, Option[String]) = {
+  def checkIsOutputCorrect(s: Op,
+                           testInputsMap: Map[String, Any],
+                           output: Any): (String, Option[String]) = {
     val query = templateIsOutputCorrectForInput(testInputsMap, output)
     printQuery("\nQuery checkOnInputAndKnownOutput:\n" + query)
     solver.runSolver(query)

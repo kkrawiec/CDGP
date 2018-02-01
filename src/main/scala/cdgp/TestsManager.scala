@@ -62,9 +62,9 @@ class TestsManagerCDGP[I,O](testsHistory: Boolean = false, printAddedTests: Bool
     * Saves tests-related info and statistics in the collector.
     */
   def reportData(coll: Collector, prefix: String = "tests") {
-    coll.set(s"$prefix.totalTests", tests.size)
+    coll.set(s"$prefix.total", tests.size)
     coll.set(s"$prefix.testsHistory", history.toList.sorted.mkString(", "))
-    coll.set(s"$prefix.totalTestsKnownOutputs", getNumberOfKnownOutputs)
-    coll.set(s"$prefix.totalTestsUnknownOutputs", getNumberOfUnknownOutputs)
+    coll.set(s"$prefix.totalKnownOutputs", getNumberOfKnownOutputs)
+    coll.set(s"$prefix.totalUnknownOutputs", getNumberOfUnknownOutputs)
   }
 }

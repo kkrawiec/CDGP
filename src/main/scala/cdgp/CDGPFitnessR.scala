@@ -11,9 +11,9 @@ import sygus16.SyGuS16
   * Fitness, in which for each program returned is a sequence of absolute differences
   * on the set of test cases.
   */
-class FitnessCDGPContinuous(state: StateCDGP2)
-                           (implicit opt: Options, coll: Collector)
-  extends FitnessFunction[Seq[Double]](state) {
+abstract class EvalCDGPContinous[E](state: StateCDGP2)
+                                   (implicit opt: Options, coll: Collector)
+  extends EvalFunction[Op, E](state) {
   val eps: Double = opt.paramDouble('eps, 0.0001)
 
   checkValidity()
@@ -24,7 +24,7 @@ class FitnessCDGPContinuous(state: StateCDGP2)
     * and 1s (failed test). Depending on the problem will either optimize by executing
     * program directly on the tests, or will have to resort to a solver.
     */
-  override def evalOnTests(s: Op, tests: Seq[(I, Option[O])]): Seq[Double] = {
+  def evalOnTests(s: Op, tests: Seq[(I, Option[O])]): Seq[Double] = {
     def handleException(test: (I, Option[O]), message: String) {
       val msg = s"Error during evalutation of $s and test $test: $message"
       coll.set("error_evalOnTests", msg)
@@ -54,7 +54,7 @@ class FitnessCDGPContinuous(state: StateCDGP2)
   def evalOnTestsSolver(s: Op, test: (I, Option[O])): Double = {
     val testModel: Map[String, Any] = test._1
     val (dec, _) = state.checkIsProgramCorrectForInput(s, testModel)
-    if (dec == "sat") 0.0 else 1.0
+    if (dec == "sat") 0.0 else 1.0  // This becomes questionable when aggregated with error
   }
 
   /**
@@ -120,10 +120,58 @@ class FitnessCDGPContinuous(state: StateCDGP2)
       else
         (false, evalTests)
     }
-
-
-  override def apply(s: Op) = fitnessOnlyTestCases(s)
 }
+
+
+
+class EvalCDGPSeqDouble(state: StateCDGP2)
+                       (implicit opt: Options, coll: Collector)
+  extends EvalCDGPContinous[FSeqDouble](state) {
+  override def apply(s: Op, init: Boolean): FSeqDouble = {
+    if (init) {
+      val (isPerfect, eval) = fitnessOnlyTestCases(s)
+      FSeqDouble(isPerfect, eval, s.size)
+    }
+    else {
+      // TODO: change
+      val (isPerfect, eval) = fitnessOnlyTestCases(s)
+      FSeqDouble(isPerfect, eval, s.size)
+    }
+  }
+  override def updateEval(s: (Op, FSeqDouble)): (Op, FSeqDouble) = {
+    (s._1, FSeqDouble(s._2.correct, s._2.value ++ evalOnTests(s._1, state.testsManager.newTests.toList), s._1.size))
+  }
+  override val ordering = FSeqDoubleOrderingMSE
+}
+
+
+class EvalCDGPDoubleMSE(state: StateCDGP2)
+                    (implicit opt: Options, coll: Collector)
+  extends EvalCDGPContinous[FDouble](state) {
+  override def apply(s: Op, init: Boolean): FDouble = {
+    if (init) {
+      val (isPerfect, eval) = fitnessOnlyTestCases(s)
+      val mse = eval.map{ x => x * x }.sum
+      FDouble(isPerfect, mse, s.size)
+    }
+    else {
+      // TODO: change
+      val (isPerfect, eval) = fitnessOnlyTestCases(s)
+      val mse = eval.map{ x => x * x }.sum
+      FDouble(isPerfect, mse, s.size)
+    }
+  }
+  override def updateEval(s: (Op, FDouble)): (Op, FDouble) = {
+    // evalOnTests returns a vector of absolute differences
+    val newValue = s._2.value + evalOnTests(s._1, state.testsManager.newTests.toList).map{ x => x * x }.sum
+    val newFit = FDouble(s._2.correct, newValue, s._1.size)
+    (s._1, newFit)
+  }
+  override val ordering = FDoubleOrdering
+}
+
+
+
 
 
 

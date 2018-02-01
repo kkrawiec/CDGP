@@ -2,15 +2,135 @@ package cdgp
 
 import fuel.util.{Collector, Options, TRandom}
 import swim.RecursiveDomain
-import swim.tree.Op
+import swim.tree.{LongerOrMaxPassedOrdering, Op}
 import sygus16.SyGuS16
 
 
 
 
-abstract class FitnessFunction[E](val state: State)
+trait Fitness {
+  def correct: Boolean
+  /**
+    * Saves all the fitness-relevant data using the provided collector.
+    */
+  def saveInColl(coll: Collector): Unit
+}
+
+
+case class FSeqInt(correct: Boolean, value: Seq[Int], progSize: Int)
+  extends Seq[Int] with Fitness {
+  override def length: Int = value.length
+  override def apply(idx: Int) = value(idx)
+  override def iterator = value.iterator
+
+  override def saveInColl(coll: Collector): Unit = {
+    val passedTests = if (correct) this.size else this.count(_ == 0)
+    val ratio = if (this.isEmpty) 1.0 else passedTests.toDouble / this.size
+    val roundedRatio = BigDecimal(ratio).setScale(3, BigDecimal.RoundingMode.HALF_UP).toDouble
+    coll.setResult("best.passedTests", passedTests)
+    coll.setResult("best.numTests", this.size)
+    coll.setResult("best.passedTestsRatio", roundedRatio)
+    coll.setResult("best.isOptimal", correct)
+  }
+  override def toString: String = s"Fit($correct, $value, progSize=$progSize)"
+}
+
+
+case class FSeqDouble(correct: Boolean, value: Seq[Double], progSize: Int)
+  extends Seq[Double] with Fitness {
+  override def length: Int = value.length
+  override def apply(idx: Int) = value(idx)
+  override def iterator = value.iterator
+
+  lazy val mse: Double = if (value.isEmpty) 0.0 else value.map{ x => x*x }.sum / value.size.toDouble
+
+  override def saveInColl(coll: Collector): Unit = {
+    val mseRound = BigDecimal(mse).setScale(5, BigDecimal.RoundingMode.HALF_UP).toDouble
+    coll.setResult("best.mse", mse)
+    coll.setResult("best.isOptimal", correct)
+  }
+  override def toString: String = s"Fit($correct, $value, progSize=$progSize)"
+}
+
+
+case class FInt(correct: Boolean, value: Int, progSize: Int, totalTests: Int) extends Fitness {
+  override def saveInColl(coll: Collector): Unit = {
+    val passedTests = if (correct) totalTests else totalTests - value
+    val ratio = if (totalTests == 0) 1.0 else passedTests.toDouble / totalTests
+    val roundedRatio = BigDecimal(ratio).setScale(3, BigDecimal.RoundingMode.HALF_UP).toDouble
+    coll.setResult("best.passedTests", passedTests)
+    coll.setResult("best.numTests", totalTests)
+    coll.setResult("best.passedTestsRatio", roundedRatio)
+    coll.setResult("best.isOptimal", correct)
+  }
+  override def toString: String = s"Fit($correct, $value, progSize=$progSize)"
+}
+object FInt {
+  def apply(correct: Boolean, list: Seq[Int], progSize: Int): FInt =
+    FInt(correct, list.sum, progSize, list.size)
+}
+
+
+case class FDouble(correct: Boolean, value: Double, progSize: Int) extends Fitness {
+  override def saveInColl(coll: Collector): Unit = {
+    val rounded = BigDecimal(value).setScale(5, BigDecimal.RoundingMode.HALF_UP).toDouble
+    coll.setResult("best.mse", rounded)
+    coll.setResult("best.isOptimal", correct)
+  }
+  override def toString: String = s"Fit($correct, $value, progSize=$progSize)"
+}
+
+
+object FSeqIntOrdering extends Ordering[FSeqInt] {
+  override def compare(a: FSeqInt, b: FSeqInt): Int = {
+    val c = if (a.correct && !b.correct) -1
+    else if (!a.correct && b.correct) 1
+    else LongerOrMaxPassedOrdering.compare(a.value, b.value)
+    // lexicographic parsimony pressure
+    if (c == 0) a.progSize compare b.progSize
+    else c
+  }
+}
+object FSeqDoubleOrderingMSE extends Ordering[FSeqDouble] {
+  override def compare(a: FSeqDouble, b: FSeqDouble): Int = {
+    val c = if (a.correct && !b.correct) -1
+    else if (!a.correct && b.correct) 1
+    else a.mse.compareTo(b.mse)
+    // lexicographic parsimony pressure
+    if (c == 0) a.progSize compare b.progSize
+    else c
+  }
+}
+object FIntOrdering extends Ordering[FInt] {
+  override def compare(a: FInt, b: FInt): Int = {
+    val c = if (a.correct && !b.correct) -1
+    else if (!a.correct && b.correct) 1
+    else a.value compare b.value
+    // lexicographic parsimony pressure
+    if (c == 0) a.progSize compare b.progSize
+    else c
+  }
+}
+object FDoubleOrdering extends Ordering[FDouble] {
+  override def compare(a: FDouble, b: FDouble): Int = {
+    val c = if (a.correct && !b.correct) -1
+    else if (!a.correct && b.correct) 1
+    else a.value compare b.value
+    // lexicographic parsimony pressure
+    if (c == 0) a.progSize compare b.progSize
+    else c
+  }
+}
+
+
+
+
+
+
+
+abstract class EvalFunction[S, E](val state: State)
                                  (implicit opt: Options, coll: Collector)
-  extends Function[Op, (Boolean, E)] {
+  extends Function[S, E] {
   // The types for input and output
   type I = Map[String, Any]
   type O = Any
@@ -22,7 +142,7 @@ abstract class FitnessFunction[E](val state: State)
   /**
     * Creates a domain, which is used for execution of the programs.
     */
-  def getDomain(logic: String): RecursiveDomain[Any,Any] = logic match {
+  def getDomain(logic: String): RecursiveDomain[Any, Any] = logic match {
     case "SLIA" | "NIA" | "LIA" | "QF_NIA" | "QF_LIA" | "S" | "QF_S" | "ALL" =>
       DomainSLIA(state.synthTask.argNames, Symbol(state.synthTask.fname), opt("recDepthLimit", 1000))
     case "NRA" | "LRA" | "QF_NRA" | "QF_LRA"=>
@@ -32,18 +152,33 @@ abstract class FitnessFunction[E](val state: State)
   }
 
   /**
-    * Tests a program on the available tests and returns the vector of 0s (passed test)
-    * and 1s (failed test). Depending on the problem will either optimize by executing
-    * program directly on the tests, or will have to resort to a solver.
+    * Function used to update existing solution-evaluation pair. Used in steady state
+    * evolution variant, when the number of tests increases during runtime and older
+    * solutions need to be updated.
     */
-  def evalOnTests(s: Op, tests: Seq[(I, Option[O])]): E
+  def updateEval(s: (S, E)): (S, E)
+
+  def apply(s: S): E = apply(s, false)
+
+  /**
+    * Computes fitness for a solution. init is a flag specifying that solutions are to
+    * be assigned some initial values, and is used mostly in steady state variant to avoid
+    * verifying all solutions during the first evaluation phase.
+    */
+  def apply(s: S, init: Boolean): E
+
+  /**
+    * An ordering used to define the order relation of different fitnesses.
+    */
+  def ordering: Ordering[E]
 }
 
 
 
-class FitnessCDGPDiscrete(state: StateCDGP2)
-                         (implicit opt: Options, coll: Collector)
-  extends FitnessFunction[Seq[Int]](state) {
+
+abstract class EvalCDGPDiscrete[E](state: StateCDGP2)
+                                  (implicit opt: Options, coll: Collector)
+  extends EvalFunction[Op, E](state) {
 
   val testsAbsDiff: Option[Int] = opt.getOptionInt("testsAbsDiff")
   val testsRatio: Double = opt('testsRatio, 1.0, (x: Double) => x >= 0.0 && x <= 1.0)
@@ -55,7 +190,7 @@ class FitnessCDGPDiscrete(state: StateCDGP2)
     * and 1s (failed test). Depending on the problem will either optimize by executing
     * program directly on the tests, or will have to resort to a solver.
     */
-  override def evalOnTests(s: Op, tests: Seq[(I, Option[O])]): Seq[Int] = {
+  def evalOnTests(s: Op, tests: Seq[(I, Option[O])]): Seq[Int] = {
     for (test <- tests) yield { evaluateTest(s, test) }
   }
 
@@ -132,7 +267,6 @@ class FitnessCDGPDiscrete(state: StateCDGP2)
     }
   }
 
-
   def doVerify(evalTests: Seq[Int]): Boolean = {
     val numPassed = evalTests.count(_ == 0).asInstanceOf[Double]
     if (testsAbsDiff.isDefined)
@@ -171,18 +305,137 @@ class FitnessCDGPDiscrete(state: StateCDGP2)
         }
       }
     }
+}
 
 
-  override def apply(s: Op) = fitnessCDGPGeneral(s)
+
+class EvalCDGPSeqInt(state: StateCDGP2)
+                    (implicit opt: Options, coll: Collector)
+  extends EvalCDGPDiscrete[FSeqInt](state) {
+  override def apply(s: Op, init: Boolean): FSeqInt = {
+    if (init) {
+      val e = evalOnTests(s, state.testsManager.getTests())
+      FSeqInt(false, e, s.size)
+    }
+    else {
+      val (isPerfect, eval) = fitnessCDGPGeneral(s)
+      FSeqInt(isPerfect, eval, s.size)
+    }
+  }
+  override def updateEval(s: (Op, FSeqInt)): (Op, FSeqInt) = {
+    (s._1, FSeqInt(s._2.correct, s._2.value ++ evalOnTests(s._1, state.testsManager.newTests.toList), s._1.size))
+  }
+  override val ordering = FSeqIntOrdering
+}
+
+
+class EvalCDGPInt(state: StateCDGP2)
+                 (implicit opt: Options, coll: Collector)
+  extends EvalCDGPDiscrete[FInt](state) {
+  override def apply(s: Op, init: Boolean): FInt = {
+    if (init) {
+      val e = evalOnTests(s, state.testsManager.getTests())
+      FInt(false, e, s.size)
+    }
+    else {
+      val (isPerfect, eval) = fitnessCDGPGeneral(s)
+      FInt(isPerfect, eval, s.size)
+    }
+  }
+  override def updateEval(s: (Op, FInt)): (Op, FInt) = {
+    val newFit = FInt(s._2.correct, s._2.value + evalOnTests(s._1, state.testsManager.newTests.toList).sum, s._1.size, state.testsManager.getNumberOfTests)
+    (s._1, newFit)
+  }
+  override val ordering = FIntOrdering
 }
 
 
 
 
 
+abstract class EvalGPRDiscrete[E](state: StateGPR)
+                        (implicit opt: Options, coll: Collector)
+  extends EvalCDGPDiscrete[E](state) {
+
+  def fitnessGPR: Op => (Boolean, Seq[Int]) = {
+    new Function1[Op, (Boolean, Seq[Int])] {
+      def allTestsPassed(evalTests: Seq[Int]): Boolean =
+        evalTests.count(_ == 0) == evalTests.size
+      def generateAndAddRandomTest(): Unit = {
+        if (state.testsManager.newTests.size < maxNewTestsPerIter) {
+          val newTest = state.createRandomTest()
+          if (newTest.isDefined)
+            state.testsManager.addNewTest(newTest.get)
+        }
+      }
+      def apply(s: Op): (Boolean, Seq[Int]) = {
+        val evalTests = evalOnTests(s, state.testsManager.getTests())
+        if (!doVerify(evalTests))
+          (false, evalTests)
+        else if (allTestsPassed(evalTests)) {
+          // program passes all tests - verify if it is correct
+          val (decision, _) = state.verify(s)
+          if (decision == "unsat" && evalTests.sum == 0 && (!(state.sygusData.logic == "SLIA") || evalTests.nonEmpty))
+            (true, evalTests)  // perfect program found; end of run
+          else {
+            generateAndAddRandomTest()  // program incorrect; generate random test
+            (false, evalTests)
+          }
+        }
+        else {  // program passes enough tests but not all - generate random counterexample
+          generateAndAddRandomTest()
+          (false, evalTests)
+        }
+      }
+    }
+  }
+
+  def fitnessNoVerification(s: Op): (Boolean, Seq[Int]) = {
+    (false, evalOnTests(s, state.testsManager.getTests()))
+  }
+}
 
 
 
+
+class EvalGPRSeqInt(state: StateGPR)
+                   (implicit opt: Options, coll: Collector)
+  extends EvalGPRDiscrete[FSeqInt](state) {
+  override def apply(s: Op, init: Boolean): FSeqInt = {
+    if (init) {
+      val e = evalOnTests(s, state.testsManager.getTests())
+      FSeqInt(false, e, s.size)
+    }
+    else {
+      val (isPerfect, eval) = fitnessGPR(s)
+      FSeqInt(isPerfect, eval, s.size)
+    }
+  }
+  override def updateEval(s: (Op, FSeqInt)): (Op, FSeqInt) = {
+    (s._1, FSeqInt(s._2.correct, s._2.value ++ evalOnTests(s._1, state.testsManager.newTests.toList), s._1.size))
+  }
+  override val ordering = FSeqIntOrdering
+}
+
+class EvalGPRInt(state: StateGPR)
+                (implicit opt: Options, coll: Collector)
+  extends EvalGPRDiscrete[FInt](state) {
+  override def apply(s: Op, init: Boolean): FInt = {
+    if (init) {
+      val e = evalOnTests(s, state.testsManager.getTests())
+      FInt(false, e, s.size)
+    }
+    else {
+      val (isPerfect, eval) = fitnessGPR(s)
+      FInt(isPerfect, eval, s.size)
+    }
+  }
+  override def updateEval(s: (Op, FInt)): (Op, FInt) = {
+    val newFit = FInt(s._2.correct, s._2.value + evalOnTests(s._1, state.testsManager.newTests.toList).sum, s._1.size, state.testsManager.getNumberOfTests)
+    (s._1, newFit)
+  }
+  override val ordering = FIntOrdering
+}
 
 
 

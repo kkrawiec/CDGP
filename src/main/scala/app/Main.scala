@@ -6,7 +6,7 @@ import fuel.func.RunExperiment
 import fuel.core.StatePop
 import fuel.util._
 import swim.tree.Op
-import cdgp._
+import cdgp.{Fitness, _}
 
 import scala.concurrent._
 import scala.concurrent.duration._
@@ -64,35 +64,73 @@ object Main {
   }
 
 
-  def runConfig(cdgpState: CDGPState, selection: String, evoMode: String)
-               (implicit coll: Collector, opt: Options, rng: TRandom):
-               (Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]) = {
-    val cdgpFit = new CDGPFitnessD(cdgpState)
+
+  def runConfigGPR(benchmark: String, selection: String, evoMode: String)
+                  (implicit coll: Collector, opt: Options, rng: TRandom):
+  (StateCDGP2, Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]) = {
+    val state = StateGPR(benchmark)
     (selection, evoMode) match {
       case ("tournament", "generational") =>
-        val alg = CDGPGenerational(cdgpFit)
+        val eval = new EvalGPRInt(state)
+        val alg = CDGPGenerational(eval)
         val finalPop = watchTime(alg, RunExperiment(alg))
-        (finalPop, alg.bsf.bestSoFar)
+        (state, finalPop, alg.bsf.bestSoFar)
 
       case ("tournament", "steadyState") =>
-        val alg = CDGPSteadyState(cdgpFit)
+        val eval = new EvalGPRInt(state)
+        val alg = CDGPSteadyState(eval)
         val finalPop = watchTime(alg, RunExperiment(alg))
-        (finalPop, alg.bsf.bestSoFar)
+        (state, finalPop, alg.bsf.bestSoFar)
 
       case ("lexicase", "generational") =>
-        val alg = CDGPGenerationalLexicase(cdgpFit)
+        val eval = new EvalGPRSeqInt(state)
+        val alg = CDGPGenerationalLexicase(eval)
         val finalPop = watchTime(alg, RunExperiment(alg))
-        (finalPop, alg.bsf.bestSoFar)
+        (state, finalPop, alg.bsf.bestSoFar)
 
       case ("lexicase", "steadyState") =>
-        val alg = CDGPSteadyStateLexicase(cdgpFit)
+        val eval = new EvalGPRSeqInt(state)
+        val alg = CDGPSteadyStateLexicase(eval)
         val finalPop = watchTime(alg, RunExperiment(alg))
-        (finalPop, alg.bsf.bestSoFar)
+        (state, finalPop, alg.bsf.bestSoFar)
     }
   }
 
 
-  def printResults(cdgpState: CDGPState, bestOfRun: Option[(Op, Fitness)])
+
+  def runConfigCDGP(benchmark: String, selection: String, evoMode: String)
+                   (implicit coll: Collector, opt: Options, rng: TRandom):
+    (StateCDGP2, Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]) = {
+    val state = StateCDGP2(benchmark)
+    (selection, evoMode) match {
+      case ("tournament", "generational") =>
+        val eval = new EvalCDGPInt(state)
+        val alg = CDGPGenerational(eval)
+        val finalPop = watchTime(alg, RunExperiment(alg))
+        (state, finalPop, alg.bsf.bestSoFar)
+
+      case ("tournament", "steadyState") =>
+        val eval = new EvalCDGPInt(state)
+        val alg = CDGPSteadyState(eval)
+        val finalPop = watchTime(alg, RunExperiment(alg))
+        (state, finalPop, alg.bsf.bestSoFar)
+
+      case ("lexicase", "generational") =>
+        val eval = new EvalCDGPSeqInt(state)
+        val alg = CDGPGenerationalLexicase(eval)
+        val finalPop = watchTime(alg, RunExperiment(alg))
+        (state, finalPop, alg.bsf.bestSoFar)
+
+      case ("lexicase", "steadyState") =>
+        val eval = new EvalCDGPSeqInt(state)
+        val alg = CDGPSteadyStateLexicase(eval)
+        val finalPop = watchTime(alg, RunExperiment(alg))
+        (state, finalPop, alg.bsf.bestSoFar)
+    }
+  }
+
+
+  def printResults(cdgpState: State, bestOfRun: Option[(Op, Fitness)])
                   (implicit coll: Collector, opt: Options, rng: TRandom) {
     assume(bestOfRun.isDefined, "No solution (optimal or approximate) to the problem was found.")
     def isOptimal(bestOfRun: (Op, Fitness)): Boolean = bestOfRun._2.correct
@@ -103,14 +141,14 @@ object Main {
     println("Best program found:".padTo(pn, ' ') + coll.getResult("bestOrig.smtlib").getOrElse("n/a"))
     println("Simplified:".padTo(pn, ' ') + coll.getResult("best.smtlib").getOrElse("n/a"))
     println("Evaluation:".padTo(pn, ' ') + coll.getResult("best.eval").getOrElse("n/a"))
-    println("Program size:".padTo(pn, ' ') + coll.getResult("best.size").get)
+    println("Program size:".padTo(pn, ' ') + coll.getResult("best.size").getOrElse("n/a"))
     println("Ratio of passed tests:".padTo(pn, ' ') + passedTestsRatio)
-    println("Tests total:".padTo(pn, ' ') + cdgpState.testsManager.getNumberOfTests)
-    println("Tests known outputs:".padTo(pn, ' ') + cdgpState.testsManager.getNumberOfKnownOutputs)
-    println("Total solver calls:".padTo(pn, ' ') + cdgpState.solver.getNumCalls)
-    println("Generations:".padTo(pn, ' ') + coll.getResult("best.generation").get)
+    println("Tests total:".padTo(pn, ' ') + coll.get("tests.total").getOrElse("n/a"))
+    println("Tests known outputs:".padTo(pn, ' ') + coll.get("tests.totalKnownOutputs").getOrElse("n/a"))
+    println("Total solver calls:".padTo(pn, ' ') + coll.get("solver.totalCalls").getOrElse("n/a"))
+    println("Generations:".padTo(pn, ' ') + coll.getResult("best.generation").getOrElse("n/a"))
     println("Total time [s]:".padTo(pn, ' ') + coll.getResult("totalTimeSystem").get.toString.toDouble / 1000.0)
-    println("Log file:".padTo(pn, ' ') + coll.get("thisFileName").get.toString)
+    println("Log file:".padTo(pn, ' ') + coll.get("thisFileName").getOrElse("n/a"))
 
     if (opt("printTests", false)) {
       println("\nCollected tests:")
@@ -145,8 +183,10 @@ object Main {
       val benchmark = opt('benchmark)
       println(s"Benchmark: $benchmark")
 
+      val method = opt('method, "CDGP")
       val selection = opt('selection, "lexicase")
       val evoMode = opt('evolutionMode, "generational")
+      assert(method == "CDGP" || method == "GPR", s"Invalid method '$method'! Possible values: 'CDGP', 'GPR'.")
       assert(evoMode == "generational" || evoMode == "steadyState",
         s"Invalid evolutionMode: '$evoMode'! Possible values: 'generational', 'steadyState'.")
       assert(selection == "tournament" || selection == "lexicase",
@@ -157,12 +197,16 @@ object Main {
 
 
       // Run algorithm
-      val (_, bestOfRun) = runConfig(cdgpState, selection, evoMode)
+      val (state, _, bestOfRun) =
+        if (method == "CDGP")
+          runConfigCDGP(benchmark, selection, evoMode)
+        else
+          runConfigCDGP(benchmark, selection, evoMode)
 
 
       // Print and save results
       coll.saveSnapshot("cdgp")
-      printResults(cdgpState, bestOfRun)
+      printResults(state, bestOfRun)
     }
     catch {
       case e: NoSolutionException =>

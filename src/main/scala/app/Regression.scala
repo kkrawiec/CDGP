@@ -11,13 +11,13 @@ import swim.tree.Op
 
 object Regression {
 
-  def runConfigRegressionCDGP(cdgpState: CDGPState, selection: String, evoMode: String)
+  def runConfigRegressionCDGP(state: StateCDGP2, selection: String, evoMode: String)
                              (implicit coll: Collector, opt: Options, rng: TRandom):
   (Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]) = {
-    val cdgpFit = new CDGPFitnessR(cdgpState)
     (selection, evoMode) match {
       case ("tournament", "generational") =>
-        val alg = CDGPGenerational(cdgpFit)
+        val eval = new EvalCDGPDoubleMSE(state)
+        val alg = CDGPGenerational(eval)
         val finalPop = watchTime(alg, RunExperiment(alg))
         (finalPop, alg.bsf.bestSoFar)
 
@@ -26,7 +26,8 @@ object Regression {
 
       case ("lexicase", "generational") =>
         println("---------  REGRESSION -----------")
-        val alg = CDGPGenerationalLexicaseR(cdgpFit)
+        val eval = new EvalCDGPSeqDouble(state)
+        val alg = CDGPGenerationalLexicaseR(eval)
         val finalPop = watchTime(alg, RunExperiment(alg))
         (finalPop, alg.bsf.bestSoFar)
 
@@ -59,7 +60,7 @@ object Regression {
         s"Invalid evolutionMode: '$evoMode'! Possible values: 'generational', 'steadyState'.")
 
       // Create CDGP state
-      val cdgpState = CDGPState(benchmark)
+      val cdgpState = StateCDGP2(benchmark)
 
 
       // Run algorithm

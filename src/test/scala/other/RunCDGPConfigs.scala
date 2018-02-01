@@ -13,28 +13,57 @@ object RunCDGPConfigs extends App {
     implicit val opt = options
     implicit val rng = Rng(Options(opt))
     implicit val coll = CollectorStdout(opt)
-    val cdgpState = CDGPState(opt('benchmark))
-    val cdgpFit = CDGPFitnessD(cdgpState)
+    val method = opt('method)
     val selection = opt('selection)
     val evoMode = opt('evolutionMode)
-    val (res, bestOfRun) = (selection, evoMode) match {
-      case ("tournament", "generational") =>
-        val alg = CDGPGenerational(cdgpFit)
+    val (res, bestOfRun) = (method, selection, evoMode) match {
+      case ("CDGP", "tournament", "generational") =>
+        val eval = new EvalCDGPInt(StateCDGP2(opt('benchmark)))
+        val alg = CDGPGenerational(eval)
         val finalPop = RunExperiment(alg)
         (finalPop, alg.bsf.bestSoFar)
 
-      case ("tournament", "steadyState") =>
-        val alg = CDGPSteadyState(cdgpFit)
+      case ("CDGP", "tournament", "steadyState") =>
+        val eval = new EvalCDGPInt(StateCDGP2(opt('benchmark)))
+        val alg = CDGPSteadyState(eval)
         val finalPop = RunExperiment(alg)
         (finalPop, alg.bsf.bestSoFar)
 
-      case ("lexicase", "generational") =>
-        val alg = CDGPGenerationalLexicase(cdgpFit)
+      case ("CDGP", "lexicase", "generational") =>
+        val eval = new EvalCDGPSeqInt(StateCDGP2(opt('benchmark)))
+        val alg = CDGPGenerationalLexicase(eval)
         val finalPop = RunExperiment(alg)
         (finalPop, alg.bsf.bestSoFar)
 
-      case ("lexicase", "steadyState") =>
-        val alg = CDGPSteadyStateLexicase(cdgpFit)
+      case ("CDGP", "lexicase", "steadyState") =>
+        val eval = new EvalCDGPSeqInt(StateCDGP2(opt('benchmark)))
+        val alg = CDGPSteadyStateLexicase(eval)
+        val finalPop = RunExperiment(alg)
+        (finalPop, alg.bsf.bestSoFar)
+
+      // ------------------------- GPR --------------------------------
+
+      case ("GPR", "tournament", "generational") =>
+        val eval = new EvalGPRInt(StateGPR(opt('benchmark)))
+        val alg = CDGPGenerational(eval)
+        val finalPop = RunExperiment(alg)
+        (finalPop, alg.bsf.bestSoFar)
+
+      case ("GPR", "tournament", "steadyState") =>
+        val eval = new EvalGPRInt(StateGPR(opt('benchmark)))
+        val alg = CDGPSteadyState(eval)
+        val finalPop = RunExperiment(alg)
+        (finalPop, alg.bsf.bestSoFar)
+
+      case ("GPR", "lexicase", "generational") =>
+        val eval = new EvalGPRSeqInt(StateGPR(opt('benchmark)))
+        val alg = CDGPGenerationalLexicase(eval)
+        val finalPop = RunExperiment(alg)
+        (finalPop, alg.bsf.bestSoFar)
+
+      case ("GPR", "lexicase", "steadyState") =>
+        val eval = new EvalGPRSeqInt(StateGPR(opt('benchmark)))
+        val alg = CDGPSteadyStateLexicase(eval)
         val finalPop = RunExperiment(alg)
         (finalPop, alg.bsf.bestSoFar)
     }
