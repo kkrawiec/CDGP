@@ -1,5 +1,7 @@
 package cdgp
 
+import fuel.util.Collector
+
 import scala.collection.mutable
 
 
@@ -53,5 +55,16 @@ class TestsManagerCDGP[I,O](testsHistory: Boolean = false, printAddedTests: Bool
       history.put(flushNo, newTests.size)
     newTests.clear
     flushNo += 1
+  }
+
+
+  /**
+    * Saves tests-related info and statistics in the collector.
+    */
+  def reportData(coll: Collector, prefix: String = "tests") {
+    coll.set(s"$prefix.totalTests", tests.size)
+    coll.set(s"$prefix.testsHistory", history.toList.sorted.mkString(", "))
+    coll.set(s"$prefix.totalTestsKnownOutputs", getNumberOfKnownOutputs)
+    coll.set(s"$prefix.totalTestsUnknownOutputs", getNumberOfUnknownOutputs)
   }
 }

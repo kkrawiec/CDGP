@@ -22,7 +22,7 @@ final class TestSmtlibString {
   ////////////////////////////////////////////////////////////////////////////////////
   @Test
   def test_templateVerification_firstname(): Unit = {
-    val templateVerification = new TemplateVerification(firstnameProblem, firstnameData)
+    val templateVerification = new TemplateVerification(firstnameData)
     val op = Op.fromStr("str.at(name 0)", useSymbols = true)
     val query = templateVerification(op)
     val (dec, model) = solver.runSolver(query)
@@ -38,7 +38,7 @@ final class TestSmtlibString {
 
   @Test
   def test_templateFindOutput_firstname(): Unit = {
-    val templateFindOutput = new TemplateFindOutput(firstnameProblem, firstnameData)
+    val templateFindOutput = new TemplateFindOutput(firstnameData)
     val inputs = Map("s" -> "Iwo Bladek")
     val query = templateFindOutput(inputs)
     val (dec, model) = solver.runSolver(query)
@@ -53,7 +53,7 @@ final class TestSmtlibString {
 
   @Test
   def test_templateIsOutputCorrectForInput_firstname(): Unit = {
-    val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(firstnameProblem, firstnameData)
+    val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(firstnameData)
     val inputs = Map("s" -> "Iwo Bladek")
     val query = templateIsOutputCorrectForInput(inputs, "Iwo")
     val (dec, model) = solver.runSolver(query)
@@ -66,7 +66,7 @@ final class TestSmtlibString {
 
   @Test
   def test_templateIsProgramCorrectForInput_firstname(): Unit = {
-    val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(firstnameProblem, firstnameData)
+    val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(firstnameData)
     val op = "(str.substr name 0 1)"
     val inputs = Map("s" -> "Iwo Bladek")
     val query = templateIsProgramCorrectForInput(op, inputs)
@@ -90,7 +90,7 @@ final class TestSmtlibString {
 
   @Test
   def test_simplify_firstname(): Unit = {
-    val templateSimplify = new TemplateSimplify(firstnameProblem, firstnameData)
+    val templateSimplify = new TemplateSimplify(firstnameData)
     val query = templateSimplify("(str.++ \"asd\" \"\")")
     println(query)
     val res = solver.executeQuery(query)
@@ -108,7 +108,7 @@ final class TestSmtlibString {
     def verify(path: String, correct: String, expected: String = "unsat") {
       println(s"Problem: $path")
       val problem = LoadSygusBenchmark(path)
-      val templateVerification = new TemplateVerification(problem, SygusProblemData(problem))
+      val templateVerification = new TemplateVerification(SygusProblemData(problem))
       val query = templateVerification(correct)
       // println(s"Query:\n$query")
       val start = System.currentTimeMillis()

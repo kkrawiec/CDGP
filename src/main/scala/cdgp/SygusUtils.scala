@@ -74,6 +74,8 @@ case class SygusProblemData(problem: SyGuS16,
       (input, Some(output))
     }
   }
+
+  def getSwimGrammar(rng: TRandom): Grammar = synthTask.getSwimGrammar(rng)
 }
 
 

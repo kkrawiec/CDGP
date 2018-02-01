@@ -145,7 +145,7 @@ final class TestCDGPState {
   @Test
   def test_evalOnTestsMaxUsingSolver(): Unit = {
     val problem = LoadSygusBenchmark.parseText(TestCDGPState.scriptMax)
-    val state = new CDGPState(problem)
+    val state = CDGPState(problem)
     val fit = CDGPFitnessD(state)
     val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=true)
     val t1 = (GetValueParser("((x 4)(y 3))").toMap, Some(4))
@@ -167,7 +167,7 @@ final class TestCDGPState {
   @Test
   def test_evalOnTestsString(): Unit = {
     val problem = LoadSygusBenchmark.parseText(Global.specFirstname)
-    val state = new CDGPState(problem)
+    val state = CDGPState(problem)
     val fit = CDGPFitnessD(state)
     val tests = Seq(
       (Map("name" -> "\\x00 \\x00"), Some("\\x00")),
@@ -188,7 +188,7 @@ final class TestCDGPState {
   @Test
   def test_evalOnTestsMaxVerify(): Unit = {
     val problem = LoadSygusBenchmark.parseText(TestCDGPState.scriptMax)
-    val state = new CDGPState(problem)
+    val state = CDGPState(problem)
     val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=true)
     val (dec, output) = state.verify(op)
     assertEquals("sat", dec)
@@ -210,7 +210,7 @@ final class TestCDGPState {
   @Test
   def test_evalOnTestsMaxRenamedVars(): Unit = {
     val problem = LoadSygusBenchmark.parseText(TestCDGPState.scriptMaxRenamedVars)
-    val state = new CDGPState(problem)
+    val state = CDGPState(problem)
     val fit = CDGPFitnessD(state)
     val op = Op.fromStr("ite(>=(a b) a 0)", useSymbols=true)
     val t1 = state.createCompleteTest(GetValueParser("((x 4)(y 3))").toMap, Some(4))
@@ -227,7 +227,7 @@ final class TestCDGPState {
   @Test
   def test_evalOnTestsMaxFixedX(): Unit = {
     val problem = LoadSygusBenchmark.parseText(TestCDGPState.scriptMaxFixedX)
-    val state = new CDGPState(problem)
+    val state = CDGPState(problem)
     val fit = CDGPFitnessD(state)
     val op = Op.fromStr("ite(>=(argA argB) argA 0)", useSymbols=true)
     val t1 = state.createCompleteTest(GetValueParser("((asd 4)(y -3))").toMap, Some(1))
@@ -240,7 +240,7 @@ final class TestCDGPState {
   @Test
   def test_evalOnTestsMaxFixedX2(): Unit = {
     val problem = LoadSygusBenchmark.parseText(TestCDGPState.scriptMaxFixedX)
-    val state = new CDGPState(problem)
+    val state = CDGPState(problem)
     val fit = CDGPFitnessD(state)
     val op = Op.fromStr("ite(>=(argA argB) argA 0)", useSymbols=true)
     val t1 = state.createCompleteTest(GetValueParser("((y -3))").toMap, Some(1))
@@ -255,7 +255,7 @@ final class TestCDGPState {
     val problem = LoadSygusBenchmark.parseText(TestCDGPState.scriptMaxRenamedVars)
     val sygusData = SygusProblemData(problem)
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(problem, sygusData)
-    val state = new CDGPState(problem)
+    val state = CDGPState(problem)
     val (decision, output) = state.solver.runSolver(query)
     assertEquals("unsat", decision)  // unsat, so there is only a single answer
   }
@@ -272,7 +272,7 @@ final class TestCDGPState {
     val problem = LoadSygusBenchmark.parseText(TestCDGPState.scriptPsuedoMaxRenamedVars)
     val sygusData = SygusProblemData(problem)
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(problem, sygusData)
-    val state = new CDGPState(problem)
+    val state = CDGPState(problem)
     val (decision, output) = state.solver.runSolver(query)
     assertEquals("sat", decision)
   }
@@ -287,7 +287,7 @@ final class TestCDGPState {
         |(check-synth)
       """.stripMargin
     val problem = LoadSygusBenchmark.parseText(code)
-    val state = new CDGPState(problem)
+    val state = CDGPState(problem)
     val test = state.createRandomTest().get
     assertEquals(true, test.isCompleteTest)
     val test2 = (test._1.map{ case (k, v) => (k, if (k == "y" || k == "z") 4 else 1)}, test._2)
@@ -306,7 +306,7 @@ final class TestCDGPState {
         |(check-synth)
       """.stripMargin
     val problem = LoadSygusBenchmark.parseText(code)
-    val state = new CDGPState(problem)
+    val state = CDGPState(problem)
     val solverOut = "((a 1))"
     val test = state.createTestFromFailedVerification(solverOut).get
     println(s"Test: $test")
@@ -326,7 +326,7 @@ final class TestCDGPState {
         |(check-synth)
       """.stripMargin
     val problem = LoadSygusBenchmark.parseText(code)
-    val state = new CDGPState(problem)
+    val state = CDGPState(problem)
     val solverOut = "((a 12345678901234))"
     val test = state.createTestFromFailedVerification(solverOut)
     assertEquals(None, test)

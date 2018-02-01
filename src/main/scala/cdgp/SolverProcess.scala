@@ -424,6 +424,20 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
     throw new ExceededMaxRestartsException(msg)
   }
   class ExceededMaxRestartsException(msg: String) extends RuntimeException(msg) {}
+
+
+  /**
+    * Saves solver-related info and statistics in the collector.
+    */
+  def reportData(coll: Collector, prefix: String = "solver") {
+    coll.set(s"$prefix.totalCalls", getNumCalls)
+    coll.set(s"$prefix.totalRestarts", getNumRestarts)
+    coll.set(s"$prefix.timeMinSec", getMinSolveTime)
+    coll.set(s"$prefix.timeMaxSec", getMaxSolveTime)
+    coll.set(s"$prefix.timeAvgSec", getAvgSolveTime)
+    coll.set(s"$prefix.timeSumSec", getSumSolveTime)
+    coll.set(s"$prefix.allTimesCountMap", getSolveTimesAsCountMap.toList.sortBy(_._1).mkString(", "))
+  }
 }
 
 

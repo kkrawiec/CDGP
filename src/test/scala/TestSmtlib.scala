@@ -75,7 +75,7 @@ final class TestSmtlib {
   ////////////////////////////////////////////////////////////////////////////////////
   @Test
   def test_templateVerification_max(): Unit = {
-    val templateVerification = new TemplateVerification(maxProblem, maxData)
+    val templateVerification = new TemplateVerification(maxData)
     val op = Op.fromStr("ite(=(x y) x y)", useSymbols = true)
     val query = templateVerification(op)
     val (dec, model) = solver.runSolver(query)
@@ -91,7 +91,7 @@ final class TestSmtlib {
 
   @Test
   def test_templateFindOutput_max(): Unit = {
-    val templateFindOutput = new TemplateFindOutput(maxProblem, maxData)
+    val templateFindOutput = new TemplateFindOutput(maxData)
     val inputs = Map("x" -> 5, "y" -> 2)
     val query = templateFindOutput(inputs)
     val (dec, model) = solver.runSolver(query)
@@ -106,7 +106,7 @@ final class TestSmtlib {
 
   @Test
   def test_templateIsOutputCorrectForInput_max(): Unit = {
-    val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(maxProblem, maxData)
+    val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(maxData)
     val inputs = Map("x" -> 5, "y" -> 2)
     val query = templateIsOutputCorrectForInput(inputs, 5)
     val (dec, model) = solver.runSolver(query)
@@ -119,7 +119,7 @@ final class TestSmtlib {
 
   @Test
   def test_templateIsProgramCorrectForInput_max(): Unit = {
-    val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(maxProblem, maxData)
+    val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(maxData)
     val op = Op.fromStr("ite(=(x y) x y)", useSymbols = true)
     val inputs = Map("x" -> 5, "y" -> 2)
     val query = templateIsProgramCorrectForInput(op, inputs)
@@ -143,7 +143,7 @@ final class TestSmtlib {
 
   @Test
   def test_simplify_max(): Unit = {
-    val templateSimplify = new TemplateSimplify(maxProblem, maxData)
+    val templateSimplify = new TemplateSimplify(maxData)
     val query = templateSimplify("(+ x (- 0 x))")
     println(query)
     val res = solver.executeQuery(query)
@@ -159,7 +159,7 @@ final class TestSmtlib {
   ////////////////////////////////////////////////////////////////////////////////////
   @Test
   def test_templateVerification_maxPartial(): Unit = {
-    val templateVerification = new TemplateVerification(maxPartialProblem, maxPartialData)
+    val templateVerification = new TemplateVerification(maxPartialData)
     val op = Op.fromStr("ite(=(x y) x y)", useSymbols = true)
     val query = templateVerification(op)
     val (dec, model) = solver.runSolver(query)
@@ -175,7 +175,7 @@ final class TestSmtlib {
 
   @Test
   def test_templateFindOutput_maxPartial(): Unit = {
-    val templateFindOutput = new TemplateFindOutput(maxPartialProblem, maxPartialData)
+    val templateFindOutput = new TemplateFindOutput(maxPartialData)
     val inputs = Map("x" -> 5, "y" -> 2)
     val query = templateFindOutput(inputs)
     val (dec, model) = solver.runSolver(query)
@@ -186,7 +186,7 @@ final class TestSmtlib {
 
   @Test
   def test_templateIsOutputCorrectForInput_maxPartial(): Unit = {
-    val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(maxPartialProblem, maxPartialData)
+    val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(maxPartialData)
     val inputs = Map("x" -> 5, "y" -> 2)
     val query = templateIsOutputCorrectForInput(inputs, 5)
     val (dec, model) = solver.runSolver(query)
@@ -199,7 +199,7 @@ final class TestSmtlib {
 
   @Test
   def test_templateIsProgramCorrectForInput_maxPartial(): Unit = {
-    val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(maxPartialProblem, maxPartialData)
+    val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(maxPartialData)
     val op = Op.fromStr("ite(=(x y) x y)", useSymbols = true)
     val inputs = Map("x" -> 5, "y" -> 2)
     val query = templateIsProgramCorrectForInput(op, inputs)
@@ -231,7 +231,7 @@ final class TestSmtlib {
   ////////////////////////////////////////////////////////////////////////////////////
   @Test
   def test_templateVerification_median(): Unit = {
-    val templateVerification = new TemplateVerification(medianProblem, medianData)
+    val templateVerification = new TemplateVerification(medianData)
     val op = Op.fromStr("ite(>=(a b) a b)", useSymbols = true)
     val query = templateVerification(op)
     println(query)
@@ -256,7 +256,7 @@ final class TestSmtlib {
 
   @Test
   def test_templateFindOutput_median(): Unit = {
-    val templateFindOutput = new TemplateFindOutput(medianProblem, medianData)
+    val templateFindOutput = new TemplateFindOutput(medianData)
     val inputs = Map("a" -> 5, "b" -> 2, "c" -> 2)
     val query = templateFindOutput(inputs)
     val (dec, model) = solver.runSolver(query)
@@ -271,7 +271,7 @@ final class TestSmtlib {
 
   @Test
   def test_templateIsOutputCorrectForInput_median(): Unit = {
-    val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(medianProblem, medianData)
+    val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(medianData)
     val inputs = Map("a" -> 5, "b" -> 2, "c" -> 2)
     val query = templateIsOutputCorrectForInput(inputs, 2) // correct
     println("query:\n" + query)
@@ -285,7 +285,7 @@ final class TestSmtlib {
 
   @Test
   def test_templateIsProgramCorrectForInput_median(): Unit = {
-    val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(medianProblem, medianData)
+    val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(medianData)
     val op = Op.fromStr("ite(>=(a b) a b)", useSymbols = true) // incorrect
     val inputs = Map("a" -> 5, "b" -> 2,  "c" -> 2)
     val query = templateIsProgramCorrectForInput(op, inputs)
@@ -317,7 +317,7 @@ final class TestSmtlib {
   ////////////////////////////////////////////////////////////////////////////////////
   @Test
   def test_templateVerification_united(): Unit = {
-    val templateVerification = new TemplateVerification(unitedProblem, unitedData)
+    val templateVerification = new TemplateVerification(unitedData)
     val op = Op.fromStr("a", useSymbols = true)
     val query = templateVerification(op)
     val (dec, model) = solver.runSolver(query)
@@ -333,7 +333,7 @@ final class TestSmtlib {
 
   @Test
   def test_templateFindOutput_united(): Unit = {
-    val templateFindOutput = new TemplateFindOutput(unitedProblem, unitedData)
+    val templateFindOutput = new TemplateFindOutput(unitedData)
     val inputs = Map("x" -> 0)
     try { templateFindOutput(inputs); fail() }
     catch { case e: AssertionError => }
@@ -341,7 +341,7 @@ final class TestSmtlib {
 
   @Test
   def test_templateIsOutputCorrectForInput_united(): Unit = {
-    val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(unitedProblem, unitedData)
+    val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(unitedData)
     val inputs = Map("x" -> 5)
     try { templateIsOutputCorrectForInput(inputs, 5); fail() }
     catch { case e: AssertionError => }
@@ -349,7 +349,7 @@ final class TestSmtlib {
 
   @Test
   def test_templateIsProgramCorrectForInput_united(): Unit = {
-    val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(unitedProblem, unitedData)
+    val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(unitedData)
     val op = Op.fromStr("a", useSymbols = true) // incorrect
     val inputs = Map("x" -> 3)
     val query = templateIsProgramCorrectForInput(op, inputs)

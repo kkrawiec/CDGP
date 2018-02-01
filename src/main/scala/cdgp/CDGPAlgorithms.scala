@@ -74,7 +74,8 @@ object CDGPGenerational {
   def apply(cdgpFit: CDGPFitnessD)
            (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerational[FInt] = {
     implicit val ordering = FIntOrdering
-    val moves = GPMoves(cdgpFit.state.grammar, Common.isFeasible(cdgpFit.state.synthTask.fname, opt))
+    val grammar = cdgpFit.state.sygusData.getSwimGrammar(rng)
+    val moves = GPMoves(grammar, Common.isFeasible(cdgpFit.state.synthTask.fname, opt))
     val cdgpEval = new CDGPEvaluation[Op, FInt](cdgpFit.state, Common.evalInt(cdgpFit.fitness))
     new CDGPGenerational(moves, cdgpEval)
   }
@@ -82,7 +83,8 @@ object CDGPGenerational {
   def apply(cdgpFit: CDGPFitnessR)
            (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerational[FSeqDouble] = {
     implicit val ordering = FSeqDoubleOrderingMSE
-    val moves = GPMoves(cdgpFit.state.grammar, Common.isFeasible(cdgpFit.state.synthTask.fname, opt))
+    val grammar = cdgpFit.state.sygusData.getSwimGrammar(rng)
+    val moves = GPMoves(grammar, Common.isFeasible(cdgpFit.state.synthTask.fname, opt))
     val cdgpEval = new CDGPEvaluation[Op, FSeqDouble](cdgpFit.state, Common.evalSeqDouble(cdgpFit.fitness))
     new CDGPGenerational[FSeqDouble](moves, cdgpEval)
   }
@@ -147,7 +149,8 @@ object CDGPSteadyState {
   def apply(cdgpFit: CDGPFitnessD)
            (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyState = {
     implicit val ordering = FIntOrdering
-    val moves = GPMoves(cdgpFit.state.grammar, Common.isFeasible(cdgpFit.state.synthTask.fname, opt))
+    val grammar = cdgpFit.state.sygusData.getSwimGrammar(rng)
+    val moves = GPMoves(grammar, Common.isFeasible(cdgpFit.state.synthTask.fname, opt))
     val cdgpEval = new CDGPEvaluationSteadyState[Op, FInt](cdgpFit.state, Common.evalInt(cdgpFit.fitness),
       cdgpFit.updateEvalInt)
     new CDGPSteadyState(moves, cdgpEval, cdgpFit)
@@ -197,7 +200,8 @@ object CDGPGenerationalLexicase {
   def apply(cdgpFit: CDGPFitnessD)
            (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalLexicase = {
     implicit val ordering = FSeqIntOrdering
-    val moves = GPMoves(cdgpFit.state.grammar, Common.isFeasible(cdgpFit.state.synthTask.fname, opt))
+    val grammar = cdgpFit.state.sygusData.getSwimGrammar(rng)
+    val moves = GPMoves(grammar, Common.isFeasible(cdgpFit.state.synthTask.fname, opt))
     val cdgpEval = new CDGPEvaluation[Op, FSeqInt](cdgpFit.state, Common.evalSeqInt(cdgpFit.fitness))
     new CDGPGenerationalLexicase(moves, cdgpEval)
   }
@@ -237,7 +241,8 @@ object CDGPGenerationalLexicaseR {
   def apply(cdgpFit: CDGPFitnessR)
            (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalLexicaseR = {
     implicit val ordering = FSeqDoubleOrderingMSE
-    val moves = GPMoves(cdgpFit.state.grammar, Common.isFeasible(cdgpFit.state.synthTask.fname, opt))
+    val grammar = cdgpFit.state.sygusData.getSwimGrammar(rng)
+    val moves = GPMoves(grammar, Common.isFeasible(cdgpFit.state.synthTask.fname, opt))
     val cdgpEval = new CDGPEvaluation[Op, FSeqDouble](cdgpFit.state, Common.evalSeqDouble(cdgpFit.fitness))
     new CDGPGenerationalLexicaseR(moves, cdgpEval)
   }
@@ -327,7 +332,8 @@ object CDGPSteadyStateLexicase {
   def apply(cdgpFit: CDGPFitnessD)
            (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyStateLexicase = {
     implicit val ordering = FSeqIntOrdering
-    val moves = GPMoves(cdgpFit.state.grammar, Common.isFeasible(cdgpFit.state.synthTask.fname, opt))
+    val grammar = cdgpFit.state.sygusData.getSwimGrammar(rng)
+    val moves = GPMoves(grammar, Common.isFeasible(cdgpFit.state.synthTask.fname, opt))
     val cdgpEval = new CDGPEvaluationSteadyState[Op, FSeqInt](cdgpFit.state, Common.evalSeqInt(cdgpFit.fitness),
       cdgpFit.updateEvalSeqInt)
     new CDGPSteadyStateLexicase(moves, cdgpEval, cdgpFit)
@@ -402,7 +408,7 @@ object Common {
 
   def getCDGPState(benchmark: String)
                   (implicit opt: Options, coll: Collector, rng: TRandom): CDGPState = {
-    new CDGPState(LoadSygusBenchmark(benchmark))
+    CDGPState(LoadSygusBenchmark(benchmark))
   }
 
   def reportStats[E <: Fitness](cdgpState: CDGPState, bsf: BestSoFar[Op, E])
@@ -426,18 +432,7 @@ object Common {
       coll.set("result.best.size", solutionOp.size)
       coll.set("result.best.height", solutionOp.height)
     }
-    coll.set("cdgp.totalTests", cdgpState.testsManager.tests.size)
-    coll.set("cdgp.testsHistory", cdgpState.testsManager.history.toList.sorted.mkString(", "))
-    coll.set("cdgp.totalTestsKnownOutputs", cdgpState.testsManager.getNumberOfKnownOutputs)
-    coll.set("cdgp.totalTestsUnknownOutputs", cdgpState.testsManager.getNumberOfUnknownOutputs)
-    coll.set("cdgp.numRejectedCounterex", cdgpState.numRejectedCounterex)
-    coll.set("cdgp.solverTotalCalls", cdgpState.solver.getNumCalls)
-    coll.set("cdgp.solverTotalRestarts", cdgpState.solver.getNumRestarts)
-    coll.set("cdgp.solverTimeMinSec", cdgpState.solver.getMinSolveTime)
-    coll.set("cdgp.solverTimeMaxSec", cdgpState.solver.getMaxSolveTime)
-    coll.set("cdgp.solverTimeAvgSec", cdgpState.solver.getAvgSolveTime)
-    coll.set("cdgp.solverTimeSumSec", cdgpState.solver.getSumSolveTime)
-    coll.set("cdgp.solverAllTimesCountMap", cdgpState.solver.getSolveTimesAsCountMap.toList.sortBy(_._1).mkString(", "))
+    cdgpState.reportData()
     s
   }
 }

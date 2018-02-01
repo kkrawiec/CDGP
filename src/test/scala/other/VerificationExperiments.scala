@@ -52,8 +52,8 @@ object VerificationExperiments extends App {
 
 
     val fv = sygusData.varDecls
-    val templateFindOutput = new TemplateFindOutput(sygusProblem, sygusData)
-    val templateVerify = new TemplateVerification(sygusProblem, sygusData, includeTestConstr = true)
+    val templateFindOutput = new TemplateFindOutput(sygusData)
+    val templateVerify = new TemplateVerification(sygusData, includeTestConstr = true)
 
     val progs = generateRandomPrograms(synthTask)
     val allCounterEx = mutable.MutableList[Map[String,Any]]()

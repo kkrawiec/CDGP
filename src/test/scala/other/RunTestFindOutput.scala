@@ -41,7 +41,7 @@ object RunTestFindOutput extends App {
     val inputsSortsMap = inv.map{ x => (x, varDeclsMap(x).sortExpr) }
 
     // Generate 100 random inputs and find correct outputs for them
-    val templateFindOutput = new TemplateFindOutput(sygusProblem, sygusConstr)
+    val templateFindOutput = new TemplateFindOutput(sygusConstr)
     0.until(50).foreach { _ =>
       val input = getRandomInput(inputsSortsMap).toMap
       val query = templateFindOutput(input)
