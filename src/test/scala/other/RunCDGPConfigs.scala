@@ -18,25 +18,25 @@ object RunCDGPConfigs extends App {
     val evoMode = opt('evolutionMode)
     val (res, bestOfRun) = (method, selection, evoMode) match {
       case ("CDGP", "tournament", "generational") =>
-        val eval = new EvalCDGPInt(StateCDGP2(opt('benchmark)))
+        val eval = new EvalCDGPInt(StateCDGP(opt('benchmark)))
         val alg = CDGPGenerational(eval)
         val finalPop = RunExperiment(alg)
         (finalPop, alg.bsf.bestSoFar)
 
       case ("CDGP", "tournament", "steadyState") =>
-        val eval = new EvalCDGPInt(StateCDGP2(opt('benchmark)))
+        val eval = new EvalCDGPInt(StateCDGP(opt('benchmark)))
         val alg = CDGPSteadyState(eval)
         val finalPop = RunExperiment(alg)
         (finalPop, alg.bsf.bestSoFar)
 
       case ("CDGP", "lexicase", "generational") =>
-        val eval = new EvalCDGPSeqInt(StateCDGP2(opt('benchmark)))
+        val eval = new EvalCDGPSeqInt(StateCDGP(opt('benchmark)))
         val alg = CDGPGenerationalLexicase(eval)
         val finalPop = RunExperiment(alg)
         (finalPop, alg.bsf.bestSoFar)
 
       case ("CDGP", "lexicase", "steadyState") =>
-        val eval = new EvalCDGPSeqInt(StateCDGP2(opt('benchmark)))
+        val eval = new EvalCDGPSeqInt(StateCDGP(opt('benchmark)))
         val alg = CDGPSteadyStateLexicase(eval)
         val finalPop = RunExperiment(alg)
         (finalPop, alg.bsf.bestSoFar)

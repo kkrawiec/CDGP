@@ -5,7 +5,6 @@ import scala.util.Random
 import cdgp.Tools
 
 
-
 object RegressionBenchmarks extends App {
   val rng = Random
 

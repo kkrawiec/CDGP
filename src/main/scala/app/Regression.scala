@@ -11,7 +11,7 @@ import swim.tree.Op
 
 object Regression {
 
-  def runConfigRegressionCDGP(state: StateCDGP2, selection: String, evoMode: String)
+  def runConfigRegressionCDGP(state: StateCDGP, selection: String, evoMode: String)
                              (implicit coll: Collector, opt: Options, rng: TRandom):
   (Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]) = {
     (selection, evoMode) match {
@@ -60,7 +60,7 @@ object Regression {
         s"Invalid evolutionMode: '$evoMode'! Possible values: 'generational', 'steadyState'.")
 
       // Create CDGP state
-      val cdgpState = StateCDGP2(benchmark)
+      val cdgpState = StateCDGP(benchmark)
 
 
       // Run algorithm

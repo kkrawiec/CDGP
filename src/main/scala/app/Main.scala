@@ -67,7 +67,7 @@ object Main {
 
   def runConfigGPR(benchmark: String, selection: String, evoMode: String)
                   (implicit coll: Collector, opt: Options, rng: TRandom):
-  (StateCDGP2, Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]) = {
+  (StateCDGP, Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]) = {
     val state = StateGPR(benchmark)
     (selection, evoMode) match {
       case ("tournament", "generational") =>
@@ -100,8 +100,8 @@ object Main {
 
   def runConfigCDGP(benchmark: String, selection: String, evoMode: String)
                    (implicit coll: Collector, opt: Options, rng: TRandom):
-    (StateCDGP2, Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]) = {
-    val state = StateCDGP2(benchmark)
+    (StateCDGP, Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]) = {
+    val state = StateCDGP(benchmark)
     (selection, evoMode) match {
       case ("tournament", "generational") =>
         val eval = new EvalCDGPInt(state)
