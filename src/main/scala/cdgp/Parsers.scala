@@ -7,13 +7,13 @@ import scala.util.parsing.combinator.RegexParsers
 case class ValueParseException(msg: String) extends RuntimeException(msg)
 
 
-/* Parses the output of the solver's get-value command, 
- * which returns the model as a list of pairs (variable, value)
- * TODO: Extend with other types (for now only Int)
+/*
+ * Parses the output of the solver's get-value command, which returns the model
+ * as a list of pairs (variable, value).
  */
 object GetValueParser extends RegexParsers {
   val varName: Parser[String] = """[A-Za-z_\.-|][A-Za-z0-9_\.-|]*""".r
-  val floatingPointRegex = "[+-]?[0-9]+[.][0-9]*".r
+  val floatingPointRegex: Regex = "[+-]?[0-9]+[.][0-9]*".r
   val boolean: Parser[Boolean] = "true" ^^^ { true } | "false" ^^^ { false }
 
   def boolConst: Parser[Boolean] = boolean ^^ { b => b }
