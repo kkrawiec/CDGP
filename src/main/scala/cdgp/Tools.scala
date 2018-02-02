@@ -1,6 +1,8 @@
 package cdgp
 
 import java.io.File
+import java.text.{DecimalFormat, DecimalFormatSymbols}
+import java.util.Locale
 
 import fuel.util.{Options, OptionsMap}
 
@@ -29,6 +31,13 @@ object Tools {
     println("Elapsed time: " + (t1 - t0) / 1000000 + "ms")
     result
   }
+
+  val df = new DecimalFormat("0", DecimalFormatSymbols.getInstance(Locale.ENGLISH))
+  df.setMaximumFractionDigits(340)
+  /**
+    * Convert Double to String using dot punctuation and without scientific notation.
+    */
+  def double2str(d: Double): String = df.format(d)
 
   def stddev(xs: List[Double], avg: Double): Double = xs match {
     case Nil => -1.0

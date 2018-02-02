@@ -1,9 +1,10 @@
 package misc
 
-import java.text.{DecimalFormat, DecimalFormatSymbols}
-import java.util.Locale
-
 import scala.util.Random
+
+import cdgp.Tools
+
+
 
 object RegressionBenchmarks extends App {
   val rng = Random
@@ -78,16 +79,11 @@ object RegressionBenchmarks extends App {
   }
 
 
-  val df = new DecimalFormat("0", DecimalFormatSymbols.getInstance(Locale.ENGLISH))
-  df.setMaximumFractionDigits(340)
-  def double2str(d: Double): String = df.format(d)
-
-
   def generateConstrTestCases(b: Benchmark): String = {
     val sfName = b.name
     var s = ""
     b.tests.foreach{ case (in, out) =>
-      s += s"(constraint (= ($sfName ${in.map(double2str(_)).mkString(" ")}) ${double2str(out)}))\n"
+      s += s"(constraint (= ($sfName ${in.map(Tools.double2str(_)).mkString(" ")}) ${Tools.double2str(out)}))\n"
     }
     s
   }

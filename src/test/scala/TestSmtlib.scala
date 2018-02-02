@@ -393,6 +393,8 @@ final class TestSmtlib {
     assertEquals("(ite (>= x y) x 0)", SMTLIBFormatter(op))
     val op2 = Op.fromStr("ite(>=(x y) x \"0\")", useSymbols=true)
     assertEquals("(ite (>= x y) x \"0\")", SMTLIBFormatter.opToString(op2))
+    val op3 = Op('default, 3.0e-10)
+    assertEquals("0.0000000003", SMTLIBFormatter.opToString(op3))
   }
 
   @Test
