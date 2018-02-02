@@ -472,7 +472,7 @@ abstract class EvalCDGPContinous[E](state: StateCDGP)
   extends EvalFunction[Op, E](state) {
 
   // Parameters:
-  val eps: Double = opt.paramDouble('eps, 0.0001)
+  val eps: Double = opt.paramDouble('eps, 0.1e-10)
   val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, Int.MaxValue, (x: Int) => x > 0)
 
   checkValidity()
@@ -581,7 +581,9 @@ abstract class EvalCDGPContinous[E](state: StateCDGP)
     }
 
   def doVerify(evalTests: Seq[Double]): Boolean = {
-    true
+    // Verify only those solutions which pass all incomplete tests
+    val (incompleteTests, _) = evalTests.zip(state.testsManager.tests).filter { case (et, t) => t._2.isEmpty }.unzip
+    incompleteTests.sum <= 0.1e-10
   }
 
   /** Fitness is always computed on the tests that were flushed. */

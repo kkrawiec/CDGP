@@ -398,6 +398,17 @@ final class TestSmtlib {
   }
 
   @Test
+  def test_constToSmtlib(): Unit = {
+    assertEquals("true", SMTLIBFormatter.constToSmtlib(true))
+    assertEquals("false", SMTLIBFormatter.constToSmtlib(false))
+    assertEquals("123", SMTLIBFormatter.constToSmtlib(123))
+    assertEquals("0.345", SMTLIBFormatter.constToSmtlib(0.345))
+    assertEquals("0.00000000003", SMTLIBFormatter.constToSmtlib(0.3e-10))
+    assertEquals("\"asd\"", SMTLIBFormatter.constToSmtlib("asd"))
+    assertEquals("\"\"", SMTLIBFormatter.constToSmtlib(""))
+  }
+
+  @Test
   def test_testsAsIteExpr(): Unit = {
     val t1 = (Map("a"->5), 11)
     val t2 = (Map("a"->0), 10)  // names are the same to avoid problems with order

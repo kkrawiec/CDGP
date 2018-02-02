@@ -346,9 +346,12 @@ object SMTLIBFormatter {
   }
 
   def constToSmtlib(c: Any): String = {
-    if (c.isInstanceOf[Int] || c.isInstanceOf[Double]) normalizeNumber(c.toString)
-    else if (c.isInstanceOf[String]) "\"" + c + "\""
-    else c.toString
+    c match {
+      case x: Int => normalizeNumber(x.toString)
+      case x: Double => normalizeNumber(Tools.double2str(x))
+      case x: String => "\"" + x + "\""
+      case _ => c.toString
+    }
   }
 
   def testsAsIteExpr(tests: Seq[(Map[String, Any], Any)], default: String): String = {
