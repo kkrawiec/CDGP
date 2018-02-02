@@ -21,6 +21,10 @@ abstract class State(val sygusData: SygusProblemData)
   val testsManager = new TestsManagerCDGP[I, O](opt("logTestsHistory", false), opt("printTests", false))
   val silent = opt('silent, false)
 
+  // Initializing population of test cases
+  testsManager.addNewTests(sygusData.testCasesConstrToTests)
+  // testsManager.flushHelpers() // This is done elsewhere (at the beginning of evolution)
+
   /**
     * Saves state-related info and statistics in the collector.
     */
@@ -223,6 +227,21 @@ class StateCDGP2(sygusData: SygusProblemData)
 
   lazy val singleAnswerFormal: Boolean = isSingleAnswer(sygusData)
 
+  if (!silent)
+    printProblemInfo()
+
+  def printProblemInfo() {
+    println(s"(singleInvocationProperty ${sygusData.singleInvocFormal})")
+    coll.set("cdgp.singleInvocationProperty", sygusData.singleInvocFormal)
+    if (sygusData.singleInvocFormal) {
+      // Checking for the single answer property has sense only if the problem
+      // has single invocation property.
+      println(s"(singleAnswerForEveryInput $singleAnswerFormal)")
+      println(s"(supportForAllTerms ${sygusData.supportForAllTerms})")
+      coll.set("cdgp.singleAnswerForEveryInput", singleAnswerFormal)
+      coll.set("cdgp.supportForAllTerms", sygusData.supportForAllTerms)
+    }
+  }
 
   def isSingleAnswer(sygusData: SygusProblemData): Boolean = {
     sygusData.singleInvocFormal && hasSingleAnswerForEveryInput(sygusData.problem).getOrElse(false)
@@ -344,7 +363,6 @@ class StateGPR(sygusData: SygusProblemData)
   val GPRmaxInt: Int = opt('GPRmaxInt, 100)
   val GPRminDouble: Double = opt('GPRminDouble, 0.0)
   val GPRmaxDouble: Double = opt('GPRmaxDouble, 1.0)
-
 
   def createRandomTest(): Option[TestCase[I, O]] = {
     def sample(tpe: SortExpr): Any = tpe match {

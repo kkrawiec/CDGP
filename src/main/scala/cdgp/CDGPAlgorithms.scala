@@ -343,11 +343,6 @@ object Common {
     s
   }
 
-  def getCDGPState(benchmark: String)
-                  (implicit opt: Options, coll: Collector, rng: TRandom): CDGPState = {
-    CDGPState(LoadSygusBenchmark(benchmark))
-  }
-
   def reportStats[E <: Fitness](state: State, bsf: BestSoFar[Op, E])
                     (s: StatePop[(Op, E)])
                     (implicit opt: Options, coll: Collector): StatePop[(Op, E)] = {

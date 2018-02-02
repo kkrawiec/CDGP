@@ -97,8 +97,10 @@ object RegressionBenchmarks extends App {
     val sfName = b.name
     var s = "(set-logic QF_NRA)\n"
     s += s"(synth-fun $sfName ${b.argsSignature} Real)\n"
-    s += b.vars.map{ x => s"(declare-fun $x () Real)" }.mkString("", "\n", "\n")
-    s += b.vars.map{ x => s"(declare-fun ${x}_2 () Real)" }.mkString("", "\n", "\n")
+    // Synthesis variables
+    s += b.vars.map{ x => s"(declare-var $x Real)" }.mkString("", "\n", "\n")
+    // Some helper variables
+    //s += b.vars.map{ x => s"(declare-fun ${x}_2 () Real)" }.mkString("", "\n", "\n")
 
 
     s += generateConstrTestCases(b) + "\n"
@@ -106,7 +108,7 @@ object RegressionBenchmarks extends App {
 
     val constr = b.props.flatMap(getCodeForProp(b, _))
 
-    s += constr.mkString("(constraint (not (or\n    ", "\n    ", ")))\n")
+    s += constr.mkString("(constraint (and\n    ", "\n    ", "))\n")
     s += "(check-synth)\n"
     s
   }

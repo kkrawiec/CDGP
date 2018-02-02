@@ -192,16 +192,13 @@ object Main {
       assert(selection == "tournament" || selection == "lexicase",
         s"Invalid selection: '$selection'! Possible values: 'tournament', 'lexicase'.")
 
-      // Create CDGP state
-      val cdgpState = CDGPState(benchmark)
-
 
       // Run algorithm
       val (state, _, bestOfRun) =
         if (method == "CDGP")
           runConfigCDGP(benchmark, selection, evoMode)
         else
-          runConfigCDGP(benchmark, selection, evoMode)
+          runConfigGPR(benchmark, selection, evoMode)
 
 
       // Print and save results
