@@ -13,14 +13,20 @@ case class ValueParseException(msg: String) extends RuntimeException(msg)
  */
 object GetValueParser extends RegexParsers {
   val varName: Parser[String] = """[A-Za-z_\.-|][A-Za-z0-9_\.-|]*""".r
+  val floatingPointRegex = "[+-]?[0-9]+[.][0-9]*".r
+  val boolean: Parser[Boolean] = "true" ^^^ { true } | "false" ^^^ { false }
+
+  def boolConst: Parser[Boolean] = boolean ^^ { b => b }
+  def realConst: Parser[Double] = floatingPointRegex <~ opt("?") ^^ { x => x.toDouble } |
+    ("(" ~ "-" ~> floatingPointRegex <~ opt("?") <~ ")" ^^ { x => -x.toDouble })
   
   def posNumber: Parser[Int] = """(0|[1-9]\d*)""".r ^^ { _.toInt }
-  def negNumber: Parser[Int] = "(-" ~> number ~ ")" ^^ { case a ~ _ => -a }
-  def negNumber2: Parser[Int] = "-" ~> number ^^ { a => -a }
-  def number: Parser[Int] = posNumber | negNumber | negNumber2
+  def negNumber: Parser[Int] = "(-" ~> intConst ~ ")" ^^ { case a ~ _ => -a }
+  def negNumber2: Parser[Int] = "-" ~> intConst ^^ { a => -a }
+  def intConst: Parser[Int] = posNumber | negNumber | negNumber2
   def string: Parser[String] = """\"([^"]*)\"""".r ^^ { s =>  s.substring(1, s.size-1) }
 
-  def entryAssigned: Parser[Any] = number | string
+  def entryAssigned: Parser[Any] = boolConst | realConst | intConst | string
   def entry: Parser[(String, Any)] = "(" ~> varName ~ entryAssigned <~ ")" ^^ { case a ~ b => (a, b) }
 
   def values: Parser[List[(String, Any)]] = "(" ~> rep1(entry) ~ ")" ^^ {

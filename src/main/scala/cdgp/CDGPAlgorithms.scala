@@ -327,35 +327,10 @@ object Common {
     else false
   }
 
-  def evalInt(fitness: (Op) => (Boolean, Seq[Int]))(s: Op): FInt = {
-    val (isPerfect, r) = fitness(s)
-    FInt(isPerfect, r, s.size)
-  }
-  def evalSeqInt(fitness: (Op) => (Boolean, Seq[Int]))(s: Op): FSeqInt = {
-    val (isPerfect, r) = fitness(s)
-    FSeqInt(isPerfect, r, s.size)
-  }
-  def evalSeqDouble(fitness: (Op) => (Boolean, Seq[Double]))(s: Op): FSeqDouble = {
-    val (isPerfect, r) = fitness(s)
-    FSeqDouble(isPerfect, r, s.size)
-  }
-
-  def evalPopNoVerificationFSeqInt(state: CDGPFitnessD)(s: StatePop[Op]): StatePop[(Op, FSeqInt)] = {
-    StatePop(s.map { op =>
-      val f = state.fitnessNoVerification(op)
-      (op, FSeqInt(f._1, f._2, op.size))
-    })
-  }
   def evalPopToDefaultFSeqInt(dec: Boolean, fit: Seq[Int])(s: StatePop[Op]): StatePop[(Op, FSeqInt)] = {
     StatePop(s.map{ op => (op, FSeqInt(dec, fit, op.size))})
   }
 
-  def evalPopNoVerificationFInt(state: CDGPFitnessD)(s: StatePop[Op]): StatePop[(Op, FInt)] = {
-    StatePop(s.map{ op =>
-      val f = state.fitnessNoVerification(op)
-      (op, FInt(f._1, f._2, op.size))
-    })
-  }
   def evalPopToDefaultFInt(dec: Boolean, fit: Int, totalTests: Int = 0)(s: StatePop[Op]): StatePop[(Op, FInt)] = {
     StatePop(s.map{ op => (op, FInt(dec, fit, op.size, totalTests))})
   }
@@ -373,14 +348,14 @@ object Common {
     CDGPState(LoadSygusBenchmark(benchmark))
   }
 
-  def reportStats[E <: Fitness](cdgpState: State, bsf: BestSoFar[Op, E])
+  def reportStats[E <: Fitness](state: State, bsf: BestSoFar[Op, E])
                     (s: StatePop[(Op, E)])
                     (implicit opt: Options, coll: Collector): StatePop[(Op, E)] = {
     if (bsf.bestSoFar.isDefined) {
       val (bestOfRun, e) = bsf.bestSoFar.get
       e.saveInColl(coll)
       val solutionOriginal = SMTLIBFormatter.opToString(bestOfRun)
-      val solutionSimplified = cdgpState.simplifySolution(solutionOriginal)
+      val solutionSimplified = state.simplifySolution(solutionOriginal)
       val solution = solutionSimplified.getOrElse(solutionOriginal)
       val solutionOp = SMTLIBFormatter.smtlibToOp(solution)
 
@@ -394,7 +369,7 @@ object Common {
       coll.set("result.best.size", solutionOp.size)
       coll.set("result.best.height", solutionOp.height)
     }
-    cdgpState.reportData()
+    state.reportData()
     s
   }
 }

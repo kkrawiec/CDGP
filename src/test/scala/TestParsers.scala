@@ -41,6 +41,22 @@ class TestGetValueParser {
       parsed)
   }
 
+  @Test
+  def testParserReal(): Unit = {
+    val model = """((a 0.0) (b 0.00123) (c -5.5) (d (- 3.3)) (e (- 2.2?)) (f 11.00811?))"""
+    val parsed = GetValueParser(model).toMap
+    assertEquals(Map("a" -> 0.0, "b" -> 0.00123, "c" -> -5.5, "d" -> -3.3, "e" -> -2.2, "f" -> 11.00811),
+      parsed)
+  }
+
+  @Test
+  def testParserBoolean(): Unit = {
+    val model = """((a "true") (b true) (c false))"""
+    val parsed = GetValueParser(model).toMap
+    assertEquals(Map("a" -> "true", "b" -> true, "c" -> false),
+      parsed)
+  }
+
   @Test(expected=classOf[ValueParseException])
   def testFail(): Unit = {
     GetValueParser(""" ((x (- 7787))
