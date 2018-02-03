@@ -490,7 +490,7 @@ abstract class EvalCDGPContinous[E](state: StateCDGP)
   extends EvalFunction[Op, E](state) {
 
   // Parameters:
-  val optTreshold: Double = opt.paramDouble('optTreshold, 0.1e-10)
+  val optTreshold: Double = opt.paramDouble('optThreshold, 1.0e-15)
   // Verified will be solutions with fitness not worse then this times the solutions of best in the population
   //val verificationRatio: Double = opt.paramDouble('verificationRatio, 1.1)
   //assert(verificationRatio >= 1.0, "verificationRatio cannot be lower than 1.0.")
