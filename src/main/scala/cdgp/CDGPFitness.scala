@@ -490,7 +490,7 @@ abstract class EvalCDGPContinous[E](state: StateCDGP)
   extends EvalFunction[Op, E](state) {
 
   // Parameters:
-  val eps: Double = opt.paramDouble('eps, 0.1e-10)
+  val optTreshold: Double = opt.paramDouble('optTreshold, 0.1e-10)
   // Verified will be solutions with fitness not worse then this times the solutions of best in the population
   val verificationRatio: Double = opt.paramDouble('verificationRatio, 1.1)
   assert(verificationRatio >= 1.0, "verificationRatio cannot be lower than 1.0.")
@@ -595,19 +595,13 @@ abstract class EvalCDGPContinous[E](state: StateCDGP)
   def fitnessOnlyTestCases: Op => (Boolean, Seq[Double]) =
     (s: Op) => {
       val evalTests = evalOnTests(s, state.testsManager.getTests())
-      if (evalTests.sum <= eps)
+      if (evalTests.sum <= optTreshold)
         (true, evalTests)
       else
         (false, evalTests)
     }
 
-  def doVerify1(evalTests: Seq[Double]): Boolean = {
-    // Verify only those solutions which pass all incomplete tests
-    val (incompleteTests, _) = evalTests.zip(state.testsManager.tests).filter { case (et, t) => t._2.isEmpty }.unzip
-    incompleteTests.sum <= 0.1e-10
-  }
-
-  def doVerify2(evalTests: Seq[Double]): Boolean = {
+  def doVerify(evalTests: Seq[Double]): Boolean = {
     // Verify only those solutions which pass all incomplete tests
     val (incompleteTests, _) = evalTests.zip(state.testsManager.tests).filter { case (et, t) => t._2.isEmpty }.unzip
     incompleteTests.sum <= 0.1e-10
@@ -626,7 +620,7 @@ abstract class EvalCDGPContinous[E](state: StateCDGP)
         (false, evalTests)
       else {
         val (decision, r) = state.verify(s)
-        if (decision == "unsat" && evalTests.sum <= eps)
+        if (decision == "unsat" && evalTests.sum <= optTreshold)
           (true, evalTests) // perfect program found; end of run
         else if (decision == "sat") {
           if (state.testsManager.newTests.size < maxNewTestsPerIter) {
@@ -665,7 +659,7 @@ class EvalCDGPSeqDouble(state: StateCDGP)
     (s._1, FSeqDouble(s._2.correct, s._2.value ++ evalOnTests(s._1, state.testsManager.newTests.toList), s._1.size))
   }
   override def defaultValue(s: Op) = FSeqDouble(false, Seq(), s.size)
-  override val correct = (e: FSeqDouble) => e.mse <= eps
+  override val correct = (e: FSeqDouble) => e.mse <= optTreshold
   override val ordering = FSeqDoubleOrderingMSE
 }
 
@@ -692,6 +686,6 @@ class EvalCDGPDoubleMSE(state: StateCDGP)
     (s._1, newFit)
   }
   override def defaultValue(s: Op) = FDouble(false, 0.0, s.size)
-  override val correct = (e: FDouble) => e.value <= eps
+  override val correct = (e: FDouble) => e.value <= optTreshold
   override val ordering = FDoubleOrdering
 }
