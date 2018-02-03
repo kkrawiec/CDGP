@@ -18,7 +18,7 @@ abstract class State(val sygusData: SygusProblemData)
   // The types for input and output
   type I = Map[String, Any]
   type O = Any
-  val testsManager = new TestsManagerCDGP[I, O](opt("logTestsHistory", false), opt("printTests", false))
+  val testsManager = new TestsManagerCDGP[I, O](opt("logTestsHistory", false), opt("printTests", false), opt("saveTests", false))
   val silent = opt('silent, false)
 
   // Initializing population of test cases

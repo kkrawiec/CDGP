@@ -616,8 +616,8 @@ abstract class EvalCDGPContinous[E](state: StateCDGP)
       // and a counterexample will be produced (or program will be deemed correct).
       // NOTE: if the program does not pass all test cases, then the probability is high
       // that the produced counterexample will already be in the set of test cases.
-      if (!doVerify(evalTests)) {
-        (false, evalTests)}
+      if (!doVerify(evalTests))
+        (false, evalTests)
       else {
         val (decision, r) = state.verify(s)
         if (decision == "unsat" && evalTests.sum <= optThreshold)
