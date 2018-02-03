@@ -56,7 +56,7 @@ object Regression {
 
       val method = opt('method)
       val selection = opt('selection, "lexicase")
-      val evoMode = opt('evolutionMode, "generational")
+      val evoMode = opt('evolutionMode, "steadyState")
       assert(method == "CDGP" || method == "GP", s"Invalid method '$method'! Possible values: 'CDGP', 'GP'.")
       assert(selection == "tournament" || selection == "lexicase",
         s"Invalid selection: '$selection'! Possible values: 'tournament', 'lexicase'.")
