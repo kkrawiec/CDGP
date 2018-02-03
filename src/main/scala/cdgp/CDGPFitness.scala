@@ -160,19 +160,29 @@ abstract class EvalFunction[S, E](val state: State)
     */
   def updateEval(s: (S, E)): (S, E)
 
-  def apply(s: S): E = apply(s, false)
-
   /**
     * Computes fitness for a solution. init is a flag specifying that solutions are to
     * be assigned some initial values, and is used mostly in steady state variant to avoid
     * verifying all solutions during the first evaluation phase.
     */
+  def apply(s: S): E = apply(s, false)
   def apply(s: S, init: Boolean): E
+
+  /**
+    * Assigns a default ("zero") evaluation to the given solution. This function is used for example
+    * during initialization of the population in steady state algorithm.
+    */
+  def defaultValue(s: S): E
+
+  /**
+    * A function for checking, if the given solution is optimal.
+    */
+  val correct: E => Boolean
 
   /**
     * An ordering used to define the order relation of different fitnesses.
     */
-  def ordering: Ordering[E]
+  val ordering: Ordering[E]
 }
 
 
@@ -337,6 +347,8 @@ class EvalCDGPSeqInt(state: StateCDGP)
   override def updateEval(s: (Op, FSeqInt)): (Op, FSeqInt) = {
     (s._1, FSeqInt(s._2.correct, s._2.value ++ evalOnTests(s._1, state.testsManager.newTests.toList), s._1.size))
   }
+  override def defaultValue(s: Op) = FSeqInt(false, Seq(), s.size)
+  override val correct = (e: FSeqInt) => e.correct && e.value.sum == 0
   override val ordering = FSeqIntOrdering
 }
 
@@ -358,6 +370,8 @@ class EvalCDGPInt(state: StateCDGP)
     val newFit = FInt(s._2.correct, s._2.value + evalOnTests(s._1, state.testsManager.newTests.toList).sum, s._1.size, state.testsManager.getNumberOfTests)
     (s._1, newFit)
   }
+  override def defaultValue(s: Op) = FInt(false, Seq(), s.size)
+  override val correct = (e: FInt) => e.correct && e.value == 0
   override val ordering = FIntOrdering
 }
 
@@ -427,6 +441,8 @@ class EvalGPRSeqInt(state: StateGPR)
   override def updateEval(s: (Op, FSeqInt)): (Op, FSeqInt) = {
     (s._1, FSeqInt(s._2.correct, s._2.value ++ evalOnTests(s._1, state.testsManager.newTests.toList), s._1.size))
   }
+  override def defaultValue(s: Op) = FSeqInt(false, Seq(), s.size)
+  override val correct = (e: FSeqInt) => e.correct && e.value.sum == 0
   override val ordering = FSeqIntOrdering
 }
 
@@ -447,6 +463,8 @@ class EvalGPRInt(state: StateGPR)
     val newFit = FInt(s._2.correct, s._2.value + evalOnTests(s._1, state.testsManager.newTests.toList).sum, s._1.size, state.testsManager.getNumberOfTests)
     (s._1, newFit)
   }
+  override def defaultValue(s: Op) = FInt(false, Seq(), s.size)
+  override val correct = (e: FInt) => e.correct && e.value == 0
   override val ordering = FIntOrdering
 }
 
@@ -476,7 +494,7 @@ abstract class EvalCDGPContinous[E](state: StateCDGP)
   // Verified will be solutions with fitness not worse then this times the solutions of best in the population
   val verificationRatio: Double = opt.paramDouble('verificationRatio, 1.1)
   assert(verificationRatio >= 1.0, "verificationRatio cannot be lower than 1.0.")
-  val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, Int.MaxValue, (x: Int) => x > 0)
+  val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, 5, (x: Int) => x > 0)
 
   checkValidity()
 
@@ -583,7 +601,13 @@ abstract class EvalCDGPContinous[E](state: StateCDGP)
         (false, evalTests)
     }
 
-  def doVerify(evalTests: Seq[Double]): Boolean = {
+  def doVerify1(evalTests: Seq[Double]): Boolean = {
+    // Verify only those solutions which pass all incomplete tests
+    val (incompleteTests, _) = evalTests.zip(state.testsManager.tests).filter { case (et, t) => t._2.isEmpty }.unzip
+    incompleteTests.sum <= 0.1e-10
+  }
+
+  def doVerify2(evalTests: Seq[Double]): Boolean = {
     // Verify only those solutions which pass all incomplete tests
     val (incompleteTests, _) = evalTests.zip(state.testsManager.tests).filter { case (et, t) => t._2.isEmpty }.unzip
     incompleteTests.sum <= 0.1e-10
@@ -598,7 +622,7 @@ abstract class EvalCDGPContinous[E](state: StateCDGP)
       // and a counterexample will be produced (or program will be deemed correct).
       // NOTE: if the program does not pass all test cases, then the probability is high
       // that the produced counterexample will already be in the set of test cases.
-      if (!doVerify(evalTests))
+      if (!doVerify2(evalTests))
         (false, evalTests)
       else {
         val (decision, r) = state.verify(s)
@@ -640,6 +664,8 @@ class EvalCDGPSeqDouble(state: StateCDGP)
   override def updateEval(s: (Op, FSeqDouble)): (Op, FSeqDouble) = {
     (s._1, FSeqDouble(s._2.correct, s._2.value ++ evalOnTests(s._1, state.testsManager.newTests.toList), s._1.size))
   }
+  override def defaultValue(s: Op) = FSeqDouble(false, Seq(), s.size)
+  override val correct = (e: FSeqDouble) => e.mse <= eps
   override val ordering = FSeqDoubleOrderingMSE
 }
 
@@ -665,5 +691,7 @@ class EvalCDGPDoubleMSE(state: StateCDGP)
     val newFit = FDouble(s._2.correct, newValue, s._1.size)
     (s._1, newFit)
   }
+  override def defaultValue(s: Op) = FDouble(false, 0.0, s.size)
+  override val correct = (e: FDouble) => e.value <= eps
   override val ordering = FDoubleOrdering
 }

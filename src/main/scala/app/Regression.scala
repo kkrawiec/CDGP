@@ -32,7 +32,11 @@ object Regression {
         (finalPop, alg.bsf.bestSoFar)
 
       case ("lexicase", "steadyState") =>
-        ???
+        println("---------  REGRESSION (SS) -----------")
+        val eval = new EvalCDGPSeqDouble(state)
+        val alg = CDGPSteadyStateLexicaseR(eval)
+        val finalPop = watchTime(alg, RunExperiment(alg))
+        (finalPop, alg.bsf.bestSoFar)
     }
   }
 

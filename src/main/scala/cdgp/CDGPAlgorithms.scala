@@ -1,8 +1,8 @@
 package cdgp
 
 import fuel.core.StatePop
-import fuel.func._
-import fuel.util.{Collector, Options, TRandom}
+import fuel.func.{EACore, _}
+import fuel.util.{CallEvery, Collector, Options, TRandom}
 import swim.eval.{EpsLexicaseSelection, LexicaseSelection01}
 import swim.tree._
 
@@ -61,7 +61,7 @@ class CDGPGenerational[E <: Fitness]
                       (moves: GPMoves,
                        cdgpEval: CDGPEvaluation[Op, E])
                       (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
-      extends SimpleGP(moves, cdgpEval.eval, Common.correct) with CDGPAlgorithm[Op, E] {
+      extends SimpleGP(moves, cdgpEval.eval, Common.correct(cdgpEval.eval)) with CDGPAlgorithm[Op, E] {
   override def cdgpState = cdgpEval.state
   override def initialize  = super.initialize
   override def epilogue = super.epilogue andThen bsf andThen Common.reportStats(cdgpEval.state, bsf)
@@ -101,8 +101,7 @@ object CDGPGenerational {
 class CDGPSteadyState(moves: GPMoves,
                       cdgpEval: CDGPEvaluationSteadyState[Op, FInt])
                      (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[FInt])
-      extends SteadyStateEA[Op, FInt](moves, cdgpEval.eval,
-                                      Common.correctInt,
+      extends SteadyStateEA[Op, FInt](moves, cdgpEval.eval, Common.correct(cdgpEval.eval),
                                       CDGPSteadyState.getSelection(),
                                       CDGPSteadyState.getDeselection()) with CDGPAlgorithm[Op, FInt] {
   override def cdgpState = cdgpEval.state
@@ -114,7 +113,7 @@ class CDGPSteadyState(moves: GPMoves,
     (s: StatePop[Op]) => {
       cdgpEval.state.testsManager.flushHelpers()
       if (cdgpEval.state.testsManager.tests.isEmpty)
-        Common.evalPopToDefaultFInt(false, 0)(s)
+        Common.evalPopToDefault(cdgpEval.eval)(s)
       else
         StatePop(s.map{ op => (op, cdgpEval.eval(op, true)) })
     }
@@ -131,7 +130,7 @@ object CDGPSteadyState {
 
   def apply(eval: EvalFunction[Op, FInt])
            (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyState = {
-    implicit val ordering = FIntOrdering
+    implicit val ordering = eval.ordering
     val grammar = eval.state.sygusData.getSwimGrammar(rng)
     val moves = GPMoves(grammar, Common.isFeasible(eval.state.synthTask.fname, opt))
     val cdgpEval = new CDGPEvaluationSteadyState[Op, FInt](eval, eval.updateEval)
@@ -162,7 +161,7 @@ object CDGPSteadyState {
 class CDGPGenerationalLexicase(moves: GPMoves,
                                cdgpEval: CDGPEvaluation[Op, FSeqInt])
                               (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[Int])
-  extends LexicaseGPMain[Int, FSeqInt](moves, cdgpEval.eval, Common.correctSeqInt, FSeqIntOrdering)
+  extends LexicaseGPMain[Int, FSeqInt](moves, cdgpEval.eval, Common.correct(cdgpEval.eval), FSeqIntOrdering)
      with CDGPAlgorithm[Op, FSeqInt] {
   override val selection = new LexicaseSelection01[Op, FSeqInt]
   override def cdgpState = cdgpEval.state
@@ -175,7 +174,7 @@ class CDGPGenerationalLexicase(moves: GPMoves,
 object CDGPGenerationalLexicase {
   def apply(eval: EvalFunction[Op, FSeqInt])
            (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalLexicase = {
-    implicit val ordering = FSeqIntOrdering
+    implicit val ordering = eval.ordering
     val grammar = eval.state.sygusData.getSwimGrammar(rng)
     val moves = GPMoves(grammar, Common.isFeasible(eval.state.synthTask.fname, opt))
     val cdgpEval = new CDGPEvaluation[Op, FSeqInt](eval)
@@ -190,7 +189,7 @@ object CDGPGenerationalLexicase {
 class CDGPGenerationalLexicaseR(moves: GPMoves,
                                 cdgpEval: CDGPEvaluation[Op, FSeqDouble])
                                (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[FSeqDouble])
-  extends EACore[Op, FSeqDouble](moves, SequentialEval(cdgpEval.eval), Common.correct)
+  extends EACore[Op, FSeqDouble](moves, SequentialEval(cdgpEval.eval), Common.correct(cdgpEval.eval))
      with CDGPAlgorithm[Op, FSeqDouble] {
   val bsf = BestSoFar[Op, FSeqDouble](ordering, it)
   override def cdgpState = cdgpEval.state
@@ -210,7 +209,7 @@ class CDGPGenerationalLexicaseR(moves: GPMoves,
 object CDGPGenerationalLexicaseR {
   def apply(eval: EvalFunction[Op, FSeqDouble])
            (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalLexicaseR = {
-    implicit val ordering = FSeqDoubleOrderingMSE
+    implicit val ordering = eval.ordering
     val grammar = eval.state.sygusData.getSwimGrammar(rng)
     val moves = GPMoves(grammar, Common.isFeasible(eval.state.synthTask.fname, opt))
     val cdgpEval = new CDGPEvaluation[Op, FSeqDouble](eval)
@@ -227,7 +226,7 @@ class CDGPGenerationalCore[E <: Fitness]
                            moves: GPMoves,
                            cdgpEval: CDGPEvaluation[Op, E])
                           (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
-  extends EACore[Op, E](moves, SequentialEval(cdgpEval.eval), Common.correct)
+  extends EACore[Op, E](moves, SequentialEval(cdgpEval.eval), Common.correct(cdgpEval.eval))
      with CDGPAlgorithm[Op, E] {
 
   override def cdgpState = cdgpEval.state
@@ -259,14 +258,14 @@ class CDGPGenerationalCore[E <: Fitness]
   * @param rng Pseudorandom numbers generator.
   * @param ordering Generates order on the fitness values.
   */
-class CDGPSteadyStateLexicase(moves: GPMoves,
-                              cdgpEval: CDGPEvaluationSteadyState[Op, FSeqInt])
+class CDGPSteadyStateLexicase[E <: Fitness](moves: GPMoves,
+                              cdgpEval: CDGPEvaluationSteadyState[Op, E],
+                              selection: Selection[Op, E],
+                              deselection: Selection[Op, E])
                              (implicit opt: Options, coll: Collector, rng: TRandom,
-                              ordering: Ordering[FSeqInt])
-      extends SteadyStateEA[Op, FSeqInt](moves, cdgpEval.eval,
-                                         Common.correctSeqInt,
-                                         CDGPSteadyStateLexicase.getSelection(),
-                                         CDGPSteadyStateLexicase.getDeselection()) with CDGPAlgorithm[Op, FSeqInt] {
+                              ordering: Ordering[E])
+      extends SteadyStateEA[Op, E](moves, cdgpEval.eval, Common.correct(cdgpEval.eval),
+        selection, deselection) with CDGPAlgorithm[Op, E] {
   override def cdgpState = cdgpEval.state
   override def initialize  = super.initialize
   override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests andThen saveCurrentPop
@@ -275,7 +274,7 @@ class CDGPSteadyStateLexicase(moves: GPMoves,
     (s: StatePop[Op]) => {
       cdgpEval.state.testsManager.flushHelpers()
       if (cdgpEval.state.testsManager.tests.isEmpty)
-        Common.evalPopToDefaultFSeqInt(false, List())(s)
+        Common.evalPopToDefault(cdgpEval.eval)(s)
       else
         StatePop(s.map{ op => (op, cdgpEval.eval(op, true)) })
     }
@@ -285,33 +284,88 @@ object CDGPSteadyStateLexicase {
   def getSelection()(implicit rng: TRandom): Selection[Op, FSeqInt] =
     new LexicaseSelection01[Op, FSeqInt]
 
-  def getDeselection()(implicit opt: Options, rng: TRandom): Selection[Op, FSeqInt] =
+  def getDeselection(eval: EvalFunction[Op, FSeqInt])(implicit opt: Options, rng: TRandom): Selection[Op, FSeqInt] =
     if (opt('lexicaseDeselection, false)) new LexicaseSelection01[Op, FSeqInt]
     else {
       val k = opt('tournamentSize, 7, (_: Int) >= 2)
-      new TournamentSelection[Op, FSeqInt](FSeqIntOrdering.reverse, opt('tournamentDeselectSize, k, (_: Int) >= 2))
+      new TournamentSelection[Op, FSeqInt](eval.ordering.reverse, k)
     }
 
   def apply(eval: EvalFunction[Op, FSeqInt])
-           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyStateLexicase = {
-    implicit val ordering = FSeqIntOrdering
+           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyStateLexicase[FSeqInt] = {
+    implicit val ordering = eval.ordering
     val grammar = eval.state.sygusData.getSwimGrammar(rng)
     val moves = GPMoves(grammar, Common.isFeasible(eval.state.synthTask.fname, opt))
     val cdgpEval = new CDGPEvaluationSteadyState[Op, FSeqInt](eval, eval.updateEval)
-    new CDGPSteadyStateLexicase(moves, cdgpEval)
+    val sel = CDGPSteadyStateLexicase.getSelection()
+    val desel = CDGPSteadyStateLexicase.getDeselection(eval)
+    new CDGPSteadyStateLexicase(moves, cdgpEval, sel, desel)
   }
 }
 
 
 
 
+class CDGPSteadyStateLexicaseR[E <: FSeqDouble](moves: GPMoves,
+                              cdgpEval: CDGPEvaluationSteadyState[Op, E],
+                              deselection: Selection[Op, E])
+                             (implicit opt: Options, coll: Collector, rng: TRandom,
+                              ordering: Ordering[E])
+  extends EACore[Op, E](moves,
+    if (opt('parEval, true)) ParallelEval(cdgpEval.eval) else SequentialEval(cdgpEval.eval),
+    Common.correct(cdgpEval.eval))(opt) with CDGPAlgorithm[Op, E] {
+  val n = opt('reportFreq, opt('populationSize, 1000))
+  override def cdgpState = cdgpEval.state
+  override def initialize  = super.initialize
+  override def iter = (s: StatePop[(Op, E)]) => (createBreeder(s) andThen
+    CallEvery(n, report) andThen
+    cdgpEval.updatePopulationEvalsAndTests andThen
+    saveCurrentPop)(s)
+  override def epilogue = super.epilogue andThen bsf andThen Common.reportStats(cdgpEval.state, bsf)
+  override def report: (StatePop[(Op, E)]) => StatePop[(Op, E)] = bsf
+  val bsf = BestSoFar[Op, E](ordering, it)
+  override def evaluate = // used only for the initial population
+    (s: StatePop[Op]) => {
+      cdgpEval.state.testsManager.flushHelpers()
+      if (cdgpEval.state.testsManager.tests.isEmpty)
+        Common.evalPopToDefault(cdgpEval.eval)(s)
+      else
+        StatePop(s.map{ op => (op, cdgpEval.eval(op, true)) })
+    }
+
+  def createBreeder(s: StatePop[(Op, E)]): (StatePop[(Op, E)] => StatePop[(Op, E)]) = {
+    val epsForTests = EpsLexicaseSelection.medianAbsDev(s)
+    val sel = new EpsLexicaseSelection[Op, E](epsForTests)
+    new SimpleSteadyStateBreeder[Op, E](sel, RandomMultiOperator(moves: _*),
+      deselection, cdgpEval.eval)
+  }
+}
+
+object CDGPSteadyStateLexicaseR {
+  def getDeselection[E <: FSeqDouble](eval: EvalFunction[Op, E])(implicit opt: Options, rng: TRandom): Selection[Op, E] = {
+    val k = opt('tournamentSize, 7, (_: Int) >= 2)
+    new TournamentSelection[Op, E](eval.ordering.reverse, k)
+  }
+
+  def apply[E <: FSeqDouble](eval: EvalFunction[Op, E])
+           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyStateLexicaseR[E] = {
+    implicit val ordering = eval.ordering
+    val grammar = eval.state.sygusData.getSwimGrammar(rng)
+    val moves = GPMoves(grammar, Common.isFeasible(eval.state.synthTask.fname, opt))
+    val cdgpEval = new CDGPEvaluationSteadyState[Op, E](eval, eval.updateEval)
+    val desel = CDGPSteadyStateLexicaseR.getDeselection(eval)
+    new CDGPSteadyStateLexicaseR[E](moves, cdgpEval, desel)
+  }
+}
+
+
+
+
+
+
 object Common {
-  def correct: (Any, Fitness) => Boolean =
-    (_: Any, e: Fitness) => e.correct
-  def correctInt: (Any, FInt) => Boolean =
-    (_: Any, e: FInt) => e.correct
-  def correctSeqInt: (Any, FSeqInt) => Boolean =
-    (_: Any, e: FSeqInt) => e.correct
+  def correct[S, E](eval: EvalFunction[S, E]): (S, E) => Boolean =
+    (_: S, e: E) => eval.correct(e)
 
   def containsDiv0(op: Op): Boolean = {
     if (op.args.isEmpty)
@@ -327,12 +381,8 @@ object Common {
     else false
   }
 
-  def evalPopToDefaultFSeqInt(dec: Boolean, fit: Seq[Int])(s: StatePop[Op]): StatePop[(Op, FSeqInt)] = {
-    StatePop(s.map{ op => (op, FSeqInt(dec, fit, op.size))})
-  }
-
-  def evalPopToDefaultFInt(dec: Boolean, fit: Int, totalTests: Int = 0)(s: StatePop[Op]): StatePop[(Op, FInt)] = {
-    StatePop(s.map{ op => (op, FInt(dec, fit, op.size, totalTests))})
+  def evalPopToDefault[S, E](eval: EvalFunction[S, E])(s: StatePop[S]): StatePop[(S, E)] = {
+    StatePop(s.map{ op => (op, eval.defaultValue(op))})
   }
 
   def printPop[S, E](s: StatePop[(S, E)]): StatePop[(S, E)] = {
