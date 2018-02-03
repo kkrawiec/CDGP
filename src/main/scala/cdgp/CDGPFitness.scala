@@ -492,8 +492,8 @@ abstract class EvalCDGPContinous[E](state: StateCDGP)
   // Parameters:
   val optTreshold: Double = opt.paramDouble('optTreshold, 0.1e-10)
   // Verified will be solutions with fitness not worse then this times the solutions of best in the population
-  val verificationRatio: Double = opt.paramDouble('verificationRatio, 1.1)
-  assert(verificationRatio >= 1.0, "verificationRatio cannot be lower than 1.0.")
+  //val verificationRatio: Double = opt.paramDouble('verificationRatio, 1.1)
+  //assert(verificationRatio >= 1.0, "verificationRatio cannot be lower than 1.0.")
   val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, 5, (x: Int) => x > 0)
 
   checkValidity()
@@ -584,7 +584,7 @@ abstract class EvalCDGPContinous[E](state: StateCDGP)
     }
     SygusUtils.traverse(state.sygusData.allConstr, traverseFun)
     if (!isCorrect)
-      throw new Exception(s"Regression problem require all constants in constraints to be of type Real. Problematic constant: $c")
+      throw new Exception(s"CDGP for regression requires all number constants in constraints to be of type Real. Problematic constant: $c")
   }
 
 
@@ -616,8 +616,8 @@ abstract class EvalCDGPContinous[E](state: StateCDGP)
       // and a counterexample will be produced (or program will be deemed correct).
       // NOTE: if the program does not pass all test cases, then the probability is high
       // that the produced counterexample will already be in the set of test cases.
-      if (!doVerify2(evalTests))
-        (false, evalTests)
+      if (!doVerify(evalTests)) {
+        (false, evalTests)}
       else {
         val (decision, r) = state.verify(s)
         if (decision == "unsat" && evalTests.sum <= optTreshold)

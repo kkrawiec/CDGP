@@ -170,12 +170,7 @@ object Main {
   }
 
 
-  // --------------------------------------------------------------------------
-  //                                 MAIN
-  // --------------------------------------------------------------------------
-
-  def main(args: Array[String]): Unit = {
-    implicit val opt = getOptions(args)
+  def run(implicit opt: Options): Unit = {
     implicit val coll = CollectorFile(opt)
     implicit val rng = Rng(opt)
 
@@ -226,4 +221,20 @@ object Main {
         e.printStackTrace()
     }
   }
+
+
+
+  // --------------------------------------------------------------------------
+  //                                 MAIN
+  // --------------------------------------------------------------------------
+
+  def main(args: Array[String]): Unit = {
+    implicit val opt = getOptions(args)
+    val useRegression = opt.paramBool("regression", false)
+    if (useRegression)
+      Regression.main(args)
+    else
+      run(opt)
+  }
+
 }
