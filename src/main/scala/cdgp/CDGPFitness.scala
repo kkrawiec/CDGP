@@ -490,7 +490,7 @@ abstract class EvalCDGPContinous[E](state: StateCDGP)
   extends EvalFunction[Op, E](state) {
 
   // Parameters:
-  val optTreshold: Double = opt.paramDouble('optThreshold, 1.0e-25)
+  val optThreshold: Double = opt.paramDouble('optThreshold, 1.0e-25)
   // Verified will be solutions with fitness not worse then this times the solutions of best in the population
   //val verificationRatio: Double = opt.paramDouble('verificationRatio, 1.1)
   //assert(verificationRatio >= 1.0, "verificationRatio cannot be lower than 1.0.")
@@ -595,7 +595,7 @@ abstract class EvalCDGPContinous[E](state: StateCDGP)
   def fitnessOnlyTestCases: Op => (Boolean, Seq[Double]) =
     (s: Op) => {
       val evalTests = evalOnTests(s, state.testsManager.getTests())
-      if (evalTests.sum <= optTreshold)
+      if (evalTests.sum <= optThreshold)
         (true, evalTests)
       else
         (false, evalTests)
@@ -620,7 +620,7 @@ abstract class EvalCDGPContinous[E](state: StateCDGP)
         (false, evalTests)}
       else {
         val (decision, r) = state.verify(s)
-        if (decision == "unsat" && evalTests.sum <= optTreshold)
+        if (decision == "unsat" && evalTests.sum <= optThreshold)
           (true, evalTests) // perfect program found; end of run
         else if (decision == "sat") {
           if (state.testsManager.newTests.size < maxNewTestsPerIter) {
@@ -659,7 +659,7 @@ class EvalCDGPSeqDouble(state: StateCDGP)
     (s._1, FSeqDouble(s._2.correct, s._2.value ++ evalOnTests(s._1, state.testsManager.newTests.toList), s._1.size))
   }
   override def defaultValue(s: Op) = FSeqDouble(false, Seq(), s.size)
-  override val correct = (e: FSeqDouble) => e.mse <= optTreshold
+  override val correct = (e: FSeqDouble) => e.mse <= optThreshold
   override val ordering = FSeqDoubleOrderingMSE
 }
 
@@ -686,6 +686,6 @@ class EvalCDGPDoubleMSE(state: StateCDGP)
     (s._1, newFit)
   }
   override def defaultValue(s: Op) = FDouble(false, 0.0, s.size)
-  override val correct = (e: FDouble) => e.value <= optTreshold
+  override val correct = (e: FDouble) => e.value <= optThreshold
   override val ordering = FDoubleOrdering
 }
