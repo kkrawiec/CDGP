@@ -70,7 +70,8 @@ object Regression {
     println("Tests total:".padTo(pn, ' ') + coll.get("tests.total").getOrElse("n/a"))
     println("Tests known outputs:".padTo(pn, ' ') + coll.get("tests.totalKnownOutputs").getOrElse("n/a"))
     println("Total solver calls:".padTo(pn, ' ') + coll.get("solver.totalCalls").getOrElse("n/a"))
-    println("Generations:".padTo(pn, ' ') + coll.getResult("best.generation").getOrElse("n/a"))
+    println("Generation (best):".padTo(pn, ' ') + coll.getResult("best.generation").getOrElse("n/a"))
+    println("Total generations:".padTo(pn, ' ') + coll.getResult("totalGenerations").getOrElse("n/a"))
     println("Total time [s]:".padTo(pn, ' ') + coll.getResult("totalTimeSystem").get.toString.toDouble / 1000.0)
     println("Log file:".padTo(pn, ' ') + coll.get("thisFileName").getOrElse("n/a"))
 

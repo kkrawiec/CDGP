@@ -21,7 +21,7 @@ import swim.tree._
   * @tparam S Class representing solutions
   * @tparam E Class representing evaluations
   */
-trait CDGPAlgorithm[S, E] {
+trait CDGPAlgorithm[S <: Op, E <: Fitness] {
   def cdgpState: State
   def bsf: BestSoFar[S, E]
 
@@ -31,11 +31,43 @@ trait CDGPAlgorithm[S, E] {
   var pop: Option[StatePop[(S, E)]] = None
 
   /**
+    * Number of generations until the algorithm ended.
+    */
+  var numGenerations = 0
+
+  /**
     * Saves the provided state of the population and returns it, so that it can
     * be used further in the pipe.
     */
-  def saveCurrentPop(s: StatePop[(S, E)]): StatePop[(S, E)] = {
+  def updateAfterIteration(s: StatePop[(S, E)]): StatePop[(S, E)] = {
     pop = Some(s)
+    numGenerations += 1
+    s
+  }
+
+  def reportStats(s: StatePop[(S, E)])
+                 (implicit opt: Options, coll: Collector): StatePop[(S, E)] = {
+    if (bsf.bestSoFar.isDefined) {
+      val (bestOfRun, e) = bsf.bestSoFar.get
+      e.saveInColl(coll)
+      val solutionOriginal = SMTLIBFormatter.opToString(bestOfRun)
+      val solutionSimplified = cdgpState.simplifySolution(solutionOriginal)
+      val solution = solutionSimplified.getOrElse(solutionOriginal)
+      val solutionOp = SMTLIBFormatter.smtlibToOp(solution)
+
+      coll.set("result.bestOrig", bestOfRun)
+      coll.set("result.bestOrig.smtlib", solutionOriginal)
+      coll.set("result.bestOrig.size", bestOfRun.size)
+      coll.set("result.bestOrig.height", bestOfRun.height)
+
+      coll.set("result.best", solutionOp)
+      coll.set("result.best.smtlib", solution)
+      coll.set("result.best.size", solutionOp.size)
+      coll.set("result.best.height", solutionOp.height)
+
+      coll.set("result.totalGenerations", numGenerations)
+    }
+    cdgpState.reportData()
     s
   }
 }
@@ -64,8 +96,8 @@ class CDGPGenerational[E <: Fitness]
       extends SimpleGP(moves, cdgpEval.eval, Common.correct(cdgpEval.eval)) with CDGPAlgorithm[Op, E] {
   override def cdgpState = cdgpEval.state
   override def initialize  = super.initialize
-  override def epilogue = super.epilogue andThen bsf andThen Common.reportStats(cdgpEval.state, bsf)
-  override def iter = super.iter andThen saveCurrentPop // andThen super.report // uncomment report to change the result (FUEL issue #6)
+  override def epilogue = super.epilogue andThen bsf andThen reportStats
+  override def iter = super.iter andThen updateAfterIteration // andThen super.report // uncomment report to change the result (FUEL issue #6)
   override def evaluate = cdgpEval
 }
 
@@ -106,8 +138,8 @@ class CDGPSteadyState(moves: GPMoves,
                                       CDGPSteadyState.getDeselection()) with CDGPAlgorithm[Op, FInt] {
   override def cdgpState = cdgpEval.state
   override def initialize  = super.initialize
-  override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests andThen saveCurrentPop
-  override def epilogue = super.epilogue andThen bsf andThen Common.reportStats(cdgpEval.state, bsf)
+  override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests andThen updateAfterIteration
+  override def epilogue = super.epilogue andThen bsf andThen reportStats
   override def report = s => s
   override def evaluate = // used only for the initial population
     (s: StatePop[Op]) => {
@@ -166,8 +198,8 @@ class CDGPGenerationalLexicase(moves: GPMoves,
   override val selection = new LexicaseSelection01[Op, FSeqInt]
   override def cdgpState = cdgpEval.state
   override def initialize  = super.initialize
-  override def epilogue = super.epilogue andThen bsf andThen Common.reportStats(cdgpEval.state, bsf)
-  override def iter = super.iter andThen super.report andThen saveCurrentPop
+  override def epilogue = super.epilogue andThen bsf andThen reportStats
+  override def iter = super.iter andThen super.report andThen updateAfterIteration
   override def evaluate = cdgpEval
 }
 
@@ -194,9 +226,9 @@ class CDGPGenerationalLexicaseR(moves: GPMoves,
   val bsf = BestSoFar[Op, FSeqDouble](ordering, it)
   override def cdgpState = cdgpEval.state
   override def initialize = super.initialize// andThen Common.printPop
-  override def epilogue = super.epilogue andThen bsf andThen Common.reportStats(cdgpEval.state, bsf)
+  override def epilogue = super.epilogue andThen bsf andThen reportStats
   override def iter = (s: StatePop[(Op, FSeqDouble)]) =>
-    (createBreeder(s) andThen evaluate andThen super.report andThen saveCurrentPop)(s)
+    (createBreeder(s) andThen evaluate andThen super.report andThen updateAfterIteration)(s)
   override def evaluate = cdgpEval
 
   def createBreeder(s: StatePop[(Op, FSeqDouble)]): (StatePop[(Op, FSeqDouble)] => StatePop[Op]) = {
@@ -234,7 +266,7 @@ class CDGPGenerationalCore[E <: Fitness]
   override def iter = SimpleBreeder(selection, moves: _*) andThen evaluate
 
   override def initialize  = super.initialize
-  override def epilogue = super.epilogue andThen bsf andThen Common.reportStats(cdgpEval.state, bsf)
+  override def epilogue = super.epilogue andThen bsf andThen reportStats
   //override def iter = super.iter andThen super.report andThen saveCurrentPop
   override def evaluate = cdgpEval
 }
@@ -268,8 +300,8 @@ class CDGPSteadyStateLexicase[E <: Fitness](moves: GPMoves,
         selection, deselection) with CDGPAlgorithm[Op, E] {
   override def cdgpState = cdgpEval.state
   override def initialize  = super.initialize
-  override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests andThen saveCurrentPop
-  override def epilogue = super.epilogue andThen bsf andThen Common.reportStats(cdgpEval.state, bsf)
+  override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests andThen updateAfterIteration
+  override def epilogue = super.epilogue andThen bsf andThen reportStats
   override def evaluate = // used only for the initial population
     (s: StatePop[Op]) => {
       cdgpEval.state.testsManager.flushHelpers()
@@ -309,22 +341,21 @@ object CDGPSteadyStateLexicase {
 class CDGPSteadyStateLexicaseR[E <: FSeqDouble](moves: GPMoves,
                               cdgpEval: CDGPEvaluationSteadyState[Op, E],
                               deselection: Selection[Op, E])
-                             (implicit opt: Options, coll: Collector, rng: TRandom,
-                              ordering: Ordering[E])
-  extends EACore[Op, E](moves,
-      if (opt('parEval, false)) ParallelEval(cdgpEval.eval) else SequentialEval(cdgpEval.eval),
-      Common.correct(cdgpEval.eval))
-    with CDGPAlgorithm[Op, E] {
+                             (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
+  extends EACore[Op, E](moves, SequentialEval(cdgpEval.eval), Common.correct(cdgpEval.eval))
+     with CDGPAlgorithm[Op, E] {
+
+  val bsf = BestSoFar[Op, E](ordering, it)
   val n = opt('reportFreq, opt('populationSize, 1000))
+
   override def cdgpState = cdgpEval.state
   override def initialize  = super.initialize
   override def iter = (s: StatePop[(Op, E)]) => (createBreeder(s) andThen
     CallEvery(n, report) andThen
     cdgpEval.updatePopulationEvalsAndTests andThen
-    saveCurrentPop)(s)
-  override def epilogue = super.epilogue andThen bsf andThen Common.reportStats(cdgpEval.state, bsf)
-  override def report: (StatePop[(Op, E)]) => StatePop[(Op, E)] = bsf
-  val bsf = BestSoFar[Op, E](ordering, it)
+    updateAfterIteration)(s)
+  override def epilogue = super.epilogue andThen bsf andThen reportStats
+  override def report = bsf
   override def evaluate = // used only for the initial population
     (s: StatePop[Op]) => {
       cdgpEval.state.testsManager.flushHelpers()
@@ -391,31 +422,6 @@ object Common {
     for (x <- s)
       println(x)
     println()
-    s
-  }
-
-  def reportStats[E <: Fitness](state: State, bsf: BestSoFar[Op, E])
-                    (s: StatePop[(Op, E)])
-                    (implicit opt: Options, coll: Collector): StatePop[(Op, E)] = {
-    if (bsf.bestSoFar.isDefined) {
-      val (bestOfRun, e) = bsf.bestSoFar.get
-      e.saveInColl(coll)
-      val solutionOriginal = SMTLIBFormatter.opToString(bestOfRun)
-      val solutionSimplified = state.simplifySolution(solutionOriginal)
-      val solution = solutionSimplified.getOrElse(solutionOriginal)
-      val solutionOp = SMTLIBFormatter.smtlibToOp(solution)
-
-      coll.set("result.bestOrig", bestOfRun)
-      coll.set("result.bestOrig.smtlib", solutionOriginal)
-      coll.set("result.bestOrig.size", bestOfRun.size)
-      coll.set("result.bestOrig.height", bestOfRun.height)
-
-      coll.set("result.best", solutionOp)
-      coll.set("result.best.smtlib", solution)
-      coll.set("result.best.size", solutionOp.size)
-      coll.set("result.best.height", solutionOp.height)
-    }
-    state.reportData()
     s
   }
 }
