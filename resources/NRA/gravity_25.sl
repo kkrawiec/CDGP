@@ -15,6 +15,6 @@
 (constraint (= (gravity 17.01556 5.04044 9.85434) 0.0000000005808625218030569))
 
 (constraint (and
-    (=> (and (>= m1 0.0) (>= m2 0.0) (>= r 0.0)) (= (gravity m1 m2 r) (gravity m2 m1 r)))
-    (=> (and (>= m1 0.0) (>= m2 0.0) (>= r 0.0)) (>= (gravity m1 m2 r) 0.0))))
+    (=> (and (>= m1 0.01) (>= m2 0.01) (>= r 0.01)) (= (gravity m1 m2 r) (gravity m2 m1 r)))
+    (=> (and (>= m1 0.01) (>= m2 0.01) (>= r 0.01)) (>= (gravity m1 m2 r) 0.0))))
 (check-synth)

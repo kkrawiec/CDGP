@@ -131,7 +131,7 @@ object RegressionBenchmarks extends App {
   def fGravity(vars: Seq[Double]): Double = 6.674e-11 * vars(0) * vars(1) / vars(2)
   def fGravityNoG(vars: Seq[Double]): Double = vars(0) * vars(1) / vars(2)
 
-  val gravityRanges = Seq(Range("m1", lb=Some(0.0)), Range("m2", lb=Some(0.0)), Range("r", lb=Some(0.0)))
+  val gravityRanges = Seq(Range("m1", lb=Some(0.01)), Range("m2", lb=Some(0.01)), Range("r", lb=Some(0.01)))
   val benchmarks = Seq(
     Benchmark("gravity", Seq("m1", "m2", "r"),
       Seq(PropVarSymmetry2("m1", "m2", gravityRanges),
