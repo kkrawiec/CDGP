@@ -229,10 +229,10 @@ object Main {
   // --------------------------------------------------------------------------
 
   def main(args: Array[String]): Unit = {
-    implicit val opt = getOptions(args)
+    val opt = getOptions(args ++ Array("--parEval", "false")) // ensure that --parEval false is used
     val useRegression = opt.paramBool("regression", false)
     if (useRegression)
-      Regression.main(args)
+      Regression.run(opt)
     else
       run(opt)
   }

@@ -2,7 +2,7 @@ package app
 
 import java.io.{PrintWriter, StringWriter}
 
-import app.Main.{getOptions, printResults, watchTime}
+import app.Main.{getOptions, watchTime}
 import cdgp._
 import fuel.core.StatePop
 import fuel.func._
@@ -11,7 +11,16 @@ import swim.tree.Op
 
 object Regression {
 
-  def runConfigRegressionCDGP(state: StateCDGP, selection: String, evoMode: String)
+  def getEvalForSeqDouble(state: StateCDGP, method: String)
+                         (implicit coll: Collector, opt: Options):
+  EvalFunction[Op, FSeqDouble] = {
+    if (method == "CDGP")
+      new EvalCDGPSeqDouble(state)
+    else
+      new EvalGPSeqDouble(state)
+  }
+
+  def runConfigRegressionCDGP(state: StateCDGP, method: String, selection: String, evoMode: String)
                              (implicit coll: Collector, opt: Options, rng: TRandom):
   (Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]) = {
     (selection, evoMode) match {
@@ -26,14 +35,14 @@ object Regression {
 
       case ("lexicase", "generational") =>
         println("---------  REGRESSION -----------")
-        val eval = new EvalCDGPSeqDouble(state)
+        val eval = getEvalForSeqDouble(state, method)
         val alg = CDGPGenerationalLexicaseR(eval)
         val finalPop = watchTime(alg, RunExperiment(alg))
         (finalPop, alg.bsf.bestSoFar)
 
       case ("lexicase", "steadyState") =>
         println("---------  REGRESSION (SS) -----------")
-        val eval = new EvalCDGPSeqDouble(state)
+        val eval = getEvalForSeqDouble(state, method)
         val alg = CDGPSteadyStateLexicaseR(eval)
         val finalPop = watchTime(alg, RunExperiment(alg))
         (finalPop, alg.bsf.bestSoFar)
@@ -41,12 +50,54 @@ object Regression {
   }
 
 
-  // --------------------------------------------------------------------------
-  //                                 MAIN
-  // --------------------------------------------------------------------------
 
-  def main(args: Array[String]): Unit = {
-    implicit val opt = getOptions(args)
+  def printResults(cdgpState: State, bestOfRun: Option[(Op, Fitness)])
+                  (implicit coll: Collector, opt: Options, rng: TRandom) {
+    assume(bestOfRun.isDefined, "No solution (optimal or approximate) to the problem was found.")
+    def isOptimal(bestOfRun: (Op, Fitness)): Boolean = bestOfRun._2.correct
+
+    val passedTestsRatio = coll.getResult("best.passedTestsRatio").getOrElse("n/a")
+    val pn = 26
+    println("\n")
+    println("Best program found:".padTo(pn, ' ') + coll.getResult("bestOrig.smtlib").getOrElse("n/a"))
+    println("Simplified:".padTo(pn, ' ') + coll.getResult("best.smtlib").getOrElse("n/a"))
+    println("Evaluation:".padTo(pn, ' ') + coll.getResult("best.eval").getOrElse("n/a"))
+    val dec = coll.getResult("best.VerificationDecision").getOrElse("n/a")
+    val model = coll.getResult("best.VerificationModel").getOrElse("n/a")
+    println("Final verification:".padTo(pn, ' ') + s"$dec, model: $model")
+    println("Program size:".padTo(pn, ' ') + coll.getResult("best.size").getOrElse("n/a"))
+    println("MSE:".padTo(pn, ' ') + coll.getResult("best.mse").getOrElse("n/a"))
+    println("Tests total:".padTo(pn, ' ') + coll.get("tests.total").getOrElse("n/a"))
+    println("Tests known outputs:".padTo(pn, ' ') + coll.get("tests.totalKnownOutputs").getOrElse("n/a"))
+    println("Total solver calls:".padTo(pn, ' ') + coll.get("solver.totalCalls").getOrElse("n/a"))
+    println("Generations:".padTo(pn, ' ') + coll.getResult("best.generation").getOrElse("n/a"))
+    println("Total time [s]:".padTo(pn, ' ') + coll.getResult("totalTimeSystem").get.toString.toDouble / 1000.0)
+    println("Log file:".padTo(pn, ' ') + coll.get("thisFileName").getOrElse("n/a"))
+
+    if (opt("printTests", false)) {
+      println("\nCollected tests:")
+      cdgpState.testsManager.tests.foreach(println(_))
+      println("")
+    }
+
+    val sol = coll.getResult("best.smtlib").get.toString
+    val solutionFull = SMTLIBFormatter.synthSolutionToString(cdgpState.synthTask, sol)
+
+    println("\nOPTIMAL SOLUTION:")
+    if (isOptimal(bestOfRun.get))
+      println(solutionFull) else println("unknown")
+
+    if (!isOptimal(bestOfRun.get)) {
+      println(s"\nAPPROXIMATED SOLUTION:\n(passedTestsRatio $passedTestsRatio)")
+      println(solutionFull)
+    }
+  }
+
+
+
+
+
+  def run(implicit opt: Options): Unit = {
     implicit val coll = CollectorFile(opt)
     implicit val rng = Rng(opt)
 
@@ -68,7 +119,13 @@ object Regression {
 
 
       // Run algorithm
-      val (_, bestOfRun) = runConfigRegressionCDGP(cdgpState, selection, evoMode)
+      val (_, bestOfRun) = runConfigRegressionCDGP(cdgpState, method, selection, evoMode)
+
+
+      // Verify correctness with respect to the specification
+      val (dec, model) = cdgpState.verify(bestOfRun.get._1)
+      coll.setResult("best.VerificationDecision", dec)
+      coll.setResult("best.VerificationModel", model)
 
 
       // Print and save results
@@ -95,6 +152,18 @@ object Regression {
         coll.saveSnapshot("cdgp.error")
         e.printStackTrace()
     }
+  }
+
+
+
+
+  // --------------------------------------------------------------------------
+  //                                 MAIN
+  // --------------------------------------------------------------------------
+
+  def main(args: Array[String]): Unit = {
+    val opt = getOptions(args ++ Array("--parEval", "false")) // ensure that --parEval false is used
+    run(opt)
   }
 
 }

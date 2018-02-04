@@ -312,8 +312,9 @@ class CDGPSteadyStateLexicaseR[E <: FSeqDouble](moves: GPMoves,
                              (implicit opt: Options, coll: Collector, rng: TRandom,
                               ordering: Ordering[E])
   extends EACore[Op, E](moves,
-    if (opt('parEval, true)) ParallelEval(cdgpEval.eval) else SequentialEval(cdgpEval.eval),
-    Common.correct(cdgpEval.eval))(opt) with CDGPAlgorithm[Op, E] {
+      if (opt('parEval, false)) ParallelEval(cdgpEval.eval) else SequentialEval(cdgpEval.eval),
+      Common.correct(cdgpEval.eval))
+    with CDGPAlgorithm[Op, E] {
   val n = opt('reportFreq, opt('populationSize, 1000))
   override def cdgpState = cdgpEval.state
   override def initialize  = super.initialize

@@ -642,6 +642,27 @@ abstract class EvalCDGPContinous[E](state: StateCDGP)
 
 
 
+
+
+class EvalGPSeqDouble(state: StateCDGP)
+                     (implicit opt: Options, coll: Collector)
+  extends EvalCDGPContinous[FSeqDouble](state) {
+  override def apply(s: Op, init: Boolean): FSeqDouble = {
+      val (isPerfect, eval) = fitnessOnlyTestCases(s)
+      FSeqDouble(isPerfect, eval, s.size)
+  }
+  override def updateEval(s: (Op, FSeqDouble)): (Op, FSeqDouble) = {
+    (s._1, FSeqDouble(s._2.correct, s._2.value ++ evalOnTests(s._1, state.testsManager.newTests.toList), s._1.size))
+  }
+  override def defaultValue(s: Op) = FSeqDouble(false, Seq(), s.size)
+  override val correct = (e: FSeqDouble) => {
+    e.mse <= optThreshold
+  }
+  override val ordering = FSeqDoubleOrderingMSE
+}
+
+
+
 class EvalCDGPSeqDouble(state: StateCDGP)
                        (implicit opt: Options, coll: Collector)
   extends EvalCDGPContinous[FSeqDouble](state) {
