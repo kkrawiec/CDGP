@@ -10,6 +10,10 @@ object RegressionBenchmarks extends App {
 
   abstract class Property(val name: String)
 
+
+  case class CustomConstraint(formula: String, callMarker: String = "{0}", range: Seq[PropRange] = Seq()) extends Property("CustomConstraint") {
+    def getCode(funCall: String) = formula.replace(callMarker, funCall)
+  }
   case class PropOutputBound(lb: Option[Double], ub: Option[Double], range: Seq[PropRange] = Seq()) extends Property("PropOutputBound")
   case class PropAscending(range: Seq[PropRange] = Seq()) extends Property("PropAscending")
   case class PropDescending(range: Seq[PropRange] = Seq()) extends Property("PropDescending")
@@ -23,18 +27,23 @@ object RegressionBenchmarks extends App {
   }
 
 
-  abstract class PropRange(varName: String, lb: Option[Double] = None, ub: Option[Double] = None) {
+  abstract class PropRange(varName: String, lb: Option[Double] = None, ub: Option[Double] = None,
+                           lbSign: String = ">=", ubSign: String = "<=") {
+    assert(lbSign == ">=" || lbSign == ">")
+    assert(ubSign == "<=" || ubSign == "<")
     def getCondition: String = {
       if (lb.isEmpty && ub.isEmpty)
         ""
       else {
-        val implCondParts = List((lb, ">="), (ub, "<=")).collect { case (Some(d), sign) => s"($sign $varName $d)" }
+        val implCondParts = List((lb, lbSign), (ub, ubSign)).collect { case (Some(d), sign) => s"($sign $varName $d)" }
         val implCond = if (implCondParts.size > 1) implCondParts.mkString("(and ", " ", ")") else implCondParts.head
         implCond
       }
     }
   }
-  case class Range(varName: String, lb: Option[Double] = None, ub: Option[Double] = None) extends PropRange(varName, lb, ub)
+  case class Range(varName: String,
+                   lb: Option[Double] = None, ub: Option[Double] = None,
+                   lbSign: String = ">=", ubSign: String = "<=") extends PropRange(varName, lb, ub, lbSign, ubSign)
   case class EmptyRange() extends PropRange("", None, None)
 
 
@@ -53,6 +62,7 @@ object RegressionBenchmarks extends App {
     val sfName = b.name
     var tmp = List[String]()
     p match {
+
       case PropOutputBound(lb, ub, range) =>
         if (lb.isDefined) {
           val c = s"(>= ${funCall(sfName, b.vars)} ${lb.get})"
@@ -63,10 +73,16 @@ object RegressionBenchmarks extends App {
           tmp = wrapConstrInRanges(c, range) :: tmp
         }
         tmp
+
       case PropAscending(range) =>
-        var tmp = ""
-        List()
-      case PropDescending(range) => List()
+        ???
+
+      case cc @ CustomConstraint(_, _, range) =>
+        List(wrapConstrInRanges(cc.getCode(funCall(sfName, b.vars)), range))
+
+      case PropDescending(range) =>
+        ???
+
       case PropVarSymmetry2(var1, var2, range) =>
         val i1 = b.vars.indexOf(var1)
         val i2 = b.vars.indexOf(var2)
@@ -130,17 +146,33 @@ object RegressionBenchmarks extends App {
 
   def fGravity(vars: Seq[Double]): Double = 6.674e-11 * vars(0) * vars(1) / (vars(2) * vars(2))
   def fGravityNoG(vars: Seq[Double]): Double = vars(0) * vars(1) / (vars(2) * vars(2))
+  def fResistancePar2(vars: Seq[Double]): Double = vars(0) * vars(1) / (vars(0) + vars(1))
 
-  val gravityRanges = Seq(Range("m1", lb=Some(0.01)), Range("m2", lb=Some(0.01)), Range("r", lb=Some(0.01)))
+  def rangesGZero01(vars: String*): Seq[Range] = vars.map( x => Range(x, lb=Some(0.01), lbSign = ">="))
+  def rangesGZero(vars: String*): Seq[Range] = vars.map( x => Range(x, lb=Some(0.0), lbSign = ">"))
+
   val benchmarks = Seq(
-    Benchmark("gravity", Seq("m1", "m2", "r"),
-      Seq(PropVarSymmetry2("m1", "m2", gravityRanges),
-          PropOutputBound(Some(0.0), None, gravityRanges)),
-      generateTestsU(3, 25, fGravity, 0.0, 20.0)),
+//    Benchmark("gravity", Seq("m1", "m2", "r"),
+//      Seq(
+//        PropVarSymmetry2("m1", "m2", rangesGZero01("m1", "m2", "r")),
+//        PropOutputBound(Some(0.0), None, rangesGZero01("m1", "m2", "r"))
+//      ),
+//      generateTestsU(3, 25, fGravity, 0.0, 20.0)),
+
     Benchmark("gravity_noG", Seq("m1", "m2", "r"),
-      Seq(PropVarSymmetry2("m1", "m2", gravityRanges),
-          PropOutputBound(Some(0.0), None, gravityRanges)),
-      generateTestsU(3, 25, fGravityNoG, 0.0, 20.0))
+      Seq(
+        PropVarSymmetry2("m1", "m2", rangesGZero01("m1", "m2", "r")),
+        PropOutputBound(Some(0.0), None, rangesGZero01("m1", "m2", "r"))
+      ),
+      generateTestsU(3, 25, fGravityNoG, 0.0, 20.0)),
+
+    // task: calculate the total resistance of 2 parallel resistors
+    Benchmark("resistance_par2", Seq("r1", "r2"),
+      Seq(
+        PropVarSymmetry2("r1", "r2", rangesGZero("r1", "r2")),
+        CustomConstraint("(>= {0} (+ r1 r2))", range=rangesGZero("r1", "r2"))
+      ),
+      generateTestsU(2, 25, fResistancePar2, 0.0, 20.0))
   )
 
 
