@@ -34,14 +34,12 @@ object Regression {
         ???
 
       case ("lexicase", "generational") =>
-        println("---------  REGRESSION -----------")
         val eval = getEvalForSeqDouble(state, method)
         val alg = CDGPGenerationalLexicaseR(eval)
         val finalPop = watchTime(alg, RunExperiment(alg))
         (finalPop, alg.bsf.bestSoFar)
 
       case ("lexicase", "steadyState") =>
-        println("---------  REGRESSION (SS) -----------")
         val eval = getEvalForSeqDouble(state, method)
         val alg = CDGPSteadyStateLexicaseR(eval)
         val finalPop = watchTime(alg, RunExperiment(alg))

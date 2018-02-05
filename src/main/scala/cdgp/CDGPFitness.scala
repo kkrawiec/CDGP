@@ -587,6 +587,10 @@ abstract class EvalCDGPContinous[E](state: StateCDGP)
       throw new Exception(s"CDGP for regression requires all number constants in constraints to be of type Real. Problematic constant: $c")
   }
 
+  def isMseCloseToZero(evalTests: Seq[Double]): Boolean = {
+    evalTests.map(x => x * x).sum / evalTests.size <= optThreshold
+  }
+
 
   /**
     * Fitness is computed on the test cases. No verification is performed.
@@ -595,7 +599,7 @@ abstract class EvalCDGPContinous[E](state: StateCDGP)
   def fitnessOnlyTestCases: Op => (Boolean, Seq[Double]) =
     (s: Op) => {
       val evalTests = evalOnTests(s, state.testsManager.getTests())
-      if (evalTests.sum <= optThreshold)
+      if (isMseCloseToZero(evalTests))
         (true, evalTests)
       else
         (false, evalTests)
@@ -620,7 +624,7 @@ abstract class EvalCDGPContinous[E](state: StateCDGP)
         (false, evalTests)
       else {
         val (decision, r) = state.verify(s)
-        if (decision == "unsat" && evalTests.sum <= optThreshold)
+        if (decision == "unsat" && isMseCloseToZero(evalTests))
           (true, evalTests) // perfect program found; end of run
         else if (decision == "sat") {
           if (state.testsManager.newTests.size < maxNewTestsPerIter) {
