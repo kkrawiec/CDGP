@@ -1,34 +1,125 @@
 package misc
 
-import scala.util.Random
+import java.io.{BufferedWriter, File, FileWriter}
 
+import scala.util.Random
 import cdgp.Tools
 
 
 object RegressionBenchmarks extends App {
   val rng = Random
 
-  abstract class Property(val name: String)
-
-
-  case class CustomConstraint(formula: String, callMarker: String = "{0}", range: Seq[PropRange] = Seq()) extends Property("CustomConstraint") {
-    def getCode(funCall: String) = formula.replace(callMarker, funCall)
-  }
-  case class PropOutputBound(lb: Option[Double], ub: Option[Double], range: Seq[PropRange] = Seq()) extends Property("PropOutputBound")
-  case class PropAscending(range: Seq[PropRange] = Seq()) extends Property("PropAscending")
-  case class PropDescending(range: Seq[PropRange] = Seq()) extends Property("PropDescending")
-  case class PropVarSymmetry2(var1: String, var2: String, range: Seq[PropRange] = Seq()) extends Property("PropVarSymmetry2")
-
   case class Benchmark(name: String,
                        vars: Seq[String],
                        props: Seq[Property],
-                       tests: Seq[(Seq[Double], Double)]) {
+                       tests: Seq[(Seq[Double], Double)] = Seq()) {
+    def fileName: String = name + "_" + tests.size + ".sl"
     def argsSignature: String = vars.map{ v => s"($v Real)" }.mkString("(", "", ")")
   }
 
+  object Benchmark {
+    def apply(b: Benchmark,
+              tests: Seq[(Seq[Double], Double)]): Benchmark = new Benchmark(b.name, b.vars, b.props, tests)
+  }
 
-  abstract class PropRange(varName: String, lb: Option[Double] = None, ub: Option[Double] = None,
-                           lbSign: String = ">=", ubSign: String = "<=") {
+
+
+  abstract class Property(val name: String) {
+    /**
+      * Returns an SMT-LIB encoding of the property given the concrete benchmark instance.
+      */
+    def encode(b: Benchmark): Seq[String]
+
+    /**
+      * If ranges are defined, then the given encoding of the property will be wrapped in
+      * implication with ranges in it's condition part.
+      */
+    def wrapConstrInRanges(constr: String, ranges: Seq[VarRange]): String = {
+      if (ranges.isEmpty)
+        constr
+      else {
+        val implCond = ranges.map(_.getCondition).mkString("(and ", " ", ")")
+        s"(=> $implCond $constr)"
+      }
+    }
+  }
+
+
+  /**
+    * Allows expression of arbitrary constraints.
+    *
+    * @param formula A formula representing the constraint.
+    * @param callMarker Every instance of callMarker string in the formula will be replaced with
+    *                   synth-fun call or expr parameter, if any was provided.
+    * @param range Applicability range of this constraint in terms of variables.
+    * @param expr Expression which will be put into the constraint.
+    */
+  case class CustomConstraint(formula: String, callMarker: String = "{0}", range: Seq[VarRange] = Seq(), expr: String = "") extends Property("CustomConstraint") {
+    override def encode(b: Benchmark): Seq[String] = {
+      val expression = if (expr != "") expr else funCall(b.name, b.vars)
+      List(wrapConstrInRanges(formula.replace(callMarker, expression), range))
+    }
+  }
+
+
+  case class PropOutputBound(lb: Option[Double], ub: Option[Double],
+                             lbSign: String = ">=", ubSign: String = "<=",
+                             range: Seq[VarRange] = Seq()) extends Property("PropOutputBound") {
+    assert(List(">=", ">", "=", "distinct").contains(lbSign))
+    assert(List("<=", "<", "=", "distinct").contains(ubSign))
+    override def encode(b: Benchmark): Seq[String] = {
+      val sfName = b.name
+      var tmp = List[String]()
+      if (lb.isDefined) {
+        val c = s"($lbSign ${funCall(sfName, b.vars)} ${lb.get})"
+        tmp = wrapConstrInRanges(c, range) :: tmp
+      }
+      if (ub.isDefined) {
+        val c = s"($ubSign ${funCall(sfName, b.vars)} ${ub.get})"
+        tmp = wrapConstrInRanges(c, range) :: tmp
+      }
+      tmp
+    }
+  }
+
+
+  case class PropAscending(range: Seq[VarRange] = Seq()) extends Property("PropAscending") {
+    override def encode(b: Benchmark): Seq[String] = ???
+  }
+
+
+  case class PropDescending(range: Seq[VarRange] = Seq()) extends Property("PropDescending") {
+    override def encode(b: Benchmark): Seq[String] = ???
+  }
+
+
+  case class PropVarSymmetry2(var1: String, var2: String, range: Seq[VarRange] = Seq())
+    extends Property("PropVarSymmetry2") {
+
+    override def encode(b: Benchmark): Seq[String] = {
+      val i1 = b.vars.indexOf(var1)
+      val i2 = b.vars.indexOf(var2)
+      assert(i1 != -1 && i2 != -1)
+      val x = b.vars(i1)
+      val varsExchanged = b.vars.updated(i1, b.vars(i2)).updated(i2, x)
+      val c = s"(= ${funCall(b.name, b.vars)} ${funCall(b.name, varsExchanged)})"
+      List(wrapConstrInRanges(c, range))
+    }
+  }
+
+
+  /**
+    * A range of possible values for a certain variable. Any property can be specified to work
+    * only for variables in a certain range, which is defined using this class.
+    *
+    * @param varName Name of the variable.
+    * @param lb Lower bound value.
+    * @param ub Upper bound value.
+    * @param lbSign <= (default) or <.
+    * @param ubSign >= (default) or >.
+    */
+  abstract class VarRange(varName: String, lb: Option[Double] = None, ub: Option[Double] = None,
+                          lbSign: String = ">=", ubSign: String = "<=") {
     assert(lbSign == ">=" || lbSign == ">")
     assert(ubSign == "<=" || ubSign == "<")
     def getCondition: String = {
@@ -41,57 +132,16 @@ object RegressionBenchmarks extends App {
       }
     }
   }
-  case class Range(varName: String,
-                   lb: Option[Double] = None, ub: Option[Double] = None,
-                   lbSign: String = ">=", ubSign: String = "<=") extends PropRange(varName, lb, ub, lbSign, ubSign)
-  case class EmptyRange() extends PropRange("", None, None)
+  case class EmptyRange() extends VarRange("", None, None)
+  case class Range(varName: String, lb: Option[Double] = None, ub: Option[Double] = None,
+                   lbSign: String = ">=", ubSign: String = "<=") extends VarRange(varName, lb, ub, lbSign, ubSign)
+  case class RangeLU(varName: String, lb: Double, ub: Double,
+                     lbSign: String = ">=", ubSign: String = "<=") extends VarRange(varName, Some(lb), Some(ub), lbSign, ubSign)
 
 
-  def wrapConstrInRanges(constr: String, ranges: Seq[PropRange]): String = {
-    if (ranges.isEmpty)
-      constr
-    else {
-      val implCond = ranges.map(_.getCondition).mkString("(and ", " ", ")")
-      s"(=> $implCond $constr)"
-    }
-  }
+
 
   def funCall(name: String, vars: Seq[String]): String = s"($name ${vars.mkString(" ")})"
-
-  def getCodeForProp(b: Benchmark, p: Property): List[String] = {
-    val sfName = b.name
-    var tmp = List[String]()
-    p match {
-
-      case PropOutputBound(lb, ub, range) =>
-        if (lb.isDefined) {
-          val c = s"(>= ${funCall(sfName, b.vars)} ${lb.get})"
-          tmp = wrapConstrInRanges(c, range) :: tmp
-        }
-        if (ub.isDefined) {
-          val c = s"(<= ${funCall(sfName, b.vars)} ${ub.get})"
-          tmp = wrapConstrInRanges(c, range) :: tmp
-        }
-        tmp
-
-      case PropAscending(range) =>
-        ???
-
-      case cc @ CustomConstraint(_, _, range) =>
-        List(wrapConstrInRanges(cc.getCode(funCall(sfName, b.vars)), range))
-
-      case PropDescending(range) =>
-        ???
-
-      case PropVarSymmetry2(var1, var2, range) =>
-        val i1 = b.vars.indexOf(var1)
-        val i2 = b.vars.indexOf(var2)
-        val x = b.vars(i1)
-        val varsExchanged = b.vars.updated(i1, b.vars(i2)).updated(i2, x)
-        val c = s"(= ${funCall(b.name, b.vars)} ${funCall(b.name, varsExchanged)})"
-        List(wrapConstrInRanges(c, range))
-    }
-  }
 
 
   def generateConstrTestCases(b: Benchmark): String = {
@@ -104,7 +154,7 @@ object RegressionBenchmarks extends App {
   }
 
 
-  def generateSygusDesc(b: Benchmark): String = {
+  def generateSygusCode(b: Benchmark): String = {
     val sfName = b.name
     var s = "(set-logic QF_NRA)\n"
     s += s"(synth-fun $sfName ${b.argsSignature} Real)\n"
@@ -113,21 +163,21 @@ object RegressionBenchmarks extends App {
     // Some helper variables
     //s += b.vars.map{ x => s"(declare-fun ${x}_2 () Real)" }.mkString("", "\n", "\n")
 
-
     s += generateConstrTestCases(b) + "\n"
 
-
-    val constr = b.props.flatMap(getCodeForProp(b, _))
+    val constr = b.props.flatMap(_.encode(b))
 
     s += constr.mkString("(constraint (and\n    ", "\n    ", "))\n")
     s += "(check-synth)\n"
     s
   }
 
-  def saveFile(path: String, code: String): Unit = {
-
+  def saveFile(path: String, text: String): Unit = {
+    val file = new File(path)
+    val bw = new BufferedWriter(new FileWriter(file))
+    bw.write(text)
+    bw.close()
   }
-
 
   def generateTestU(numVars: Int, fun: Seq[Double] => Double,
                     minDouble: Double, maxDouble: Double): (Seq[Double], Double) = {
@@ -151,38 +201,49 @@ object RegressionBenchmarks extends App {
   def rangesGZero01(vars: String*): Seq[Range] = vars.map( x => Range(x, lb=Some(0.01), lbSign = ">="))
   def rangesGZero(vars: String*): Seq[Range] = vars.map( x => Range(x, lb=Some(0.0), lbSign = ">"))
 
+
+  val b_gravity = Benchmark("gravity", Seq("m1", "m2", "r"),
+    Seq(
+      PropVarSymmetry2("m1", "m2", rangesGZero01("m1", "m2", "r")),
+      PropOutputBound(Some(0.0), None, range=rangesGZero01("m1", "m2", "r"))
+    ))
+  val b_gravityNoG = Benchmark("gravity_noG", Seq("m1", "m2", "r"),
+    Seq(
+      PropVarSymmetry2("m1", "m2", range=rangesGZero01("m1", "m2", "r")),
+      PropOutputBound(Some(0.0), None, range=rangesGZero01("m1", "m2", "r"))
+    ))
+  // task: calculate the total resistance of 2 parallel resistors
+  val b_resistance_par2 = Benchmark("resistance_par2", Seq("r1", "r2"),
+    Seq(
+      PropVarSymmetry2("r1", "r2", rangesGZero("r1", "r2")),
+      CustomConstraint("(and (<= {0} r1) (<= {0} r2))", range=rangesGZero("r1", "r2"))
+    ))
+
+
   val benchmarks = Seq(
-//    Benchmark("gravity", Seq("m1", "m2", "r"),
-//      Seq(
-//        PropVarSymmetry2("m1", "m2", rangesGZero01("m1", "m2", "r")),
-//        PropOutputBound(Some(0.0), None, rangesGZero01("m1", "m2", "r"))
-//      ),
-//      generateTestsU(3, 25, fGravity, 0.0, 20.0)),
-
-    Benchmark("gravity_noG", Seq("m1", "m2", "r"),
-      Seq(
-        PropVarSymmetry2("m1", "m2", rangesGZero01("m1", "m2", "r")),
-        PropOutputBound(Some(0.0), None, rangesGZero01("m1", "m2", "r"))
-      ),
-      generateTestsU(3, 25, fGravityNoG, 0.0, 20.0)),
-
-    // task: calculate the total resistance of 2 parallel resistors
-    Benchmark("resistance_par2", Seq("r1", "r2"),
-      Seq(
-        PropVarSymmetry2("r1", "r2", rangesGZero("r1", "r2")),
-        CustomConstraint("(>= {0} (+ r1 r2))", range=rangesGZero("r1", "r2"))
-      ),
-      generateTestsU(2, 25, fResistancePar2, 0.0, 20.0))
+    //Benchmark(b_gravity, generateTestsU(3, 25, fGravity, 0.0, 20.0)),
+    //Benchmark(b_gravity, generateTestsU(3, 50, fGravity, 0.0, 20.0)),
+    Benchmark(b_gravityNoG, generateTestsU(3, 25, fGravityNoG, 0.0, 20.0)),
+    Benchmark(b_gravityNoG, generateTestsU(3, 50, fGravityNoG, 0.0, 20.0)),
+    Benchmark(b_resistance_par2, generateTestsU(2, 25, fResistancePar2, 0.0, 20.0)),
+    Benchmark(b_resistance_par2, generateTestsU(2, 50, fResistancePar2, 0.0, 20.0))
   )
-
 
 
 
   //////////////////////////////////////////////////////////////////////////
 
+  val dir = new File("resources/NRA/regression_props")
+  if (dir.exists())
+    dir.delete()
+  dir.mkdir()
+
   benchmarks.foreach{ b =>
-    println(generateSygusDesc(b))
+    val sygusCode = generateSygusCode(b)
+    val path = "resources/NRA/regression_props/" + b.fileName
+    println(sygusCode)
     println("\n\n")
+    saveFile(path, sygusCode)
   }
 
 }
