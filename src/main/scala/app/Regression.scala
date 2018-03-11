@@ -60,8 +60,8 @@ object Regression {
     println("Best program found:".padTo(pn, ' ') + coll.getResult("bestOrig.smtlib").getOrElse("n/a"))
     println("Simplified:".padTo(pn, ' ') + coll.getResult("best.smtlib").getOrElse("n/a"))
     println("Evaluation:".padTo(pn, ' ') + coll.getResult("best.eval").getOrElse("n/a"))
-    val dec = coll.getResult("best.VerificationDecision").getOrElse("n/a")
-    val model = coll.getResult("best.VerificationModel").getOrElse("n/a")
+    val dec = coll.getResult("best.verificationDecision").getOrElse("n/a")
+    val model = coll.getResult("best.verificationModel").getOrElse("n/a")
     println("Final verification:".padTo(pn, ' ') + s"$dec, model: $model")
     println("Program size:".padTo(pn, ' ') + coll.getResult("best.size").getOrElse("n/a"))
     println("MSE:".padTo(pn, ' ') + coll.getResult("best.mse").getOrElse("n/a"))
@@ -123,8 +123,8 @@ object Regression {
 
       // Verify correctness with respect to the specification
       val (dec, model) = cdgpState.verify(bestOfRun.get._1)
-      coll.setResult("best.VerificationDecision", dec)
-      coll.setResult("best.VerificationModel", model)
+      coll.setResult("best.verificationDecision", dec)
+      coll.setResult("best.verificationModel", model)
 
 
       // Print and save results
