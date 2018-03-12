@@ -219,15 +219,13 @@ object RegressionBenchmarks extends App {
       CustomConstraint("(and (<= {0} r1) (<= {0} r2))", range=rangesGZero("r1", "r2"))
     ))
 
+  val ns = Seq(10, 25, 50)
 
   val benchmarks = Seq(
-    //Benchmark(b_gravity, generateTestsU(3, 25, fGravity, 0.0, 20.0)),
-    //Benchmark(b_gravity, generateTestsU(3, 50, fGravity, 0.0, 20.0)),
-    Benchmark(b_gravityNoG, generateTestsU(3, 25, fGravityNoG, 0.0, 20.0)),
-    Benchmark(b_gravityNoG, generateTestsU(3, 50, fGravityNoG, 0.0, 20.0)),
-    Benchmark(b_resistance_par2, generateTestsU(2, 25, fResistancePar2, 0.0, 20.0)),
-    Benchmark(b_resistance_par2, generateTestsU(2, 50, fResistancePar2, 0.0, 20.0))
-  )
+    ns.map{ n => Benchmark(b_gravity, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
+    ns.map{ n => Benchmark(b_gravityNoG, generateTestsU(3, n, fGravityNoG, 0.0, 20.0)) },
+    ns.map{ n => Benchmark(b_resistance_par2, generateTestsU(2, n, fResistancePar2, 0.0, 20.0)) }
+  ).flatten
 
 
 
