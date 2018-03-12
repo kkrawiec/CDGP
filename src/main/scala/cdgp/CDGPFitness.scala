@@ -485,8 +485,8 @@ class EvalGPRInt(state: StateGPR)
   * Fitness, in which for each program returned is a sequence of absolute differences
   * on the set of test cases.
   */
-abstract class EvalCDGPContinous[E](state: StateCDGP)
-                                   (implicit opt: Options, coll: Collector)
+abstract class EvalCDGPContinuous[E](state: StateCDGP)
+                                    (implicit opt: Options, coll: Collector)
   extends EvalFunction[Op, E](state) {
 
   // Parameters:
@@ -655,7 +655,7 @@ abstract class EvalCDGPContinous[E](state: StateCDGP)
 
 class EvalGPSeqDouble(state: StateCDGP)
                      (implicit opt: Options, coll: Collector)
-  extends EvalCDGPContinous[FSeqDouble](state) {
+  extends EvalCDGPContinuous[FSeqDouble](state) {
   override def apply(s: Op, init: Boolean): FSeqDouble = {
       val (isPerfect, eval) = fitnessOnlyTestCases(s)
       FSeqDouble(isPerfect, eval, s.size)
@@ -674,7 +674,7 @@ class EvalGPSeqDouble(state: StateCDGP)
 
 class EvalCDGPSeqDouble(state: StateCDGP)
                        (implicit opt: Options, coll: Collector)
-  extends EvalCDGPContinous[FSeqDouble](state) {
+  extends EvalCDGPContinuous[FSeqDouble](state) {
   override def apply(s: Op, init: Boolean): FSeqDouble = {
     if (init) {
       val (isPerfect, eval) = fitnessOnlyTestCases(s)
@@ -696,7 +696,7 @@ class EvalCDGPSeqDouble(state: StateCDGP)
 
 class EvalCDGPDoubleMSE(state: StateCDGP)
                        (implicit opt: Options, coll: Collector)
-  extends EvalCDGPContinous[FDouble](state) {
+  extends EvalCDGPContinuous[FDouble](state) {
   override def apply(s: Op, init: Boolean): FDouble = {
     if (init) {
       val (isPerfect, eval) = fitnessOnlyTestCases(s)
