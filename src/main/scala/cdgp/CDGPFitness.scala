@@ -664,9 +664,7 @@ class EvalGPSeqDouble(state: StateCDGP)
     (s._1, FSeqDouble(s._2.correct, s._2.value ++ evalOnTests(s._1, state.testsManager.newTests.toList), s._1.size))
   }
   override def defaultValue(s: Op) = FSeqDouble(false, Seq(), s.size)
-  override val correct = (e: FSeqDouble) => {
-    e.mse <= optThreshold
-  }
+  override val correct = (e: FSeqDouble) => e.mse <= optThreshold
   override val ordering = FSeqDoubleOrderingMSE
 }
 
@@ -674,7 +672,7 @@ class EvalGPSeqDouble(state: StateCDGP)
 
 class EvalCDGPSeqDouble(state: StateCDGP)
                        (implicit opt: Options, coll: Collector)
-  extends EvalCDGPContinuous[FSeqDouble](state) {
+  extends EvalGPSeqDouble(state) {
   override def apply(s: Op, init: Boolean): FSeqDouble = {
     if (init) {
       val (isPerfect, eval) = fitnessOnlyTestCases(s)
@@ -685,18 +683,32 @@ class EvalCDGPSeqDouble(state: StateCDGP)
       FSeqDouble(isPerfect, eval, s.size)
     }
   }
-  override def updateEval(s: (Op, FSeqDouble)): (Op, FSeqDouble) = {
-    (s._1, FSeqDouble(s._2.correct, s._2.value ++ evalOnTests(s._1, state.testsManager.newTests.toList), s._1.size))
+}
+
+
+class EvalGPDoubleMSE(state: StateCDGP)
+                       (implicit opt: Options, coll: Collector)
+  extends EvalCDGPContinuous[FDouble](state) {
+  override def apply(s: Op, init: Boolean): FDouble = {
+    val (isPerfect, eval) = fitnessOnlyTestCases(s)
+    val mse = eval.map{ x => x * x }.sum
+    FDouble(isPerfect, mse, s.size)
   }
-  override def defaultValue(s: Op) = FSeqDouble(false, Seq(), s.size)
-  override val correct = (e: FSeqDouble) => e.mse <= optThreshold
-  override val ordering = FSeqDoubleOrderingMSE
+  override def updateEval(s: (Op, FDouble)): (Op, FDouble) = {
+    // evalOnTests returns a vector of absolute differences
+    val newValue = s._2.value + evalOnTests(s._1, state.testsManager.newTests.toList).map{ x => x * x }.sum
+    val newFit = FDouble(s._2.correct, newValue, s._1.size)
+    (s._1, newFit)
+  }
+  override def defaultValue(s: Op) = FDouble(false, 0.0, s.size)
+  override val correct = (e: FDouble) => e.value <= optThreshold
+  override val ordering = FDoubleOrdering
 }
 
 
 class EvalCDGPDoubleMSE(state: StateCDGP)
                        (implicit opt: Options, coll: Collector)
-  extends EvalCDGPContinuous[FDouble](state) {
+  extends EvalGPDoubleMSE(state) {
   override def apply(s: Op, init: Boolean): FDouble = {
     if (init) {
       val (isPerfect, eval) = fitnessOnlyTestCases(s)
@@ -709,13 +721,4 @@ class EvalCDGPDoubleMSE(state: StateCDGP)
       FDouble(isPerfect, mse, s.size)
     }
   }
-  override def updateEval(s: (Op, FDouble)): (Op, FDouble) = {
-    // evalOnTests returns a vector of absolute differences
-    val newValue = s._2.value + evalOnTests(s._1, state.testsManager.newTests.toList).map{ x => x * x }.sum
-    val newFit = FDouble(s._2.correct, newValue, s._1.size)
-    (s._1, newFit)
-  }
-  override def defaultValue(s: Op) = FDouble(false, 0.0, s.size)
-  override val correct = (e: FDouble) => e.value <= optThreshold
-  override val ordering = FDoubleOrdering
 }
