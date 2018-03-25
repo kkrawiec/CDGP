@@ -669,7 +669,6 @@ class EvalGPSeqDouble(state: StateCDGP)
 }
 
 
-
 class EvalCDGPSeqDouble(state: StateCDGP)
                        (implicit opt: Options, coll: Collector)
   extends EvalGPSeqDouble(state) {
