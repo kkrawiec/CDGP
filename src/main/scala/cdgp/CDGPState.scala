@@ -291,6 +291,7 @@ class StateCDGP(sygusData: SygusProblemData)
           IncompleteTestCase(model)
       }
       catch {
+        case e: NoSolutionException => throw e
         case _: Throwable =>
           println(s"Exception during executing query or parsing result, returning test with no output! ")
           IncompleteTestCase(model)
@@ -307,6 +308,7 @@ class StateCDGP(sygusData: SygusProblemData)
       else
         Some(createTestFromCounterex(model))
     } catch {
+      case e: NoSolutionException => throw e
       case e: Throwable =>
         println(s"Error during creation of counterexample from: $verOutput\nOriginal message: " + e.getMessage)
         numRejectedCounterex += 1
