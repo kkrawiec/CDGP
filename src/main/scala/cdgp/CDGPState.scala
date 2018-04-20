@@ -101,14 +101,15 @@ class StateSMTSolver(sygusData: SygusProblemData)
 
   /**
     * Checks using SMT solver if the given problem has only one correct answer for
-    * all possible input.
+    * all possible inputs. Note: a contradictory program will get unsat on the query
+    * and this function will also return true.
     */
   def hasSingleAnswerForEveryInput(problem: SyGuS16): Option[Boolean] = {
     if (sygusData.formalConstr.isEmpty)
       Some(false)
     else {
       val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(problem, sygusData, solverTimeout = timeout)
-      // printQuery("\nQuery checkIfSingleAnswerForEveryInput:\n" + query)
+      printQuery("\nQuery hasSingleAnswerForEveryInput:\n" + query)
       val (dec, model) = solver.runSolver(query)
       if (dec == "sat") {
         val values = GetValueParser(model.get)
@@ -138,7 +139,7 @@ class StateSMTSolver(sygusData: SygusProblemData)
                            testInputsMap: Map[String, Any],
                            output: Any): (String, Option[String]) = {
     val query = templateIsOutputCorrectForInput(testInputsMap, output)
-    printQuery("\nQuery checkOnInputAndKnownOutput:\n" + query)
+    printQuery("\nQuery checkIsOutputCorrect:\n" + query)
     solver.runSolver(query)
   }
 
@@ -149,7 +150,7 @@ class StateSMTSolver(sygusData: SygusProblemData)
   def checkIsProgramCorrectForInput(s: Op,
                                     testModel: Map[String, Any]): (String, Option[String]) = {
     val query = templateIsProgramCorrectForInput(s, testModel)
-    printQuery("\nQuery checkOnInputOnly:\n" + query)
+    printQuery("\nQuery checkIsProgramCorrectForInput:\n" + query)
     solver.runSolver(query)
   }
 
