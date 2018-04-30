@@ -42,6 +42,13 @@ class TestsManagerCDGP[I,O](testsHistory: Boolean = false, printAddedTests: Bool
   }
 
   /**
+    * Returns a list of tests with n first element dropped.
+    */
+  def dropFromTests(n: Int): Seq[(I, Option[O])] = {
+    if (tests.size == n) Seq() else tests.drop(n).toList
+  }
+
+  /**
     * Moves elements from newTests to a global tests pool, and prepares manager for the next iteration
     * by clearing newTests.
     */

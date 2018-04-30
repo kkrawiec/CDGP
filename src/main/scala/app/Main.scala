@@ -6,7 +6,7 @@ import fuel.func.RunExperiment
 import fuel.core.StatePop
 import fuel.util._
 import swim.tree.Op
-import cdgp.{Fitness, _}
+import cdgp._
 
 import scala.concurrent._
 import scala.concurrent.duration._
@@ -39,6 +39,28 @@ object Main {
       new OptionsMap(tmp.allOptions.filter{ case (k, v) => !k.startsWith("result") })
     }
     else opt
+  }
+
+
+  def watchTimeMultipop[E <: Fitness](alg: CDGPAlgorithm[Op, E], f: => Option[Seq[StatePop[(Op, E)]]])
+                             (implicit coll: Collector, opt: Options): Option[StatePop[(Op, E)]] = {
+    val maxTime = opt("multipop.maxTime", 86400000)  // 24h in miliseconds
+    try {
+      val finalPops = runWithTimeout(maxTime)(f)
+      if (finalPops.isDefined) Option(StatePop(finalPops.get.flatten)) else None
+    }
+    catch {
+      case e: java.util.concurrent.TimeoutException =>
+        println("Timeout!!!!!!!!!!!!!!!!!!!")
+        coll.set("cdgp.wasTimeout", true)
+        coll.set("result.totalTimeSystem", maxTime)  // save in ms
+        if (alg.pop.isDefined) {
+          alg.bsf(alg.pop.get) // update bsf
+          alg.reportStats(alg.pop.get)
+        }
+        coll.saveSnapshot("cdgp")
+        alg.pop
+    }
   }
 
 
@@ -93,6 +115,64 @@ object Main {
         val alg = CDGPSteadyStateLexicase(eval)
         val finalPop = watchTime(alg, RunExperiment(alg))
         (state, finalPop, alg.bsf.bestSoFar)
+    }
+  }
+
+
+
+  def runMultipopCDGP(benchmark: String, selection: String, evoMode: String)
+                   (implicit coll: Collector, opt: Options, rng: TRandom):
+  (StateCDGP, Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]) = {
+    val problemData = SygusProblemData(LoadSygusBenchmark(benchmark), opt('mixedSpecAllowed, true))
+    val state = StateCDGP(problemData)
+    (selection, evoMode) match {
+      case ("tournament", "generational") =>
+        implicit val ordering = FIntOrdering
+        val eval = new EvalCDGPInt(state)
+        def cdgpCreator() = {
+          CDGPGenerational(eval)
+        }
+        val multipopEA = new CDGPConvectionEqualNumber[Op, FInt](state, eval, cdgpCreator,
+          reportPreDivide = CDGPConvectionEqualNumber.reportAvgsInGroups("_pre"))
+        val finalPop = watchTimeMultipop(multipopEA, RunExperiment(multipopEA))
+        val best = multipopEA.bsf.bestSoFar
+        (state, finalPop, best)
+
+      case ("tournament", "steadyState") =>
+        implicit val ordering = FIntOrdering
+        val eval = new EvalCDGPInt(state)
+        def cdgpCreator() = {
+          CDGPSteadyState(eval)
+        }
+        val multipopEA = new CDGPConvectionEqualNumber[Op, FInt](state, eval, cdgpCreator,
+          reportPreDivide = CDGPConvectionEqualNumber.reportAvgsInGroups("_pre"))
+        val finalPop = watchTimeMultipop(multipopEA, RunExperiment(multipopEA))
+        val best = multipopEA.bsf.bestSoFar
+        (state, finalPop, best)
+
+      case ("lexicase", "generational") =>
+        implicit val ordering = FSeqIntOrdering
+        val eval = new EvalCDGPSeqInt(state)
+        def cdgpCreator() = {
+          CDGPGenerationalLexicase(eval)
+        }
+        val multipopEA = new CDGPConvectionEqualNumber[Op, FSeqInt](state, eval, cdgpCreator,
+          reportPreDivide = CDGPConvectionEqualNumber.reportAvgsInGroupsFSeqInt("_pre"))
+        val finalPop = watchTimeMultipop(multipopEA, RunExperiment(multipopEA))
+        val best = multipopEA.bsf.bestSoFar
+        (state, finalPop, best)
+
+      case ("lexicase", "steadyState") =>
+        implicit val ordering = FSeqIntOrdering
+        val eval = new EvalCDGPSeqInt(state)
+        def cdgpCreator() = {
+          CDGPSteadyStateLexicase(eval)
+        }
+        val multipopEA = new CDGPConvectionEqualNumber[Op, FSeqInt](state, eval, cdgpCreator,
+          reportPreDivide = CDGPConvectionEqualNumber.reportAvgsInGroupsFSeqInt("_pre"))
+        val finalPop = watchTimeMultipop(multipopEA, RunExperiment(multipopEA))
+        val best = multipopEA.bsf.bestSoFar
+        (state, finalPop, best)
     }
   }
 
@@ -182,17 +262,23 @@ object Main {
       val method = opt('method, "CDGP")
       val selection = opt('selection, "lexicase")
       val evoMode = opt('evolutionMode, "generational")
+      val multipopScheme = opt("multipop.scheme", "none")
       assert(method == "CDGP" || method == "GPR", s"Invalid method '$method'! Possible values: 'CDGP', 'GPR'.")
       assert(evoMode == "generational" || evoMode == "steadyState",
         s"Invalid evolutionMode: '$evoMode'! Possible values: 'generational', 'steadyState'.")
       assert(selection == "tournament" || selection == "lexicase",
         s"Invalid selection: '$selection'! Possible values: 'tournament', 'lexicase'.")
+      assert(multipopScheme == "none" || multipopScheme == "convectionEqualNumber",
+        s"Invalid multipopScheme: '$multipopScheme'! Possible values: 'none', 'convectionEqualNumber'.")
 
 
       // Run algorithm
       val (state, _, bestOfRun) =
         if (method == "CDGP")
-          runConfigCDGP(benchmark, selection, evoMode)
+          if (multipopScheme == "convectionEqualNumber")
+            runMultipopCDGP(benchmark, selection, evoMode)
+          else
+            runConfigCDGP(benchmark, selection, evoMode)
         else
           runConfigGPR(benchmark, selection, evoMode)
 

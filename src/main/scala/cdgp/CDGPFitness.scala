@@ -13,6 +13,11 @@ trait Fitness {
     * Saves all the fitness-relevant data using the provided collector.
     */
   def saveInColl(coll: Collector): Unit
+
+  /**
+    * Total number of tests the solution was evaluated on.
+    */
+  def totalTests: Int
 }
 
 
@@ -21,6 +26,7 @@ case class FSeqInt(correct: Boolean, value: Seq[Int], progSize: Int)
   override def length: Int = value.length
   override def apply(idx: Int) = value(idx)
   override def iterator = value.iterator
+  override val totalTests: Int = length
 
   override def saveInColl(coll: Collector): Unit = {
     val passedTests = if (correct) this.size else this.count(_ == 0)
@@ -40,6 +46,7 @@ case class FSeqDouble(correct: Boolean, value: Seq[Double], progSize: Int)
   override def length: Int = value.length
   override def apply(idx: Int) = value(idx)
   override def iterator = value.iterator
+  override val totalTests: Int = length
 
   lazy val mse: Double = if (value.isEmpty) 0.0 else value.map{ x => x*x }.sum / value.size.toDouble
 
@@ -52,7 +59,7 @@ case class FSeqDouble(correct: Boolean, value: Seq[Double], progSize: Int)
 }
 
 
-case class FInt(correct: Boolean, value: Int, progSize: Int, totalTests: Int) extends Fitness {
+case class FInt(correct: Boolean, value: Int, progSize: Int, override val totalTests: Int) extends Fitness {
   override def saveInColl(coll: Collector): Unit = {
     val passedTests = if (correct) totalTests else totalTests - value
     val ratio = if (totalTests == 0) 1.0 else passedTests.toDouble / totalTests
@@ -71,6 +78,7 @@ object FInt {
 
 
 case class FDouble(correct: Boolean, value: Double, progSize: Int) extends Fitness {
+  override val totalTests: Int = ???
   override def saveInColl(coll: Collector): Unit = {
     val rounded = BigDecimal(value).setScale(5, BigDecimal.RoundingMode.HALF_UP).toDouble
     coll.setResult("best.mse", rounded)
@@ -345,7 +353,8 @@ class EvalCDGPSeqInt(state: StateCDGP)
     }
   }
   override def updateEval(s: (Op, FSeqInt)): (Op, FSeqInt) = {
-    (s._1, FSeqInt(s._2.correct, s._2.value ++ evalOnTests(s._1, state.testsManager.newTests.toList), s._1.size))
+    val missingTests = state.testsManager.dropFromTests(s._2.totalTests) ++ state.testsManager.newTests.toList
+    (s._1, FSeqInt(s._2.correct, s._2.value ++ evalOnTests(s._1, missingTests), s._1.size))
   }
   override def defaultValue(s: Op) = FSeqInt(false, Seq(), s.size)
   override val correct = (e: FSeqInt) => e.correct && e.value.sum == 0
@@ -367,7 +376,8 @@ class EvalCDGPInt(state: StateCDGP)
     }
   }
   override def updateEval(s: (Op, FInt)): (Op, FInt) = {
-    val newFit = FInt(s._2.correct, s._2.value + evalOnTests(s._1, state.testsManager.newTests.toList).sum, s._1.size, state.testsManager.getNumberOfTests)
+    val missingTests = state.testsManager.dropFromTests(s._2.totalTests) ++ state.testsManager.newTests.toList
+    val newFit = FInt(s._2.correct, s._2.value + evalOnTests(s._1, missingTests).sum, s._1.size, state.testsManager.getNumberOfTests)
     (s._1, newFit)
   }
   override def defaultValue(s: Op) = FInt(false, Seq(), s.size)
@@ -439,12 +449,14 @@ class EvalGPRSeqInt(state: StateGPR)
     }
   }
   override def updateEval(s: (Op, FSeqInt)): (Op, FSeqInt) = {
-    (s._1, FSeqInt(s._2.correct, s._2.value ++ evalOnTests(s._1, state.testsManager.newTests.toList), s._1.size))
+    val missingTests = state.testsManager.dropFromTests(s._2.totalTests) ++ state.testsManager.newTests.toList
+    (s._1, FSeqInt(s._2.correct, s._2.value ++ evalOnTests(s._1, missingTests), s._1.size))
   }
   override def defaultValue(s: Op) = FSeqInt(false, Seq(), s.size)
   override val correct = (e: FSeqInt) => e.correct && e.value.sum == 0
   override val ordering = FSeqIntOrdering
 }
+
 
 class EvalGPRInt(state: StateGPR)
                 (implicit opt: Options, coll: Collector)
@@ -460,7 +472,8 @@ class EvalGPRInt(state: StateGPR)
     }
   }
   override def updateEval(s: (Op, FInt)): (Op, FInt) = {
-    val newFit = FInt(s._2.correct, s._2.value + evalOnTests(s._1, state.testsManager.newTests.toList).sum, s._1.size, state.testsManager.getNumberOfTests)
+    val missingTests = state.testsManager.dropFromTests(s._2.totalTests) ++ state.testsManager.newTests.toList
+    val newFit = FInt(s._2.correct, s._2.value + evalOnTests(s._1, missingTests).sum, s._1.size, state.testsManager.getNumberOfTests)
     (s._1, newFit)
   }
   override def defaultValue(s: Op) = FInt(false, Seq(), s.size)
@@ -661,7 +674,8 @@ class EvalGPSeqDouble(state: StateCDGP)
       FSeqDouble(isPerfect, eval, s.size)
   }
   override def updateEval(s: (Op, FSeqDouble)): (Op, FSeqDouble) = {
-    (s._1, FSeqDouble(s._2.correct, s._2.value ++ evalOnTests(s._1, state.testsManager.newTests.toList), s._1.size))
+    val missingTests = state.testsManager.dropFromTests(s._2.totalTests) ++ state.testsManager.newTests.toList
+    (s._1, FSeqDouble(s._2.correct, s._2.value ++ evalOnTests(s._1, missingTests), s._1.size))
   }
   override def defaultValue(s: Op) = FSeqDouble(false, Seq(), s.size)
   override val correct = (e: FSeqDouble) => e.mse <= optThreshold
@@ -695,7 +709,8 @@ class EvalGPDoubleMSE(state: StateCDGP)
   }
   override def updateEval(s: (Op, FDouble)): (Op, FDouble) = {
     // evalOnTests returns a vector of absolute differences
-    val newValue = s._2.value + evalOnTests(s._1, state.testsManager.newTests.toList).map{ x => x * x }.sum
+    val missingTests = state.testsManager.dropFromTests(s._2.totalTests) ++ state.testsManager.newTests.toList
+    val newValue = s._2.value + evalOnTests(s._1, missingTests).map{ x => x * x }.sum
     val newFit = FDouble(s._2.correct, newValue, s._1.size)
     (s._1, newFit)
   }

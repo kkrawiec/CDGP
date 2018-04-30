@@ -39,7 +39,7 @@ object Tools {
     */
   def double2str(d: Double): String = df.format(d)
 
-  def stddev(xs: List[Double], avg: Double): Double = xs match {
+  def stddev(xs: Seq[Double], avg: Double): Double = xs match {
     case Nil => -1.0
     case ys => math.sqrt((0.0 /: ys) {
       (a,e) => a + math.pow(e - avg, 2.0)

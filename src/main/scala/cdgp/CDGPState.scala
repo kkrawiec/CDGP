@@ -194,24 +194,6 @@ class StateSMTSolver(sygusData: SygusProblemData)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 class StateCDGP(sygusData: SygusProblemData)
                (implicit opt: Options, coll: Collector, rng: TRandom)
   extends StateSMTSolver(sygusData) {
