@@ -153,11 +153,11 @@ class CDGPSteadyState(moves: GPMoves,
 
 object CDGPSteadyState {
   def getSelection()(implicit opt: Options, rng: TRandom): Selection[Op, FInt] =
-    new TournamentSelection(FIntOrdering, opt('tournamentSize, 7, (_: Int) >= 2))
+    new TournamentSelection(FIntOrdering, opt('tournamentSize, 7))
 
   def getDeselection()(implicit opt: Options, rng: TRandom): Selection[Op, FInt] = {
-    val k = opt('tournamentSize, 7, (_: Int) >= 2)
-    new TournamentSelection(FIntOrdering.reverse, opt('tournamentDeselectSize, k, (_: Int) >= 2))
+    val k = opt('tournamentSize, 7)
+    new TournamentSelection(FIntOrdering.reverse, opt('tournamentDeselectSize, k))
   }
 
   def apply(eval: EvalFunction[Op, FInt])
