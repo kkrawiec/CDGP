@@ -2,10 +2,10 @@
 *Counterexample-Driven Genetic Programming* (CDGP) aims to close the gap between inductive program synthesis methods using heuristic search, more precisely genetic programming (GP), and (deductive) program synthesis from a formal specification of the problem. To ensure that a synthesized program meets the formal specification for all possible inputs, a logical proof must be conducted. In our implementation, for proving program correctnes we employ an external Satisfiability Modulo Theories (SMT) solver.
 
 CDGP, similarly to the standard GP, utilizes evolutionary search to find the expected program.
-It starts with the empty set of test cases.
+It starts with an empty set of test cases.
 After a new population is created and evaluated on the current set of tests, solutions are verified against the formal specification.
 If a program is correct, then the evolution ends and it is returned.
-If a program is incorrect, a counterexample input returned by an SMT solver is transformed to a test and added to a set of test cases.
+If a program is incorrect, a counterexample input returned by an SMT solver is transformed to a test and added to the set of test cases.
 A parameter '--testsRatio' can be used to specify, what ratio of collected tests must be passed in order to apply verification.
 
 Here is the conceptual diagram of CDGP, taken from the publication:
