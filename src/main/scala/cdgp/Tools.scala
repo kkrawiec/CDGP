@@ -32,7 +32,7 @@ object Tools {
     result
   }
 
-  val df = new DecimalFormat("0", DecimalFormatSymbols.getInstance(Locale.ENGLISH))
+  val df = new DecimalFormat("0.0", DecimalFormatSymbols.getInstance(Locale.ENGLISH))
   df.setMaximumFractionDigits(340)
   /**
     * Convert Double to String using dot punctuation and without scientific notation.

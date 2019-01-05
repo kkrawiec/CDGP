@@ -534,7 +534,12 @@ object SMTLIBFormatter {
       val boundVars = list.map{ case (name, sort) => s"($name ${sortToString(sort)})" }
       s"(forall (${boundVars.mkString("")}) ${termToSmtlib(term)})"
     case SymbolTerm(name) => name
-    case LiteralTerm(lit) => lit match { case StringConst(v) => "\"" + v + "\""; case x => x.toString}
+    case LiteralTerm(lit) => lit match {
+      case StringConst(v) => "\"" + v + "\""
+      case IntConst(x) => normalizeNumber(x.toString)
+      case RealConst(x) => normalizeNumber(Tools.double2str(x))
+      case x => x.toString
+    }
     case prod: Product => prod.productArity match {
       // Product catches any case class
       case 1 => termToSmtlib(prod.productElement(0))
