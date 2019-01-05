@@ -58,7 +58,22 @@ object RegressionBenchmarks extends App {
     }
 
     def prefixedName(i: Int, name: String): String = s"cdgp.P$i.$name"
+  }
 
+  abstract class PropertyMonotonicity(name: String) extends Property(name) {
+    /** Every cdgp.Pi.var1 variable should be bounded by the same range as x. */
+    def updateRange(range: Seq[VarRange], var1: String, id: Int): Seq[VarRange] = {
+      val rv = range.find{ case Range(v, _, _, _, _) => v == var1 }
+      if (rv.isDefined) {
+        val rv2 = rv.get match {
+          case Range(v, lb, ub, lbS, ubS) => Range(prefixedName(id, var1), lb, ub, lbS, ubS)
+          case _ => throw new Exception("Invalid occurrence of an empty range!")
+        }
+        range.+:(rv2)
+      }
+      else
+        range
+    }
   }
 
 
@@ -108,30 +123,33 @@ object RegressionBenchmarks extends App {
     * (assert (=> (> var1_prop0 var1)  (> (f var1_prop0) (f var1))))
     *
     */
-  case class PropAscending(var1: String, range: Seq[VarRange] = Seq()) extends Property("PropAscending") {
+  case class PropAscending(var1: String, range: Seq[VarRange] = Seq()) extends PropertyMonotonicity("PropAscending") {
     override def encode(id: Int, b: Benchmark): (Seq[String], Seq[String]) = {
       val var1Prop = prefixedName(id, var1)
       val decls = List(s"(declare-fun $var1Prop () Real)")
       val sign = ">"
       val varsChanged = changeVarNames(b.vars, Map(var1->var1Prop))
       val c = s"(=> (> $var1Prop $var1)  ($sign ${funCall(b.funName, varsChanged)} ${funCall(b.funName, b.vars)}))"
-      val constr = List(wrapConstrInRanges(c, range))
+      val constr = List(wrapConstrInRanges(c, updateRange(range, var1, id)))
       (decls, constr)
     }
   }
 
 
-  case class PropDescending(var1: String, range: Seq[VarRange] = Seq()) extends Property("PropDescending") {
+  case class PropDescending(var1: String, range: Seq[VarRange] = Seq()) extends PropertyMonotonicity("PropDescending") {
     override def encode(id: Int, b: Benchmark): (Seq[String], Seq[String]) = {
       val var1Prop = prefixedName(id, var1)
       val decls = List(s"(declare-fun $var1Prop () Real)")
       val sign = "<"
       val varsChanged = changeVarNames(b.vars, Map(var1->var1Prop))
       val c = s"(=> (> $var1Prop $var1)  ($sign ${funCall(b.funName, varsChanged)} ${funCall(b.funName, b.vars)}))"
-      val constr = List(wrapConstrInRanges(c, range))
+      val constr = List(wrapConstrInRanges(c, updateRange(range, var1, id)))
       (decls, constr)
     }
   }
+
+
+
 
 
   /**
@@ -238,8 +256,8 @@ object RegressionBenchmarks extends App {
     * @param lbSign <= (default) or <.
     * @param ubSign >= (default) or >.
     */
-  abstract class VarRange(varName: String, lb: Option[Double] = None, ub: Option[Double] = None,
-                          lbSign: String = ">=", ubSign: String = "<=") {
+  abstract class VarRange(val varName: String, val lb: Option[Double] = None, val ub: Option[Double] = None,
+                          val lbSign: String = ">=", val ubSign: String = "<=") {
     assert(lbSign == ">=" || lbSign == ">")
     assert(ubSign == "<=" || ubSign == "<")
     def getCondition: String = {
@@ -257,10 +275,11 @@ object RegressionBenchmarks extends App {
     }
   }
   case class EmptyRange() extends VarRange("", None, None)
-  case class Range(varName: String, lb: Option[Double] = None, ub: Option[Double] = None,
-                   lbSign: String = ">=", ubSign: String = "<=") extends VarRange(varName, lb, ub, lbSign, ubSign)
-  case class RangeLU(varName: String, lb: Double, ub: Double,
-                     lbSign: String = ">=", ubSign: String = "<=") extends VarRange(varName, Some(lb), Some(ub), lbSign, ubSign)
+  case class Range(override val varName: String,
+                   override val lb: Option[Double] = None,
+                   override val ub: Option[Double] = None,
+                   override val lbSign: String = ">=",
+                   override val ubSign: String = "<=") extends VarRange(varName, lb, ub, lbSign, ubSign)
 
 
 
@@ -364,6 +383,7 @@ object RegressionBenchmarks extends App {
     Seq(
       PropApproxDerivative("x", 1.0, 2.0, degree=1),
       PropApproxDerivative("x", 1.0, 2.0, degree=2),
+      PropApproxDerivative("x", 1.0, 0.0, degree=3),
       PropOutputBound(Some(0.0), None),
       PropAscending("x", range=rangesGtZero("x")),
       PropDescending("x", range=rangesLtZero("x"))
