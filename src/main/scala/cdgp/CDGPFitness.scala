@@ -232,7 +232,10 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP)
         evalOnTestsDomain(s, test)
       else evalOnTestsSolver(s, test)
     }
-    catch { case e: Throwable => handleException(test, e.getMessage); 1 }
+    catch {
+      case _: ExceptionIncorrectOperation => 1
+      case e: Throwable => handleException(test, e.getMessage); 1
+    }
   }
 
 
@@ -536,9 +539,12 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
           evalOnTestsDomain(s, test)
         else evalOnTestsSolver(s, test)
       }
-      catch { case e: Throwable =>
-        handleException(test, e.getMessage)
-        Double.PositiveInfinity  // return PositiveInfinity for situations like division by 0
+      catch {
+        // return PositiveInfinity for situations like division by 0
+        case _: ExceptionIncorrectOperation => Double.PositiveInfinity
+        case e: Throwable =>
+          handleException(test, e.getMessage)
+          Double.PositiveInfinity
       }
     }
   }

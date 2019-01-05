@@ -7,11 +7,17 @@ import swim.RecursiveDomain
 import scala.collection.Seq
 
 
+final case class ExceptionIncorrectOperation(message: String,
+                                             cause: Throwable = None.orNull)
+  extends Exception(message, cause)
+
+
+
 class DomainSLIA(val funArgsNames: Seq[String], funName: Symbol, recDepth: Int = 100)
   extends RecursiveDomain[Any, Any](funArgsNames.size, recDepth, recSymbol = funName, iteSymbol = 'ite) {
 
   def divide(m: Int, n: Int, smtlibSem: Boolean = true): Int = {
-    if (n == 0) throw new Exception("Division by 0 during evaluation!")
+    if (n == 0) throw ExceptionIncorrectOperation("Division by 0 during evaluation!")
     if (smtlibSem) {
       /* "Regardless of sign of m,
           if n is positive, (div m n) is the floor of the rational number m/n;
@@ -26,7 +32,7 @@ class DomainSLIA(val funArgsNames: Seq[String], funName: Symbol, recDepth: Int =
   }
 
   def modulo(m: Int, n: Int, smtlibSem: Boolean = true): Int = {
-    if (n == 0) throw new Exception("Modulo by 0 during evaluation!")
+    if (n == 0) throw ExceptionIncorrectOperation("Modulo by 0 during evaluation!")
     if (smtlibSem)
       /*In SMTLIB m % n is equal: m - (m div n) * n and is always non-negative.
        * Example:
@@ -145,7 +151,7 @@ class DomainReals(val funArgsNames: Seq[String], funName: Symbol, recDepth: Int 
   extends RecursiveDomain[Any, Any](funArgsNames.size, recDepth, recSymbol = funName, iteSymbol = 'ite) {
 
   def divide(x: Double, y: Double): Double = {
-    if (y == 0.0) throw new Exception("Division by 0 during evaluation!")
+    if (y == 0.0) throw ExceptionIncorrectOperation("Division by 0 during evaluation!")
     else x / y
   }
 
