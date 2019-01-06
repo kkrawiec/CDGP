@@ -78,7 +78,7 @@ object RegressionBenchmarks extends App {
 
 
   /**
-    * Allows expression of arbitrary constraints.
+    * Arbitrary constraint provided as an SMT-LIB formula.
     *
     * @param formula A formula representing the constraint.
     * @param callMarker Every instance of callMarker string in the formula will be replaced with
@@ -86,7 +86,9 @@ object RegressionBenchmarks extends App {
     * @param range Applicability range of this constraint in terms of variables.
     * @param expr Expression which will be put into the constraint.
     */
-  case class CustomConstraint(formula: String, callMarker: String = "{0}", range: Seq[VarRange] = Seq(), expr: String = "") extends Property("CustomConstraint") {
+  case class CustomConstraint(formula: String, callMarker: String = "{0}", range: Seq[VarRange] = Seq(), expr: String = "")
+    extends Property("CustomConstraint") {
+
     override def encode(id: Int, b: Benchmark): (Seq[String], Seq[String]) = {
       val expression = if (expr != "") expr else funCall(b.funName, b.vars)
       (List(), List(wrapConstrInRanges(formula.replace(callMarker, expression), range)))
@@ -94,9 +96,14 @@ object RegressionBenchmarks extends App {
   }
 
 
+  /**
+    * Produces constraint stating that the function's output is always within certain bounds.
+    * (assert (>= (f x) 0.0))
+    */
   case class PropOutputBound(lb: Option[Double], ub: Option[Double],
                              lbSign: String = ">=", ubSign: String = "<=",
-                             range: Seq[VarRange] = Seq()) extends Property("PropOutputBound") {
+                             range: Seq[VarRange] = Seq())
+    extends Property("PropOutputBound") {
     assert(List(">=", ">", "=", "distinct").contains(lbSign))
     assert(List("<=", "<", "=", "distinct").contains(ubSign))
     override def encode(id: Int, b: Benchmark): (Seq[String], Seq[String]) = {
@@ -127,7 +134,9 @@ object RegressionBenchmarks extends App {
     * such a case a counterexample would not be produced, because cdgp.P1.var1 would be a bounded
     * variable.
     */
-  case class PropAscending(var1: String, range: Seq[VarRange] = Seq(), strict: Boolean = false) extends PropertyMonotonicity("PropAscending") {
+  case class PropAscending(var1: String, range: Seq[VarRange] = Seq(), strict: Boolean = false)
+    extends PropertyMonotonicity("PropAscending") {
+
     override def encode(id: Int, b: Benchmark): (Seq[String], Seq[String]) = {
       val var1Prop = prefixedName(id, var1)
       val decls = List(s"(declare-fun $var1Prop () Real)")
@@ -139,7 +148,9 @@ object RegressionBenchmarks extends App {
     }
   }
 
-  case class PropDescending(var1: String, range: Seq[VarRange] = Seq(), strict: Boolean = false) extends PropertyMonotonicity("PropDescending") {
+  case class PropDescending(var1: String, range: Seq[VarRange] = Seq(), strict: Boolean = false)
+    extends PropertyMonotonicity("PropDescending") {
+
     override def encode(id: Int, b: Benchmark): (Seq[String], Seq[String]) = {
       val var1Prop = prefixedName(id, var1)
       val decls = List(s"(declare-fun $var1Prop () Real)")
@@ -179,7 +190,8 @@ object RegressionBenchmarks extends App {
                                   dNeigh: Double = 0.0,
                                   dDelta: Double = 0.000001,
                                   dValue: Double = 0.001,
-                                  range: Seq[VarRange] = Seq()) extends Property("PropApproxDerivative") {
+                                  range: Seq[VarRange] = Seq())
+    extends Property("PropApproxDerivative") {
     assert(degree > 0)
     assert(dNeigh >= 0.0)
     assert(dDelta >= 0.0)
@@ -233,6 +245,7 @@ object RegressionBenchmarks extends App {
   /**
     * Produces constraint indicating that the result of a function is the same under exchanging the
     * positions of the specified variables.
+    * (= (f x y) (f y x))
     */
   case class PropVarSymmetry2(var1: String, var2: String, range: Seq[VarRange] = Seq())
     extends Property("PropVarSymmetry2") {
@@ -240,9 +253,28 @@ object RegressionBenchmarks extends App {
     override def encode(id: Int, b: Benchmark): (Seq[String], Seq[String]) = {
       val i1 = b.vars.indexOf(var1)
       val i2 = b.vars.indexOf(var2)
-      assert(i1 != -1 && i2 != -1)
+      assert(i1 != -1 && i2 != -1, "Incorrect variable name!")
       val x = b.vars(i1)
       val varsExchanged = b.vars.updated(i1, b.vars(i2)).updated(i2, x)
+      val c = s"(= ${funCall(b.funName, b.vars)} ${funCall(b.funName, varsExchanged)})"
+      (List(), List(wrapConstrInRanges(c, range)))
+    }
+  }
+
+
+  /**
+    * Produces constraint indicating that the result of a function does not change when the
+    * specified var1 variable is negated, i.e. f(x,y) = f(-x,y).
+    * (= (f x y) (f (- x) y))
+    */
+  case class PropSymmetryYAxis(var1: String, range: Seq[VarRange] = Seq())
+    extends Property("PropSymmetryYAxis") {
+
+    override def encode(id: Int, b: Benchmark): (Seq[String], Seq[String]) = {
+      val i1 = b.vars.indexOf(var1)
+      assert(i1 != -1, "Incorrect variable name!")
+      val x = b.vars(i1)
+      val varsExchanged = b.vars.updated(i1, s"(- ${b.vars(i1)})")
       val c = s"(= ${funCall(b.funName, b.vars)} ${funCall(b.funName, varsExchanged)})"
       (List(), List(wrapConstrInRanges(c, range)))
     }
@@ -388,6 +420,7 @@ object RegressionBenchmarks extends App {
       PropApproxDerivative("x", 1.0, 2.0, degree=1),
       PropApproxDerivative("x", 1.0, 2.0, degree=2),
       PropApproxDerivative("x", 1.0, 0.0, degree=3),
+      PropSymmetryYAxis("x"),
       PropOutputBound(Some(0.0), None),
       PropAscending("x", range=rangesGtZero("x")),
       PropDescending("x", range=rangesLtZero("x"))
@@ -397,6 +430,7 @@ object RegressionBenchmarks extends App {
       PropApproxDerivative("x", 1.0, 2.0, degree=1),
       PropApproxDerivative("x", 1.0, 2.0, degree=2),
       PropApproxDerivative("x", 1.0, 0.0, degree=3),
+      PropSymmetryYAxis("x"),
       PropOutputBound(Some(0.0), None),
       PropAscending("x", range=rangesGtZero("x")),
       PropDescending("x", range=rangesLtZero("x"))
