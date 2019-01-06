@@ -116,18 +116,22 @@ object RegressionBenchmarks extends App {
 
 
   /**
-    * This constraint is used to guarantee that the function is always ascending with the
-    * change on var1 variable. In SMT-LIB this looks like this:
+    * Produces constraint that is used to guarantee that the function is always ascending with the
+    * change on the var1 variable. In SMT-LIB this looks like this:
     * (declare-fun var1 () Real)
-    * (declare-fun var1_prop0 () Real)
-    * (assert (=> (> var1_prop0 var1)  (> (f var1_prop0) (f var1))))
+    * (declare-fun cdgp.P1.var1 () Real)
+    * (assert (=> (> cdgp.P1.var1 var1)  (>= (f cdgp.P1.var1) (f var1))))
     *
+    * NOTE: the constraint presented above is assumed to be negated during verification. Normally,
+    * a universal quantifier on the cdgp.P1.var1 should be used in the assertion above. But in
+    * such a case a counterexample would not be produced, because cdgp.P1.var1 would be a bounded
+    * variable.
     */
-  case class PropAscending(var1: String, range: Seq[VarRange] = Seq()) extends PropertyMonotonicity("PropAscending") {
+  case class PropAscending(var1: String, range: Seq[VarRange] = Seq(), strict: Boolean = false) extends PropertyMonotonicity("PropAscending") {
     override def encode(id: Int, b: Benchmark): (Seq[String], Seq[String]) = {
       val var1Prop = prefixedName(id, var1)
       val decls = List(s"(declare-fun $var1Prop () Real)")
-      val sign = ">"
+      val sign = if (strict) ">" else ">="
       val varsChanged = changeVarNames(b.vars, Map(var1->var1Prop))
       val c = s"(=> (> $var1Prop $var1)  ($sign ${funCall(b.funName, varsChanged)} ${funCall(b.funName, b.vars)}))"
       val constr = List(wrapConstrInRanges(c, updateRange(range, var1, id)))
@@ -135,12 +139,11 @@ object RegressionBenchmarks extends App {
     }
   }
 
-
-  case class PropDescending(var1: String, range: Seq[VarRange] = Seq()) extends PropertyMonotonicity("PropDescending") {
+  case class PropDescending(var1: String, range: Seq[VarRange] = Seq(), strict: Boolean = false) extends PropertyMonotonicity("PropDescending") {
     override def encode(id: Int, b: Benchmark): (Seq[String], Seq[String]) = {
       val var1Prop = prefixedName(id, var1)
       val decls = List(s"(declare-fun $var1Prop () Real)")
-      val sign = "<"
+      val sign = if (strict) "<" else "<="
       val varsChanged = changeVarNames(b.vars, Map(var1->var1Prop))
       val c = s"(=> (> $var1Prop $var1)  ($sign ${funCall(b.funName, varsChanged)} ${funCall(b.funName, b.vars)}))"
       val constr = List(wrapConstrInRanges(c, updateRange(range, var1, id)))
@@ -153,7 +156,7 @@ object RegressionBenchmarks extends App {
 
 
   /**
-    * Produces constraints for a derivative of the form:
+    * Produces constraint for a value of a derivative in a certain point:
     * (assert (not (=> (and (> x (- dp1 eps1))  (< x (+ dp1 eps1)))
     *   (and (> (/ (- (f (+ x eps2)) (f x) ) eps2) (- derivative eps3) )
     *        (< (/ (- (f (+ x eps2)) (f x) ) eps2) (+ derivative eps3) )
@@ -228,8 +231,8 @@ object RegressionBenchmarks extends App {
 
 
   /**
-    * Constraint indicating that the result of a function is the same under exchanging the positions
-    * of the specified variables.
+    * Produces constraint indicating that the result of a function is the same under exchanging the
+    * positions of the specified variables.
     */
   case class PropVarSymmetry2(var1: String, var2: String, range: Seq[VarRange] = Seq())
     extends Property("PropVarSymmetry2") {
@@ -244,6 +247,7 @@ object RegressionBenchmarks extends App {
       (List(), List(wrapConstrInRanges(c, range)))
     }
   }
+
 
 
   /**
@@ -388,6 +392,15 @@ object RegressionBenchmarks extends App {
       PropAscending("x", range=rangesGtZero("x")),
       PropDescending("x", range=rangesLtZero("x"))
     ))
+  val b_poly2 = Benchmark("poly2", Seq("x", "y"),
+    Seq(
+      PropApproxDerivative("x", 1.0, 2.0, degree=1),
+      PropApproxDerivative("x", 1.0, 2.0, degree=2),
+      PropApproxDerivative("x", 1.0, 0.0, degree=3),
+      PropOutputBound(Some(0.0), None),
+      PropAscending("x", range=rangesGtZero("x")),
+      PropDescending("x", range=rangesLtZero("x"))
+    ))
   val b_gravity = Benchmark("gravity", Seq("m1", "m2", "r"),
     Seq(
       PropVarSymmetry2("m1", "m2", rangesGeqZero01("m1", "m2", "r")),
@@ -412,7 +425,8 @@ object RegressionBenchmarks extends App {
   val ns = Seq(10, 25, 50)
 
   val benchmarks = Seq(
-    ns.map{ n => Benchmark(b_poly1, generateTestsU(1, n, fPoly1, 0.0, 20.0)) }
+    ns.map{ n => Benchmark(b_poly1, generateTestsU(1, n, fPoly1, 0.0, 20.0)) },
+    ns.map{ n => Benchmark(b_poly2, generateTestsU(2, n, fPoly2, 0.0, 20.0)) }
     //Seq(Benchmark(b_poly1, Seq()))
     //ns.map{ n => Benchmark(b_gravity, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
     //ns.map{ n => Benchmark(b_gravityNoG, generateTestsU(3, n, fGravityNoG, 0.0, 20.0)) },
