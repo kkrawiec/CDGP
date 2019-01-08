@@ -320,6 +320,25 @@ object RegressionBenchmarks extends App {
 
 
   /**
+    * Negates the provided property.
+    *
+    * NOTE: must be used very carefully! Particularly, if the constraint is in the form
+    * of an implication, then negating it and then negating it again during verification
+    * will create a situation, in which it simply suffices to make the antecedent false
+    * (which usually is trivial).
+    */
+  case class PropNot(prop: Property, range: Seq[VarRange] = Seq())
+    extends Property("PropNot") {
+
+    override def encode(id: Int, b: Benchmark): (Seq[String], Seq[String]) = {
+      val (decls, constr) = prop.encode(id, b)
+      (decls, constr.map(c => s"(not $c)"))
+    }
+  }
+
+
+
+  /**
     * A range of possible values for a certain variable. Any property can be specified to work
     * only for variables in a certain range, which is defined using this class.
     *
