@@ -61,7 +61,7 @@ object RegressionBenchmarks extends App {
   }
 
   abstract class PropertyMonotonicity(name: String) extends Property(name) {
-    /** Every cdgp.Pi.var1 variable should be bounded by the same range as x. */
+    /** Every cdgp.Pi.var1 variable should be bounded by the same range as var1 variable. */
     def updateRange(range: Seq[VarRange], var1: String, id: Int): Seq[VarRange] = {
       val rv = range.find{ case Range(v, _, _, _, _) => v == var1 }
       if (rv.isDefined) {
@@ -277,6 +277,43 @@ object RegressionBenchmarks extends App {
       val varsExchanged = b.vars.updated(i1, s"(- ${b.vars(i1)})")
       val c = s"(= ${funCall(b.funName, b.vars)} ${funCall(b.funName, varsExchanged)})"
       (List(), List(wrapConstrInRanges(c, range)))
+    }
+  }
+
+
+
+  /**
+    * Produces constraint indicating that the function is injective, i.e. a function f
+    * won't produce the same outcome for two different arguments.
+    * (declare-fun cdgp.P1.x () Real)
+    * (declare-fun cdgp.P1.y () Real)
+    * (assert (=> (and (distinct x cdgp.P1.x) (distinct y cdgp.P1.y))
+    *             (distinct (f2 x y) (f2 cdgp.P1.x cdgp.P1.y))))
+    */
+  case class PropInjective(range: Seq[VarRange] = Seq())
+    extends Property("PropInjective") {
+
+    override def encode(id: Int, b: Benchmark): (Seq[String], Seq[String]) = {
+      val prefixedVars = b.vars.map(prefixedName(id, _))
+      val decls = prefixedVars.map{ v => s"(declare-fun $v () Real)" }
+      val c = s"(=> ${antecedent(b, prefixedVars)} ${consequent(b, prefixedVars)})"
+      (decls, List(wrapConstrInRanges(c, updateRange(range, prefixedVars, id))))
+    }
+
+    def antecedent(b: Benchmark, prefixedVars: Seq[String]): String = {
+      val conds = b.vars.zip(prefixedVars).map{ case (v1, v2) => s"(distinct $v1 $v2)" }
+      s"(and ${conds.mkString("", " ", "")})"
+    }
+
+    def consequent(b: Benchmark, prefixedVars: Seq[String]): String = {
+      s"(distinct ${funCall(b.funName, b.vars)} ${funCall(b.funName, prefixedVars)})"
+    }
+
+    /** Every cdgp.Pi.x variable should be bounded by the same range as x variable. */
+    def updateRange(range: Seq[VarRange], prefixedVars: Seq[String], id: Int): Seq[VarRange] = {
+      range.zip(prefixedVars).flatMap{
+        case (r @ Range(v, lb, ub, lbS, ubS), newV) => List(r, Range(newV, lb, ub, lbS, ubS))
+      }
     }
   }
 
