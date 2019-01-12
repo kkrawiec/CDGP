@@ -202,7 +202,7 @@ class StateCDGP(sygusData: SygusProblemData)
   val searchForSecondOutput = opt('searchForSecondOutput, true)
   val testsAbsDiff: Option[Int] = opt.getOptionInt("testsAbsDiff")
   val testsRatio: Double = opt('testsRatio, 1.0, (x: Double) => x >= 0.0 && x <= 1.0)
-  val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, Int.MaxValue, (x: Int) => x > 0)
+  val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, Int.MaxValue, (x: Int) => x >= 0)
 
   // For statistic/diagnostic info
   var numRejectedCounterex = 0

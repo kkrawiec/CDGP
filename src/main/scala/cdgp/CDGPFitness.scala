@@ -202,7 +202,7 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP)
 
   val testsAbsDiff: Option[Int] = opt.getOptionInt("testsAbsDiff")
   val testsRatio: Double = opt('testsRatio, 1.0, (x: Double) => x >= 0.0 && x <= 1.0)
-  val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, Int.MaxValue, (x: Int) => x > 0)
+  val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, Int.MaxValue, (x: Int) => x >= 0)
 
 
   /**
@@ -514,7 +514,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
   // Verified will be solutions with fitness not worse then this times the solutions of best in the population
   //val verificationRatio: Double = opt.paramDouble('verificationRatio, 1.1)
   //assert(verificationRatio >= 1.0, "verificationRatio cannot be lower than 1.0.")
-  val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, 5, (x: Int) => x > 0)
+  val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, 5, (x: Int) => x >= 0)
 
   checkValidity()
 
