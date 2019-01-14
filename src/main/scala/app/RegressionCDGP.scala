@@ -9,7 +9,8 @@ import fuel.func._
 import fuel.util._
 import swim.tree.Op
 
-object Regression {
+
+object RegressionCDGP {
 
   def getEvalForSeqDouble(state: StateCDGP, method: String)
                          (implicit coll: Collector, opt: Options):
