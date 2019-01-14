@@ -98,6 +98,7 @@ object RegressionCDGP {
 
 
   def run(implicit opt: Options): Unit = {
+    assert(!opt('parEval, false), "CDGP does not support multithreaded evaluation.")
     implicit val coll = CollectorFile(opt)
     implicit val rng = Rng(opt)
 

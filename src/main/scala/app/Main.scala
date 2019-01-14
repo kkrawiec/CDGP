@@ -64,7 +64,7 @@ object Main {
   // --------------------------------------------------------------------------
 
   def main(args: Array[String]): Unit = {
-    val opt = getOptions(args ++ Array("--parEval", "false")) // ensure that --parEval false is used
+    val opt = getOptions(args ++ Array("--parEval", "false"))  // ensure that "--parEval false" is used
     val useRegression = opt.paramBool("regression", false)
     if (useRegression)
       RegressionCDGP.run(opt)
