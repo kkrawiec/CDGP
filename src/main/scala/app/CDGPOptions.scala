@@ -132,7 +132,6 @@ object CDGPOptions {
   args += OptionInfo("selection", "String", choice=Set("lexicase", "tournament"), default=Some("lexicase"), desc="Selection of the evolutionary algorithm.")
 
   // other args
-  args += OptionInfo("eps", "Double", default=Some("0.0001"), desc="Optimality threshold. If the solution's error is below this number, then the it is assumed to be optimal and the run is terminated.")
   args += OptionInfo("gprMaxInt", "Int", default=Some("100"), desc="Upper bound for Int terminals in GPR.")
   args += OptionInfo("gprMaxDouble", "Double", default=Some("1.0"), desc="Upper bound for Double terminals in GPR.")
   args += OptionInfo("gprMinInt", "Int", default=Some("-100"), desc="Lower bound for Int terminals in GPR.")
@@ -154,7 +153,7 @@ object CDGPOptions {
   args += OptionInfo("n", "Int", default=Some("100"), desc="???.")
   args += OptionInfo("notes", "String", desc="Any additional notes to be saved in logs.")
   args += OptionInfo("optionsFile", "String", desc="Path to property file from which options will be read.")
-  args += OptionInfo("optThreshold", "Double", default=Some("1.0e-25"), desc=".")
+  args += OptionInfo("optThreshold", "Double", default=Some("1.0e-5"), desc="Optimality threshold. If the solution's error is below this number, then the it is assumed to be optimal and the run is terminated.")
   args += OptionInfo("printTests", "Bool", default=Some("false"), desc=".")
   args += OptionInfo("printQueries", "Bool", default=Some("false"), desc="Print all queries to SMT solver.")
   args += OptionInfo("recDepthLimit", "Int", default=Some("1000"), desc="A limit of calls for recursive functions.")

@@ -507,7 +507,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
 
   // Parameters:
   val testsRatio: Double = opt('testsRatio, 1.0, (x: Double) => x >= 0.0 && x <= 1.0)
-  val optThreshold: Double = opt.paramDouble('optThreshold, 1.0e-25)
+  val optThreshold: Double = opt.paramDouble('optThreshold, 1.0e-5)
   //val verificationMode: String = opt.paramString('verificationMode, "ratioIncomplete")
   //val verModeValues = Set("ratioIncomplete", "mse")
   //assert(verModeValues.contains(verificationMode), s"verificationMode accepts values: ${verModeValues.mkString(", ")}}.")
