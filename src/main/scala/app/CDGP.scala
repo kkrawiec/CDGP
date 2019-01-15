@@ -2,7 +2,6 @@ package app
 
 import java.io.{PrintWriter, StringWriter}
 
-import app.Main.{getOptions, watchTime, runWithTimeout}
 import fuel.func.RunExperiment
 import fuel.core.StatePop
 import fuel.util._
@@ -12,29 +11,6 @@ import cdgp._
 
 object CDGP {
 
-  def watchTimeMultipop[E <: Fitness](alg: CDGPAlgorithm[Op, E], f: => Option[Seq[StatePop[(Op, E)]]])
-                                     (implicit coll: Collector, opt: Options): Option[StatePop[(Op, E)]] = {
-    val maxTime = opt("multipop.maxTime", 86400000)  // 24h in miliseconds
-    try {
-      val finalPops = runWithTimeout(maxTime)(f)
-      if (finalPops.isDefined) Option(StatePop(finalPops.get.flatten)) else None
-    }
-    catch {
-      case e: java.util.concurrent.TimeoutException =>
-        println("Timeout!!!!!!!!!!!!!!!!!!!")
-        coll.set("cdgp.wasTimeout", true)
-        coll.set("result.totalTimeSystem", maxTime)  // save in ms
-        if (alg.pop.isDefined) {
-          alg.bsf(alg.pop.get) // update bsf
-          alg.reportStats(alg.pop.get)
-        }
-        coll.saveSnapshot("cdgp")
-        alg.pop
-    }
-  }
-
-
-
   def runConfigGPR(benchmark: String, selection: String, evoMode: String)
                   (implicit coll: Collector, opt: Options, rng: TRandom):
   (StateCDGP, Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]) = {
@@ -43,25 +19,25 @@ object CDGP {
       case ("tournament", "generational") =>
         val eval = new EvalGPRInt(state)
         val alg = CDGPGenerational(eval)
-        val finalPop = watchTime(alg, RunExperiment(alg))
+        val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (state, finalPop, alg.bsf.bestSoFar)
 
       case ("tournament", "steadyState") =>
         val eval = new EvalGPRInt(state)
         val alg = CDGPSteadyState(eval)
-        val finalPop = watchTime(alg, RunExperiment(alg))
+        val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (state, finalPop, alg.bsf.bestSoFar)
 
       case ("lexicase", "generational") =>
         val eval = new EvalGPRSeqInt(state)
         val alg = CDGPGenerationalLexicase(eval)
-        val finalPop = watchTime(alg, RunExperiment(alg))
+        val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (state, finalPop, alg.bsf.bestSoFar)
 
       case ("lexicase", "steadyState") =>
         val eval = new EvalGPRSeqInt(state)
         val alg = CDGPSteadyStateLexicase(eval)
-        val finalPop = watchTime(alg, RunExperiment(alg))
+        val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (state, finalPop, alg.bsf.bestSoFar)
     }
   }
@@ -82,7 +58,7 @@ object CDGP {
         }
         val multipopEA = new CDGPConvectionEqualNumber[Op, FInt](state, eval, cdgpCreator,
           reportPreDivide = CDGPConvectionEqualNumber.reportAvgsInGroups("_pre"))
-        val finalPop = watchTimeMultipop(multipopEA, RunExperiment(multipopEA))
+        val finalPop = Main.watchTimeMultipop(multipopEA, RunExperiment(multipopEA))
         val best = multipopEA.bsf.bestSoFar
         (state, finalPop, best)
 
@@ -94,7 +70,7 @@ object CDGP {
         }
         val multipopEA = new CDGPConvectionEqualNumber[Op, FInt](state, eval, cdgpCreator,
           reportPreDivide = CDGPConvectionEqualNumber.reportAvgsInGroups("_pre"))
-        val finalPop = watchTimeMultipop(multipopEA, RunExperiment(multipopEA))
+        val finalPop = Main.watchTimeMultipop(multipopEA, RunExperiment(multipopEA))
         val best = multipopEA.bsf.bestSoFar
         (state, finalPop, best)
 
@@ -106,7 +82,7 @@ object CDGP {
         }
         val multipopEA = new CDGPConvectionEqualNumber[Op, FSeqInt](state, eval, cdgpCreator,
           reportPreDivide = CDGPConvectionEqualNumber.reportAvgsInGroupsFSeqInt("_pre"))
-        val finalPop = watchTimeMultipop(multipopEA, RunExperiment(multipopEA))
+        val finalPop = Main.watchTimeMultipop(multipopEA, RunExperiment(multipopEA))
         val best = multipopEA.bsf.bestSoFar
         (state, finalPop, best)
 
@@ -118,7 +94,7 @@ object CDGP {
         }
         val multipopEA = new CDGPConvectionEqualNumber[Op, FSeqInt](state, eval, cdgpCreator,
           reportPreDivide = CDGPConvectionEqualNumber.reportAvgsInGroupsFSeqInt("_pre"))
-        val finalPop = watchTimeMultipop(multipopEA, RunExperiment(multipopEA))
+        val finalPop = Main.watchTimeMultipop(multipopEA, RunExperiment(multipopEA))
         val best = multipopEA.bsf.bestSoFar
         (state, finalPop, best)
     }
@@ -134,25 +110,25 @@ object CDGP {
       case ("tournament", "generational") =>
         val eval = new EvalCDGPInt(state)
         val alg = CDGPGenerational(eval)
-        val finalPop = watchTime(alg, RunExperiment(alg))
+        val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (state, finalPop, alg.bsf.bestSoFar)
 
       case ("tournament", "steadyState") =>
         val eval = new EvalCDGPInt(state)
         val alg = CDGPSteadyState(eval)
-        val finalPop = watchTime(alg, RunExperiment(alg))
+        val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (state, finalPop, alg.bsf.bestSoFar)
 
       case ("lexicase", "generational") =>
         val eval = new EvalCDGPSeqInt(state)
         val alg = CDGPGenerationalLexicase(eval)
-        val finalPop = watchTime(alg, RunExperiment(alg))
+        val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (state, finalPop, alg.bsf.bestSoFar)
 
       case ("lexicase", "steadyState") =>
         val eval = new EvalCDGPSeqInt(state)
         val alg = CDGPSteadyStateLexicase(eval)
-        val finalPop = watchTime(alg, RunExperiment(alg))
+        val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (state, finalPop, alg.bsf.bestSoFar)
     }
   }
@@ -265,7 +241,9 @@ object CDGP {
   // --------------------------------------------------------------------------
 
   def main(args: Array[String]): Unit = {
-    val opt = getOptions(args ++ Array("--parEval", "false")) // ensure that --parEval false is used
+    if (Main.systemOptions(args))
+      sys.exit()
+    val opt = Main.getOptions(args ++ Array("--parEval", "false")) // ensure that --parEval false is used
     run(opt)
   }
 

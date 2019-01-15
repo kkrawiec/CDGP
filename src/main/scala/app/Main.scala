@@ -23,6 +23,27 @@ import scala.concurrent.ExecutionContext.Implicits.global
   */
 object Main {
 
+  def watchTimeMultipop[E <: Fitness](alg: CDGPAlgorithm[Op, E], f: => Option[Seq[StatePop[(Op, E)]]])
+                                     (implicit coll: Collector, opt: Options): Option[StatePop[(Op, E)]] = {
+    val maxTime = opt("multipop.maxTime", 86400000)  // 24h in miliseconds
+    try {
+      val finalPops = runWithTimeout(maxTime)(f)
+      if (finalPops.isDefined) Option(StatePop(finalPops.get.flatten)) else None
+    }
+    catch {
+      case e: java.util.concurrent.TimeoutException =>
+        println("Timeout!!!!!!!!!!!!!!!!!!!")
+        coll.set("cdgp.wasTimeout", true)
+        coll.set("result.totalTimeSystem", maxTime)  // save in ms
+        if (alg.pop.isDefined) {
+          alg.bsf(alg.pop.get) // update bsf
+          alg.reportStats(alg.pop.get)
+        }
+        coll.saveSnapshot("cdgp")
+        alg.pop
+    }
+  }
+
   def runWithTimeout[T](timeoutMs: Long)(f: => T) : T = {
     Await.result(Future(f), Duration(timeoutMs, MILLISECONDS))
   }
@@ -48,15 +69,24 @@ object Main {
     }
   }
 
+  def loadReplayOptions(opt: Options): Options = {
+    println("Options loaded from file: " + opt.paramString("optionsFile"))
+    val tmp = Options.loadFromFile(new File(opt.getOption("optionsFile").get))
+    new OptionsMap(tmp.allOptions.filter{ case (k, v) => !k.startsWith("result") })
+  }
+
   def getOptions(args: Array[String]): Options = {
     val opt = Options(args)
-    if (opt.getOption("optionsFile").isDefined) {
-      println("Options loaded from file: " + opt.paramString("optionsFile"))
-      val tmp = Options.loadFromFile(new File(opt.getOption("optionsFile").get))
-      new OptionsMap(tmp.allOptions.filter{ case (k, v) => !k.startsWith("result") })
-    }
-    else opt
+    val opt2 = if (opt.getOption("optionsFile").isDefined) loadReplayOptions(opt) else opt
+    CDGPOptions.validator.process(opt2)
   }
+
+  def systemOptions(args: Array[String]): Boolean = {
+    if (args.contains("--version")) { print("2018.1.0"); true }
+    else if (args.contains("--help")) { CDGPOptions.validator.printOptions(); true }
+    else false
+  }
+
 
 
   // --------------------------------------------------------------------------
@@ -64,6 +94,8 @@ object Main {
   // --------------------------------------------------------------------------
 
   def main(args: Array[String]): Unit = {
+    if (systemOptions(args))
+      sys.exit()
     val opt = getOptions(args ++ Array("--parEval", "false"))  // ensure that "--parEval false" is used
     val useRegression = opt.paramBool("regression", false)
     if (useRegression)

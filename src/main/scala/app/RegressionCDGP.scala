@@ -2,7 +2,6 @@ package app
 
 import java.io.{PrintWriter, StringWriter}
 
-import app.Main.{getOptions, watchTime}
 import cdgp._
 import fuel.core.StatePop
 import fuel.func._
@@ -28,7 +27,7 @@ object RegressionCDGP {
       case ("tournament", "generational") =>
         val eval = new EvalCDGPDoubleMSE(state)
         val alg = CDGPGenerational(eval)
-        val finalPop = watchTime(alg, RunExperiment(alg))
+        val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (finalPop, alg.bsf.bestSoFar)
 
       case ("tournament", "steadyState") =>
@@ -37,13 +36,13 @@ object RegressionCDGP {
       case ("lexicase", "generational") =>
         val eval = getEvalForSeqDouble(state, method)
         val alg = CDGPGenerationalLexicaseR(eval)
-        val finalPop = watchTime(alg, RunExperiment(alg))
+        val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (finalPop, alg.bsf.bestSoFar)
 
       case ("lexicase", "steadyState") =>
         val eval = getEvalForSeqDouble(state, method)
         val alg = CDGPSteadyStateLexicaseR(eval)
-        val finalPop = watchTime(alg, RunExperiment(alg))
+        val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (finalPop, alg.bsf.bestSoFar)
     }
   }
@@ -163,7 +162,9 @@ object RegressionCDGP {
   // --------------------------------------------------------------------------
 
   def main(args: Array[String]): Unit = {
-    val opt = getOptions(args ++ Array("--parEval", "false")) // ensure that --parEval false is used
+    if (Main.systemOptions(args))
+      sys.exit()
+    val opt = Main.getOptions(args ++ Array("--parEval", "false")) // ensure that --parEval false is used
     run(opt)
   }
 
