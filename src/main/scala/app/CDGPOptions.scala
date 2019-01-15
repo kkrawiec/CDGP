@@ -136,11 +136,12 @@ object CDGPOptions {
   args += OptionInfo("gprMaxDouble", "Double", default=Some("1.0"), desc="Upper bound for Double terminals in GPR.")
   args += OptionInfo("gprMinInt", "Int", default=Some("-100"), desc="Lower bound for Int terminals in GPR.")
   args += OptionInfo("gprMinDouble", "Double", default=Some("0.0"), desc="Lower bound for Double terminals in GPR.")
-  args += OptionInfo("gprRetryIfUndefined", "Bool", default=Some("true"), desc=".")
+  args += OptionInfo("gprRetryIfUndefined", "Bool", default=Some("true"), desc="In GPR, when a new random test is generated, check if the output for the test is defined, i.e., not all output values are correct. Adding such tests is meaningless. If the function is known to be defined at every point, switching this off will slightly speed up GPR.")
   args += OptionInfo("lexicaseDeselection", "Bool", default=Some("false"), desc="Deselection to be used in lexicase.")
   args += OptionInfo("logAllQueries", "Bool", default=Some("false"), desc="Log every query to the solver.")
+  args += OptionInfo("logPassedConstraints", "Bool", default=Some("true"), desc="Save information about which constraints were passed. Requires a separate verification query for each constraint.")
   args += OptionInfo("logTestsHistory", "Bool", default=Some("false"), desc="Save for each generation the number of generated tests.")
-  args += OptionInfo("maxNewTestsPerIter", "Int", default=Some(Int.MaxValue.toString), desc=".")
+  args += OptionInfo("maxNewTestsPerIter", "Int", default=Some(Int.MaxValue.toString), desc="Maximum number of tests which can be added per iteration.")
   args += OptionInfo("maxRecursiveCalls", "Int", default=Some("1"), desc="Maximum number of allowed recursive invocations in a candidate solution.")
   args += OptionInfo("maxSolverRestarts", "Int", default=Some("1"), desc="Maximum number of times a solver will be restarted after failure.")
   args += OptionInfo("mixedSpecAllowed", "Bool", default=Some("true"), desc=".")
@@ -153,7 +154,7 @@ object CDGPOptions {
   args += OptionInfo("notes", "String", desc="Any additional notes to be saved in logs.")
   args += OptionInfo("optionsFile", "String", desc="Path to property file from which options will be read.")
   args += OptionInfo("optThreshold", "Double", default=Some("1.0e-5"), desc="Optimality threshold. If the solution's error is below this number, then the it is assumed to be optimal and the run is terminated.")
-  args += OptionInfo("printTests", "Bool", default=Some("false"), desc=".")
+  args += OptionInfo("printTests", "Bool", default=Some("false"), desc="Prints every added test and after the evolution ends prints all collected tests.")
   args += OptionInfo("printQueries", "Bool", default=Some("false"), desc="Print all queries to SMT solver.")
   args += OptionInfo("recDepthLimit", "Int", default=Some("1000"), desc="A limit of calls for recursive functions.")
   args += OptionInfo("regression", "Bool", default=Some("false"), desc="If true, then the version of CDGP for symbolic regression problems will be used.")
@@ -194,5 +195,3 @@ object CDGPOptions {
 
   val validator = OptionsValidator(args.toList)
 }
-
-

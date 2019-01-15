@@ -518,7 +518,7 @@ object RegressionBenchmarks extends App {
   val ns = Seq(10, 25, 50)
 
   val benchmarks = Seq(
-    //ns.map{ n => Benchmark(b_poly1, generateTestsU(1, n, fPoly1, 0.0, 20.0)) },
+    ns.map{ n => Benchmark(b_poly1, generateTestsU(1, n, fPoly1, 0.0, 20.0)) },
     ns.map{ n => Benchmark(b_poly2, generateTestsU(2, n, fPoly2, 0.0, 20.0)) },
     ns.map{ n => Benchmark(b_gravity, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
     ns.map{ n => Benchmark(b_gravityNoG, generateTestsU(3, n, fGravityNoG, 0.0, 20.0)) },

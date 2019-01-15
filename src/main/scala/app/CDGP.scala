@@ -158,7 +158,11 @@ object CDGP {
     if (opt("printTests", false)) {
       println("\nCollected tests:")
       cdgpState.testsManager.tests.foreach(println(_))
-      println("")
+    }
+
+    if (opt('logPassedConstraints, false)) {
+      println("\nPassed constraints:")
+      println(coll.get("result.best.passedConstraints").getOrElse("n/a"))
     }
 
     val sol = coll.getResult("best.smtlib").get.toString
@@ -207,6 +211,18 @@ object CDGP {
         else
           runConfigGPR(benchmark, selection, evoMode)
 
+
+      // Save information about which constraints were passed
+      if (opt('logPassedConstraints, false)) {
+        // Create a 0/1 vector indicating if the ith constraint was passed
+        // 1 means that the constraint was passed
+        val passed = state.sygusData.formalConstr.map{ constr =>
+          val template = new TemplateVerification(state.sygusData, false, state.timeout, Some(Seq(constr)))
+          val (dec, _) = state.verify(bestOfRun.get._1, template)
+          if (dec == "unsat") 1 else 0
+        }
+        coll.setResult("best.passedConstraints", passed)
+      }
 
       // Print and save results
       coll.saveSnapshot("cdgp")

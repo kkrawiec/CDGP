@@ -125,8 +125,13 @@ class StateSMTSolver(sygusData: SygusProblemData)
   /**
     * Verifies a program with respect to the specification.
     */
-  def verify(s: Op): (String, Option[String]) = {
-    val query = templateVerification(s)
+  def verify(s: Op): (String, Option[String]) = verify(s, templateVerification)
+
+  /**
+    * Verifies a program with respect to the specification using the provided template.
+    */
+  def verify(s: Op, template: TemplateVerification): (String, Option[String]) = {
+    val query = template(s)
     printQuery("\nQuery verify:\n" + query)
     solver.runSolver(query)
   }
@@ -344,15 +349,15 @@ class StateGPR(sygusData: SygusProblemData)
 
   // Parameters
   val gprRetryIfUndefined = opt('gprRetryIfUndefined, true)
-  val GPRminInt: Int = opt('gprMinInt, -100)
-  val GPRmaxInt: Int = opt('gprMaxInt, 100, (x:Int) => x >= GPRminInt)
-  val GPRminDouble: Double = opt('gprMinDouble, 0.0)
-  val GPRmaxDouble: Double = opt('gprMaxDouble, 1.0, (x:Double) => x >= GPRminDouble)
+  val gprMinInt: Int = opt('gprMinInt, -100)
+  val gprMaxInt: Int = opt('gprMaxInt, 100, (x:Int) => x >= gprMinInt)
+  val gprMinDouble: Double = opt('gprMinDouble, 0.0)
+  val gprMaxDouble: Double = opt('gprMaxDouble, 1.0, (x:Double) => x >= gprMinDouble)
 
   def createRandomTest(): Option[TestCase[I, O]] = {
     def sample(tpe: SortExpr): Any = tpe match {
-      case IntSortExpr()  => GPRminInt + rng.nextInt(GPRmaxInt+1-GPRminInt)
-      case RealSortExpr() => GPRminDouble + rng.nextDouble() * (GPRmaxDouble-GPRminDouble)
+      case IntSortExpr()  => gprMinInt + rng.nextInt(gprMaxInt+1-gprMinInt)
+      case RealSortExpr() => gprMinDouble + rng.nextDouble() * (gprMaxDouble-gprMinDouble)
       case BoolSortExpr() => rng.nextBoolean()
       case _: Throwable   => throw new Exception(s"Trying to run GPR for unsupported type: ${tpe.name}.")
     }
@@ -361,7 +366,7 @@ class StateGPR(sygusData: SygusProblemData)
       createRandomTest() // try again
     else if (gprRetryIfUndefined) {
       // We will now check if for the input there exists an incorrect output.
-      // This is necessary in case GPR generated a test with undefined answer.
+      // This is necessary in case GPR generated a test with undefined answer, i.e., all outputs are correct.
       // Adding such a test is meaningless.
       val query = templateFindOutputNeg(model)
       val (dec, _) = solver.runSolver(query)

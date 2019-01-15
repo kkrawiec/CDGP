@@ -59,14 +59,20 @@ object SimplifyQuery {
   *   (get-value (x y))
   * }</pre>
   * Sat means that there is a counterexample, unsat means perfect program was found.
+  *
+  * If constraints are provided in the last arguments, then they are used instead of
+  * those originally defined in sygusData.
   */
 class TemplateVerification(sygusData: SygusProblemData,
                            includeTestConstr: Boolean = false,
-                           timeout: Int = 0) extends Function1[Op, CheckSatQuery] {
+                           timeout: Int = 0,
+                           constraints: Option[Seq[ConstraintCmd]] = None) extends Function1[Op, CheckSatQuery] {
   def createTemplate: String = {
     val constraintsPre = SMTLIBFormatter.getCodeForConstraints(sygusData.precond)
     val constraintsPost =
-      if (includeTestConstr)
+      if (constraints.isDefined)
+        SMTLIBFormatter.getCodeForMergedConstraints(constraints.get)
+      else if (includeTestConstr)
         // Rather not useful, because counterexamples cannot be find for test cases (no free vars in function call)
         // There are, however, some cases in which test can constrain the space of correct programs.
         SMTLIBFormatter.getCodeForMergedConstraints(sygusData.allConstr)

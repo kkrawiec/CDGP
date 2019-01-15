@@ -76,7 +76,11 @@ object RegressionCDGP {
     if (opt("printTests", false)) {
       println("\nCollected tests:")
       cdgpState.testsManager.tests.foreach(println(_))
-      println("")
+    }
+
+    if (opt('logPassedConstraints, false)) {
+      println("\nPassed constraints:")
+      println(coll.get("result.best.passedConstraints").getOrElse("n/a"))
     }
 
     val sol = coll.getResult("best.smtlib").get.toString
@@ -120,13 +124,26 @@ object RegressionCDGP {
 
       // Run algorithm
       val (_, bestOfRun) = runConfigRegressionCDGP(cdgpState, method, selection, evoMode)
+      val (bestOp, _) = bestOfRun.get
 
 
       // Verify correctness with respect to the specification
-      val (dec, model) = cdgpState.verify(bestOfRun.get._1)
+      val (dec, model) = cdgpState.verify(bestOp)
       coll.setResult("best.verificationDecision", dec)
       coll.setResult("best.verificationModel", model)
 
+
+      // Save information about which constraints were passed
+      if (opt('logPassedConstraints, false)) {
+        // Create a 0/1 vector indicating if the ith constraint was passed
+        // 1 means that the constraint was passed
+        val passed = cdgpState.sygusData.formalConstr.map{ constr =>
+          val template = new TemplateVerification(cdgpState.sygusData, false, cdgpState.timeout, Some(Seq(constr)))
+          val (dec, _) = cdgpState.verify(bestOp, template)
+          if (dec == "unsat") 1 else 0
+        }
+        coll.setResult("best.passedConstraints", passed)
+      }
 
       // Print and save results
       coll.saveSnapshot("cdgp")

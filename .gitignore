@@ -13,3 +13,6 @@ res*.txt.error_solver
 /lib_managed
 /project
 /target
+/out
+/removed
+/solver
