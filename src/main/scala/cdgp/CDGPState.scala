@@ -345,14 +345,14 @@ class StateGPR(sygusData: SygusProblemData)
   // Parameters
   val gprRetryIfUndefined = opt('gprRetryIfUndefined, true)
   val GPRminInt: Int = opt('GPRminInt, -100)
-  val GPRmaxInt: Int = opt('GPRmaxInt, 100)
+  val GPRmaxInt: Int = opt('GPRmaxInt, 100, (x:Int) => x >= GPRminInt)
   val GPRminDouble: Double = opt('GPRminDouble, 0.0)
-  val GPRmaxDouble: Double = opt('GPRmaxDouble, 1.0)
+  val GPRmaxDouble: Double = opt('GPRmaxDouble, 1.0, (x:Double) => x >= GPRminDouble)
 
   def createRandomTest(): Option[TestCase[I, O]] = {
     def sample(tpe: SortExpr): Any = tpe match {
       case IntSortExpr()  => GPRminInt + rng.nextInt(GPRmaxInt+1-GPRminInt)
-      case RealSortExpr() => GPRminDouble + rng.nextDouble() * (GPRmaxDouble+1-GPRminDouble)
+      case RealSortExpr() => GPRminDouble + rng.nextDouble() * (GPRmaxDouble-GPRminDouble)
       case BoolSortExpr() => rng.nextBoolean()
       case _: Throwable   => throw new Exception(s"Trying to run GPR for unsupported type: ${tpe.name}.")
     }
