@@ -404,7 +404,7 @@ object RegressionBenchmarks extends App {
   }
 
 
-  def generateSygusCode(b: Benchmark): String = {
+  def generateSygusCode(b: Benchmark, mergeFormalConstr: Boolean = false): String = {
     val sfName = b.funName
     var s = "(set-logic QF_NRA)\n"
     s += s"(synth-fun $sfName ${b.argsSignature} Real)\n"
@@ -427,8 +427,11 @@ object RegressionBenchmarks extends App {
 
     s += decls.mkString("\n")
     s += "\n\n"
-    s += constr.mkString("(constraint (and\n    ", "\n    ", "))\n")
-    s += "(check-synth)\n"
+    if (mergeFormalConstr)
+      s += constr.mkString("(constraint (and\n    ", "\n    ", "))")
+    else
+      s += constr.map( c => s"(constraint $c)").mkString("\n")
+    s += "\n\n(check-synth)\n"
     s
   }
 
@@ -515,12 +518,11 @@ object RegressionBenchmarks extends App {
   val ns = Seq(10, 25, 50)
 
   val benchmarks = Seq(
-    ns.map{ n => Benchmark(b_poly1, generateTestsU(1, n, fPoly1, 0.0, 20.0)) },
-    ns.map{ n => Benchmark(b_poly2, generateTestsU(2, n, fPoly2, 0.0, 20.0)) }
-    //Seq(Benchmark(b_poly1, Seq()))
-    //ns.map{ n => Benchmark(b_gravity, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
-    //ns.map{ n => Benchmark(b_gravityNoG, generateTestsU(3, n, fGravityNoG, 0.0, 20.0)) },
-    //ns.map{ n => Benchmark(b_resistance_par2, generateTestsU(2, n, fResistancePar2, 0.0, 20.0)) }
+    //ns.map{ n => Benchmark(b_poly1, generateTestsU(1, n, fPoly1, 0.0, 20.0)) },
+    ns.map{ n => Benchmark(b_poly2, generateTestsU(2, n, fPoly2, 0.0, 20.0)) },
+    ns.map{ n => Benchmark(b_gravity, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
+    ns.map{ n => Benchmark(b_gravityNoG, generateTestsU(3, n, fGravityNoG, 0.0, 20.0)) },
+    ns.map{ n => Benchmark(b_resistance_par2, generateTestsU(2, n, fResistancePar2, 0.0, 20.0)) }
   ).flatten
 
 
