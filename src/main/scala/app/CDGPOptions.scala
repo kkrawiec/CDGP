@@ -118,15 +118,15 @@ object CDGPOptions {
   args += OptionsValidator.optVersion
   args += OptionsValidator.optHelp
   // required args
-  args += OptionInfo("benchmark", "String", required=true, desc=".")
-  args += OptionInfo("method", "String", choice=Set("CDGP", "GP", "GPR"), required=true, desc="Algorithm to be used.")
-  args += OptionInfo("solverPath", "String", required=true, desc="Solver to an SMT solver.")
+  args += OptionInfo("benchmark", "String", required=true, desc="Path to a file in SYGUS format describing the synthesis problem.")
+  args += OptionInfo("method", "String", choice=Set("CDGP", "GP", "GPR"), required=true, desc="Search algorithm to be used.")
+  args += OptionInfo("solverPath", "String", required=true, desc="Path to the SMT solver.")
 
   // selected most important args
-  args += OptionInfo("evolutionMode", "String", choice=Set("generational", "steadyState"), default=Some("steadyState"), desc=".")
+  args += OptionInfo("evolutionMode", "String", choice=Set("generational", "steadyState"), default=Some("steadyState"), desc="Type of evolution: generational (new population is created), or steady state (solutions are updated in place one by one).")
   args += OptionInfo("maxGenerations", "Int", default=Some("50"), desc="Maximum number of generations.")
   args += OptionInfo("maxTime", "Int", default=Some("86400000"), desc="Maximum runtime.")
-  args += OptionInfo("selection", "String", choice=Set("lexicase", "tournament"), default=Some("lexicase"), desc=".")
+  args += OptionInfo("selection", "String", choice=Set("lexicase", "tournament"), default=Some("lexicase"), desc="Selection of the evolutionary algorithm.")
 
   // other args
   args += OptionInfo("eps", "Double", default=Some("0.0001"), desc="???.")
@@ -155,17 +155,17 @@ object CDGPOptions {
   args += OptionInfo("printTests", "Bool", default=Some("false"), desc=".")
   args += OptionInfo("printQueries", "Bool", default=Some("false"), desc="Print all queries to SMT solver.")
   args += OptionInfo("recDepthLimit", "Int", default=Some("1000"), desc="A limit of calls for recursive functions.")
-  args += OptionInfo("regression", "Bool", default=Some("false"), desc=".")
+  args += OptionInfo("regression", "Bool", default=Some("false"), desc="If true, then the version of CDGP for symbolic regression problems will be used.")
   args += OptionInfo("reportFreq", "Int", desc="Frequency of fitness reporting.")
-  args += OptionInfo("silent", "Bool", default=Some("false"), desc=".")
+  args += OptionInfo("silent", "Bool", default=Some("false"), desc="Less printing.")
   args += OptionInfo("saveTests", "Bool", default=Some("false"), desc="Saving every generated counterexample.")
   args += OptionInfo("searchForSecondOutput", "Bool", default=Some("true"), desc=".")
   args += OptionInfo("solverArgs", "String", desc="If specified, then these arguments will be used by the solver and CDGP will not change them in any way.")
   args += OptionInfo("solverInteractive", "Bool", default=Some("true"), desc="Run solver in interactive mode (much faster).")
-  args += OptionInfo("solverTimeout", "Int", desc=".")
+  args += OptionInfo("solverTimeout", "Int", desc="Time after which solver will be terminated.")
   args += OptionInfo("solverType", "String", choice=Set("z3", "cvc4", "other"), default=Some("z3"), desc="Type of the solver. Must be specified, because some solvers require different options to work effectively.")
   args += OptionInfo("testsAbsDiff", "Int", desc="???.")
-  args += OptionInfo("testsRatio", "Double", default=Some("1.0"), desc=".")
+  args += OptionInfo("testsRatio", "Double", default=Some("1.0"), desc="Ratio of tests which must be passed in order to apply verification in search for a counterexample.")
   args += OptionInfo("verbose", "Bool", default=Some("false"), desc="More printing.")
 
   // fuel and swim options
