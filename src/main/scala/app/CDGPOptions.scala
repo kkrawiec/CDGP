@@ -150,7 +150,6 @@ object CDGPOptions {
   args += OptionInfo("multipop.M", "Int", default=Some("5"), desc="Number of populations.")
   args += OptionInfo("multipop.scheme", "String", choice=Set("none", "convectionEqualNumber"), default=Some("none"),
                      desc="Maximum time for a multipop scenario.")
-  args += OptionInfo("n", "Int", default=Some("100"), desc="???.")
   args += OptionInfo("notes", "String", desc="Any additional notes to be saved in logs.")
   args += OptionInfo("optionsFile", "String", desc="Path to property file from which options will be read.")
   args += OptionInfo("optThreshold", "Double", default=Some("1.0e-5"), desc="Optimality threshold. If the solution's error is below this number, then the it is assumed to be optimal and the run is terminated.")

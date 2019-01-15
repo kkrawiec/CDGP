@@ -263,7 +263,7 @@ object SolverInteractive {
 
 
 object TestSolverOpenConnection extends FApp {
-  val n = opt('n, 100)
+  val n = 100
   val solverPath = opt('solverPath)
   var sum = 0
   0.until(n).foreach { _=>
