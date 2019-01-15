@@ -21,8 +21,9 @@ case class OptionInfo(name: String, tpe: String = "", desc: String = "", default
                       choice: Set[String] = Set(), required: Boolean = false) {
   assert(choice.isEmpty || default.isEmpty || choice.contains(default.get), "Default value must be a part of choice options.")
   override def toString: String = {
-    def textDefault(s: Option[String]) = if (s.isDefined) " (default: " + s.get + ")" else ""
-    name.padTo(37, ' ') + tpe.padTo(18, ' ') + desc + textDefault(default) + "\n"
+    val textDefault = if (default.isDefined) s" (default: ${default.get})" else ""
+    val textChoice = if (choice.nonEmpty) s" (choice: ${choice.mkString(", ")})" else ""
+    name.padTo(37, ' ') + tpe.padTo(18, ' ') + desc + textDefault + textChoice + "\n"
   }
 }
 
@@ -99,8 +100,10 @@ case class OptionsValidator(args: List[OptionInfo]) {
   }
 
   def printOptions() {
-    println("Arguments:")
-    args.sortBy(_.name).foreach { a => print(a) }
+    println("Required arguments:")
+    args.sortBy(_.name).foreach { a => if (a.required) print(a) }
+    println("\nOther arguments:")
+    args.sortBy(_.name).foreach { a => if (!a.required) print(a) }
   }
 }
 
@@ -118,7 +121,7 @@ object CDGPOptions {
   args += OptionsValidator.optVersion
   args += OptionsValidator.optHelp
   // required args
-  args += OptionInfo("benchmark", "String", required=true, desc="Path to a file in SYGUS format describing the synthesis problem.")
+  args += OptionInfo("benchmark", "String", required=true, desc="Path to a file in the SYGUS format describing the synthesis problem.")
   args += OptionInfo("method", "String", choice=Set("CDGP", "GP", "GPR"), required=true, desc="Search algorithm to be used.")
   args += OptionInfo("solverPath", "String", required=true, desc="Path to the SMT solver.")
 
