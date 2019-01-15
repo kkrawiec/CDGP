@@ -129,12 +129,12 @@ object CDGPOptions {
   args += OptionInfo("selection", "String", choice=Set("lexicase", "tournament"), default=Some("lexicase"), desc="Selection of the evolutionary algorithm.")
 
   // other args
-  args += OptionInfo("eps", "Double", default=Some("0.0001"), desc="???.")
+  args += OptionInfo("eps", "Double", default=Some("0.0001"), desc="Optimality threshold. If the solution's error is below this number, then the it is assumed to be optimal and the run is terminated.")
+  args += OptionInfo("gprMaxInt", "Int", default=Some("100"), desc="Upper bound for Int terminals in GPR.")
+  args += OptionInfo("gprMaxDouble", "Double", default=Some("1.0"), desc="Upper bound for Double terminals in GPR.")
+  args += OptionInfo("gprMinInt", "Int", default=Some("-100"), desc="Lower bound for Int terminals in GPR.")
+  args += OptionInfo("gprMinDouble", "Double", default=Some("0.0"), desc="Lower bound for Double terminals in GPR.")
   args += OptionInfo("gprRetryIfUndefined", "Bool", default=Some("true"), desc=".")
-  args += OptionInfo("GPRmaxInt", "Int", default=Some("100"), desc="Upper bound for Int terminals in GPR.")
-  args += OptionInfo("GPRmaxDouble", "Double", default=Some("1.0"), desc="Upper bound for Double terminals in GPR.")
-  args += OptionInfo("GPRminInt", "Int", default=Some("-100"), desc="Lower bound for Int terminals in GPR.")
-  args += OptionInfo("GPRminDouble", "Double", default=Some("0.0"), desc="Lower bound for Double terminals in GPR.")
   args += OptionInfo("lexicaseDeselection", "Bool", default=Some("false"), desc="Deselection to be used in lexicase.")
   args += OptionInfo("logAllQueries", "Bool", default=Some("false"), desc="Log every query to the solver.")
   args += OptionInfo("logTestsHistory", "Bool", default=Some("false"), desc="Save for each generation the number of generated tests.")

@@ -344,10 +344,10 @@ class StateGPR(sygusData: SygusProblemData)
 
   // Parameters
   val gprRetryIfUndefined = opt('gprRetryIfUndefined, true)
-  val GPRminInt: Int = opt('GPRminInt, -100)
-  val GPRmaxInt: Int = opt('GPRmaxInt, 100, (x:Int) => x >= GPRminInt)
-  val GPRminDouble: Double = opt('GPRminDouble, 0.0)
-  val GPRmaxDouble: Double = opt('GPRmaxDouble, 1.0, (x:Double) => x >= GPRminDouble)
+  val GPRminInt: Int = opt('gprMinInt, -100)
+  val GPRmaxInt: Int = opt('gprMaxInt, 100, (x:Int) => x >= GPRminInt)
+  val GPRminDouble: Double = opt('gprMinDouble, 0.0)
+  val GPRmaxDouble: Double = opt('gprMaxDouble, 1.0, (x:Double) => x >= GPRminDouble)
 
   def createRandomTest(): Option[TestCase[I, O]] = {
     def sample(tpe: SortExpr): Any = tpe match {
