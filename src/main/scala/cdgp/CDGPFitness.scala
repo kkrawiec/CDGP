@@ -557,7 +557,9 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
   def evalOnTestsSolver(s: Op, test: (I, Option[O])): Double = {
     val testModel: Map[String, Any] = test._1
     val (dec, _) = state.checkIsProgramCorrectForInput(s, testModel)
-    if (dec == "sat") 0.0 else 1.0  // This becomes questionable when aggregated with error
+    // 0.0 is returned for a correct answer (sat).
+    // This becomes questionable when aggregated with error.
+    if (dec == "sat") 0.0 else 1.0
   }
 
   /**

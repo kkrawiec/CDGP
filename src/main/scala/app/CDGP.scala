@@ -245,6 +245,7 @@ object CDGP {
         val sw = new StringWriter
         e.printStackTrace(new PrintWriter(sw))
         coll.set("terminatingExceptionStacktrace", sw.toString)
+        coll.deleteSnapshot("cdgp") // Remove any .cdgp file if it was created
         coll.saveSnapshot("cdgp.error")
         e.printStackTrace()
     }
