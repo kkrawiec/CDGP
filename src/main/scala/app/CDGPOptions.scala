@@ -100,9 +100,9 @@ case class OptionsValidator(args: List[OptionInfo]) {
   }
 
   def printOptions() {
-    println("Required arguments:")
+    println("REQUIRED ARGUMENTS:")
     args.sortBy(_.name).foreach { a => if (a.required) print(a) }
-    println("\nOther arguments:")
+    println("\nOTHER ARGUMENTS:")
     args.sortBy(_.name).foreach { a => if (!a.required) print(a) }
   }
 }

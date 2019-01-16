@@ -537,7 +537,7 @@ object RegressionBenchmarks extends App {
       CustomConstraint("(and (<= {0} r1) (<= {0} r2))", range=rangesGtZero("r1", "r2"))
     ))
 
-  val ns = Seq(10, 25, 50, 100)
+  val ns = Seq(10, 50, 100)
 
   val benchmarks = Seq(
     ns.map{ n => Benchmark(b_keijzer12, generateTestsU(2, n, fKeijzer12, -20.0, 20.0)) },
@@ -553,14 +553,14 @@ object RegressionBenchmarks extends App {
 
   //////////////////////////////////////////////////////////////////////////
 
-  val dir = new File("resources/NRA/regression_props")
+  val dir = new File("resources/NRA/regression_formal")
   if (dir.exists())
     dir.delete()
   dir.mkdir()
 
   benchmarks.foreach{ b =>
     val sygusCode = generateSygusCode(b)
-    val path = "resources/NRA/regression_props/" + b.fileName
+    val path = "resources/NRA/regression_formal/" + b.fileName
     println(sygusCode)
     println("\n\n")
     saveFile(path, sygusCode)
