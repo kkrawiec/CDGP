@@ -372,7 +372,11 @@ object RegressionBenchmarks extends App {
                    override val ub: Option[Double] = None,
                    override val lbSign: String = ">=",
                    override val ubSign: String = "<=") extends VarRange(varName, lb, ub, lbSign, ubSign)
-
+  object Range {
+    def apply(varName: String, lb: Double, ub: Double): Range = {
+      Range(varName, Some(lb), Some(ub), lbSign=">=", ubSign="<=")
+    }
+  }
 
 
   // Helper functions
@@ -462,6 +466,8 @@ object RegressionBenchmarks extends App {
 
 
 
+  def fKeijzer12(vars: Seq[Double]): Double = vars(0) * vars(0) * vars(0) * vars(0) - vars(0) * vars(0) * vars(0) + 0.5 * vars(1) * vars(1) - vars(1)
+  def fKoza1(vars: Seq[Double]): Double = vars(0) * vars(0) * vars(0) * vars(0) + vars(0) * vars(0) * vars(0) + vars(0) * vars(0) + vars(0)
   def fPoly1(vars: Seq[Double]): Double = vars(0) * vars(0)
   def fPoly2(vars: Seq[Double]): Double = vars(0) * vars(0) + vars(1) * vars(1)
   def fGravity(vars: Seq[Double]): Double = 6.674e-11 * vars(0) * vars(1) / (vars(2) * vars(2))
@@ -494,6 +500,22 @@ object RegressionBenchmarks extends App {
       PropAscending("x", range=rangesGtZero("x")),
       PropDescending("x", range=rangesLtZero("x"))
     ))
+  val b_keijzer12 = Benchmark("keijzer12", Seq("x", "y"), //x^4 - x^3 + y^2/2 - y
+    Seq(
+      PropApproxDerivative("x", 1.0, 1.0, degree=1),
+      PropApproxDerivative("y", 1.0, 0.0, degree=1),
+      PropOutputBound(Some(0.0), None, range=Seq(Range("x", Some(1.0), None), Range("y", 0.0, 0.0))),
+      PropOutputBound(Some(0.0), None, range=Seq(Range("y", Some(2.0), None), Range("x", 0.0, 0.0))),
+      PropAscending("x", range=Seq(Range("x", Some(1.0), None), Range("y", 0.0, 0.0))),
+      PropAscending("y", range=Seq(Range("y", Some(2.0), None), Range("x", 0.0, 0.0)))
+    ))
+  val b_koza1 = Benchmark("koza1", Seq("x"), //x^4 + x^3 + x^2 + x
+    Seq(
+      PropApproxDerivative("x", 1.0, 10.0, degree=1),
+      PropOutputBound(Some(-0.5), None),
+      PropAscending("x", range=Seq(Range("x", Some(-0.25), None))),
+      PropDescending("x", range=Seq(Range("x", None, Some(-0.75))))
+    ))
   val b_gravity = Benchmark("gravity", Seq("m1", "m2", "r"),
     Seq(
       PropVarSymmetry2("m1", "m2", rangesGeqZero01("m1", "m2", "r")),
@@ -515,11 +537,13 @@ object RegressionBenchmarks extends App {
       CustomConstraint("(and (<= {0} r1) (<= {0} r2))", range=rangesGtZero("r1", "r2"))
     ))
 
-  val ns = Seq(10, 25, 50)
+  val ns = Seq(10, 25, 50, 100)
 
   val benchmarks = Seq(
-    ns.map{ n => Benchmark(b_poly1, generateTestsU(1, n, fPoly1, 0.0, 20.0)) },
-    ns.map{ n => Benchmark(b_poly2, generateTestsU(2, n, fPoly2, 0.0, 20.0)) },
+    ns.map{ n => Benchmark(b_keijzer12, generateTestsU(2, n, fKeijzer12, -20.0, 20.0)) },
+    ns.map{ n => Benchmark(b_koza1, generateTestsU(1, n, fKoza1, -20.0, 20.0)) },
+    ns.map{ n => Benchmark(b_poly1, generateTestsU(1, n, fPoly1, -20.0, 20.0)) },
+    ns.map{ n => Benchmark(b_poly2, generateTestsU(2, n, fPoly2, -20.0, 20.0)) },
     ns.map{ n => Benchmark(b_gravity, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
     ns.map{ n => Benchmark(b_gravityNoG, generateTestsU(3, n, fGravityNoG, 0.0, 20.0)) },
     ns.map{ n => Benchmark(b_resistance_par2, generateTestsU(2, n, fResistancePar2, 0.0, 20.0)) }
