@@ -254,13 +254,43 @@ object RegressionBenchmarks extends App {
     override def encode(id: Int, b: Benchmark): (Seq[String], Seq[String]) = {
       val i1 = b.vars.indexOf(var1)
       val i2 = b.vars.indexOf(var2)
-      assert(i1 != -1 && i2 != -1, "Incorrect variable name!")
+      assert(i1 != -1 || i2 != -1, "Incorrect variable name!")
       val x = b.vars(i1)
       val varsExchanged = b.vars.updated(i1, b.vars(i2)).updated(i2, x)
       val c = s"(= ${funCall(b.funName, b.vars)} ${funCall(b.funName, varsExchanged)})"
       (List(), List(wrapConstrInRanges(c, range)))
     }
   }
+
+
+  /**
+    * Produces constraint indicating that the result of a function is the same under exchanging the
+    * positions of the specified variables.
+    * (and  (= (f x y z) (f y x z))  (= (f x y z) (f z y x))  (= (f x y z) (f x z y)) )
+    */
+  case class PropVarSymmetry3(var1: String, var2: String, var3: String, range: Seq[VarRange] = Seq())
+    extends Property("PropVarSymmetry3") {
+
+    override def encode(id: Int, b: Benchmark): (Seq[String], Seq[String]) = {
+      val i1 = b.vars.indexOf(var1)
+      val i2 = b.vars.indexOf(var2)
+      val i3 = b.vars.indexOf(var3)
+      assert(i1 != -1 || i2 != -1 || i3 != -1, "Incorrect variable name!")
+      val x = b.vars(i1)
+      val y = b.vars(i2)
+      val z = b.vars(i3)
+      val varsExchanged1 = b.vars.updated(i1, y).updated(i2, x)
+      val varsExchanged2 = b.vars.updated(i1, z).updated(i3, x)
+      val varsExchanged3 = b.vars.updated(i2, z).updated(i3, y)
+      val mainCall = funCall(b.funName, b.vars)
+      val eq1 = s"(= $mainCall ${funCall(b.funName, varsExchanged1)})"
+      val eq2 = s"(= $mainCall ${funCall(b.funName, varsExchanged2)})"
+      val eq3 = s"(= $mainCall ${funCall(b.funName, varsExchanged3)})"
+      val c = s"(and  $eq1  $eq2  $eq3)"
+      (List(), List(wrapConstrInRanges(c, range)))
+    }
+  }
+
 
 
   /**
@@ -469,8 +499,9 @@ object RegressionBenchmarks extends App {
 
   def fKeijzer12(vars: Seq[Double]): Double = vars(0) * vars(0) * vars(0) * vars(0) - vars(0) * vars(0) * vars(0) + 0.5 * vars(1) * vars(1) - vars(1)
   def fKoza1(vars: Seq[Double]): Double = vars(0) * vars(0) * vars(0) * vars(0) + vars(0) * vars(0) * vars(0) + vars(0) * vars(0) + vars(0)
-  def fPoly1(vars: Seq[Double]): Double = vars(0) * vars(0)
-  def fPoly2(vars: Seq[Double]): Double = vars(0) * vars(0) + vars(1) * vars(1)
+  def fSquares1(vars: Seq[Double]): Double = vars(0) * vars(0)
+  def fSquares2(vars: Seq[Double]): Double = vars(0) * vars(0) + vars(1) * vars(1)
+  def fSquares3(vars: Seq[Double]): Double = vars(0) * vars(0) + vars(1) * vars(1) + vars(2) * vars(2)
   def fGravity(vars: Seq[Double]): Double = (6.674e-11 * vars(0) * vars(1)) / (vars(2) * vars(2))
   def fGravityNoG(vars: Seq[Double]): Double = (vars(0) * vars(1)) / (vars(2) * vars(2))
   def fResistancePar2(vars: Seq[Double]): Double = (vars(0) * vars(1)) / (vars(0) + vars(1))
@@ -482,7 +513,16 @@ object RegressionBenchmarks extends App {
   def rangesLtZero(vars: String*): Seq[Range] = vars.map(x => Range(x, ub=Some(0.0), ubSign = "<"))
 
 
-  val b_poly1 = Benchmark("poly1", Seq("x"), // x^2
+  val b_squares1 = Benchmark("squares1", Seq("x"), // x^2
+    Seq(
+      PropApproxDerivative("x", 1.0, 2.0, degree=1),
+      PropSymmetryYAxis("x"),
+      PropOutputBound(Some(0.0), None),
+      PropAscending("x", range=rangesGtZero("x")),
+      PropDescending("x", range=rangesLtZero("x"))
+    ))
+
+  val b_squares2 = Benchmark("squares2", Seq("x", "y"), // x^2 + y^2
     Seq(
       PropApproxDerivative("x", 1.0, 2.0, degree=1),
       PropApproxDerivative("x", 1.0, 2.0, degree=2),
@@ -492,16 +532,22 @@ object RegressionBenchmarks extends App {
       PropAscending("x", range=rangesGtZero("x")),
       PropDescending("x", range=rangesLtZero("x"))
     ))
-  val b_poly2 = Benchmark("poly2", Seq("x", "y"), // x^2 + y^2
-    Seq(
-      PropApproxDerivative("x", 1.0, 2.0, degree=1),
-      PropApproxDerivative("x", 1.0, 2.0, degree=2),
-      PropApproxDerivative("x", 1.0, 0.0, degree=3),
-      PropSymmetryYAxis("x"),
-      PropOutputBound(Some(0.0), None),
-      PropAscending("x", range=rangesGtZero("x")),
-      PropDescending("x", range=rangesLtZero("x"))
-    ))
+  val b_squares2_tests = Benchmark("squares2_tests", Seq("x", "y"), Seq())
+  val b_squares2_b = Benchmark("squares2_b", Seq("x", "y"),
+    Seq(PropOutputBound(Some(0.0), None)))
+  val b_squares2_s = Benchmark("squares2_s", Seq("x", "y"),
+    Seq(PropVarSymmetry2("x", "y")))
+  val b_squares2_bs = Benchmark("squares2_bs", Seq("x", "y"),
+    Seq(PropOutputBound(Some(0.0), None), PropVarSymmetry2("x", "y")))
+
+  val b_squares3_tests = Benchmark("squares3_tests", Seq("x", "y", "z"), Seq())
+  val b_squares3_b = Benchmark("squares3_b", Seq("x", "y", "z"),
+    Seq(PropOutputBound(Some(0.0), None)))
+  val b_squares3_s = Benchmark("squares3_s", Seq("x", "y", "z"),
+    Seq(PropVarSymmetry3("x", "y", "z")))
+  val b_squares3_bs = Benchmark("squares3_bs", Seq("x", "y", "z"),
+    Seq(PropOutputBound(Some(0.0), None), PropVarSymmetry3("x", "y", "z")))
+
   val b_keijzer12 = Benchmark("keijzer12", Seq("x", "y"), //x^4 - x^3 + y^2/2 - y
     Seq(
       PropApproxDerivative("x", 1.0, 1.0, degree=1),
@@ -555,13 +601,20 @@ object RegressionBenchmarks extends App {
       CustomConstraint("(and (<= {0} r1) (<= {0} r2) (<= {0} r3))", range=rangesGtZero("r1", "r2", "r3"))
     ))
 
-  val ns = Seq(5, 10, 20)
+  val ns = Seq(5, 10)
 
   val benchmarks = Seq(
     ns.map{ n => Benchmark(b_keijzer12, generateTestsU(2, n, fKeijzer12, -20.0, 20.0)) },
     ns.map{ n => Benchmark(b_koza1, generateTestsU(1, n, fKoza1, -20.0, 20.0)) },
-    ns.map{ n => Benchmark(b_poly1, generateTestsU(1, n, fPoly1, -20.0, 20.0)) },
-    ns.map{ n => Benchmark(b_poly2, generateTestsU(2, n, fPoly2, -20.0, 20.0)) },
+    ns.map{ n => Benchmark(b_squares1, generateTestsU(1, n, fSquares1, -20.0, 20.0)) },
+    ns.map{ n => Benchmark(b_squares2_tests, generateTestsU(2, n, fSquares2, -20.0, 20.0)) },
+    ns.map{ n => Benchmark(b_squares2_b, generateTestsU(2, n, fSquares2, -20.0, 20.0)) },
+    ns.map{ n => Benchmark(b_squares2_s, generateTestsU(2, n, fSquares2, -20.0, 20.0)) },
+    ns.map{ n => Benchmark(b_squares2_bs, generateTestsU(2, n, fSquares2, -20.0, 20.0)) },
+    ns.map{ n => Benchmark(b_squares3_tests, generateTestsU(3, n, fSquares2, -20.0, 20.0)) },
+    ns.map{ n => Benchmark(b_squares3_b, generateTestsU(3, n, fSquares2, -20.0, 20.0)) },
+    ns.map{ n => Benchmark(b_squares3_s, generateTestsU(3, n, fSquares2, -20.0, 20.0)) },
+    ns.map{ n => Benchmark(b_squares3_bs, generateTestsU(3, n, fSquares2, -20.0, 20.0)) },
     ns.map{ n => Benchmark(b_gravity, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
     ns.map{ n => Benchmark(b_gravityNoG, generateTestsU(3, n, fGravityNoG, 0.0, 20.0)) },
     ns.map{ n => Benchmark(b_resistance_par2, generateTestsU(2, n, fResistancePar2, 0.0001, 20.0)) },
