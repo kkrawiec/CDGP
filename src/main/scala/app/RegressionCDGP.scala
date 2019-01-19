@@ -127,9 +127,11 @@ object RegressionCDGP {
 
 
       // Verify correctness with respect to the specification
-      val (dec, model) = cdgpState.verify(bestOp)
-      coll.setResult("best.verificationDecision", dec)
-      coll.setResult("best.verificationModel", model)
+      if (cdgpState.sygusData.formalConstr.nonEmpty) {
+        val (dec, model) = cdgpState.verify(bestOp)
+        coll.setResult("best.verificationDecision", dec)
+        coll.setResult("best.verificationModel", model)
+      }
 
 
       // Save information about which constraints were passed
