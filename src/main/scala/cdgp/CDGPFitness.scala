@@ -709,8 +709,8 @@ class EvalCDGPSeqDouble(state: StateCDGP)
   extends EvalGPSeqDouble(state) {
   override def apply(s: Op, init: Boolean): FSeqDouble = {
     if (init) {
-      val (isPerfect, eval) = fitnessOnlyTestCases(s)
-      FSeqDouble(isPerfect, eval, s.size)
+      val (_, eval) = fitnessOnlyTestCases(s)
+      FSeqDouble(false, eval, s.size) // correctness set to false to not trigger correctness based only on the MSE
     }
     else {
       val (isPerfect, eval) = fitnessCDGPRegression(s)
@@ -746,9 +746,9 @@ class EvalCDGPDoubleMSE(state: StateCDGP)
   extends EvalGPDoubleMSE(state) {
   override def apply(s: Op, init: Boolean): FDouble = {
     if (init) {
-      val (isPerfect, eval) = fitnessOnlyTestCases(s)
+      val (_, eval) = fitnessOnlyTestCases(s)
       val mse = eval.map{ x => x * x }.sum
-      FDouble(isPerfect, mse, s.size)
+      FDouble(false, mse, s.size) // correctness set to false to not trigger correctness based only on the MSE
     }
     else {
       val (isPerfect, eval) = fitnessCDGPRegression(s)
