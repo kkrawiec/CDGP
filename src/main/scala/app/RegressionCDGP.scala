@@ -54,7 +54,6 @@ object RegressionCDGP {
     assume(bestOfRun.isDefined, "No solution (optimal or approximate) to the problem was found.")
     def isOptimal(bestOfRun: (Op, Fitness)): Boolean = bestOfRun._2.correct
 
-    val passedTestsRatio = coll.getResult("best.passedTestsRatio").getOrElse("n/a")
     val pn = 26
     println("\n")
     println("Best program found:".padTo(pn, ' ') + coll.getResult("bestOrig.smtlib").getOrElse("n/a"))
@@ -91,7 +90,7 @@ object RegressionCDGP {
       println(solutionFull) else println("unknown")
 
     if (!isOptimal(bestOfRun.get)) {
-      println(s"\nAPPROXIMATED SOLUTION:\n(passedTestsRatio $passedTestsRatio)")
+      println(s"\nAPPROXIMATED SOLUTION:")
       println(solutionFull)
     }
   }

@@ -51,7 +51,7 @@ case class FSeqDouble(correct: Boolean, value: Seq[Double], progSize: Int)
   lazy val mse: Double = if (value.isEmpty) 0.0 else value.map{ x => x*x }.sum / value.size.toDouble
 
   override def saveInColl(coll: Collector): Unit = {
-    val mseRound = BigDecimal(mse).setScale(5, BigDecimal.RoundingMode.HALF_UP).toDouble
+    //val mseRound = BigDecimal(mse).setScale(5, BigDecimal.RoundingMode.HALF_UP).toDouble
     coll.setResult("best.mse", mse)
     coll.setResult("best.isOptimal", correct)
   }

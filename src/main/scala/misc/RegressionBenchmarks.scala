@@ -242,6 +242,7 @@ object RegressionBenchmarks extends App {
   }
 
 
+
   /**
     * Produces constraint indicating that the result of a function is the same under exchanging the
     * positions of the specified variables.
