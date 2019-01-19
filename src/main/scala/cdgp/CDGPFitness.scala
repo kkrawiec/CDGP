@@ -699,7 +699,7 @@ class EvalGPSeqDouble(state: StateCDGP)
     (s._1, FSeqDouble(s._2.correct, s._2.value ++ evalOnTests(s._1, missingTests), s._1.size))
   }
   override def defaultValue(s: Op) = FSeqDouble(false, Seq(), s.size)
-  override val correct = (e: FSeqDouble) => e.mse <= optThreshold
+  override val correct = (e: FSeqDouble) => e.correct
   override val ordering = FSeqDoubleOrderingMSE
 }
 
@@ -736,7 +736,7 @@ class EvalGPDoubleMSE(state: StateCDGP)
     (s._1, newFit)
   }
   override def defaultValue(s: Op) = FDouble(false, 0.0, s.size)
-  override val correct = (e: FDouble) => e.value <= optThreshold
+  override val correct = (e: FDouble) => e.correct
   override val ordering = FDoubleOrdering
 }
 
