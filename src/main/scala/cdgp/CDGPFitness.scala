@@ -624,12 +624,16 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
   def fitnessOnlyTestCases: Op => (Boolean, Seq[Double]) =
     (s: Op) => {
       val evalTests = evalOnTests(s, state.testsManager.getTests())
-      if (isMseCloseToZero(evalTests))
-        (true, evalTests)
-      else
-        (false, evalTests)
+      (isMseCloseToZero(evalTests), evalTests)
     }
 
+
+  /**
+    * Checks, if verification should be conducted. The ration of passed incomplete tests
+    * is computed and then compared to testsRatio parameter. If it is higher, then a
+    * verification is conducted.
+    * @param evalTests Evaluations on all tests.
+    */
   def doVerify(evalTests: Seq[Double]): Boolean = {
     // Verify only those solutions which pass all incomplete tests
     val (incompleteTests, _) = evalTests.zip(state.testsManager.tests).filter { case (_, t) => t._2.isEmpty }.unzip
@@ -637,27 +641,36 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
     incompleteTests.isEmpty || (numPassed / incompleteTests.size) >= testsRatio
   }
 
+  /**
+    * Creates and adds a new test based on the counterexample returned by solver.
+    *
+    * @param model Output from the solver for the verification query and sat decision.
+    */
+  def addNewTest(model: String): Unit = {
+    if (state.testsManager.newTests.size < maxNewTestsPerIter) {
+      val newTest = state.createTestFromFailedVerification(model)
+      if (newTest.isDefined)
+        state.testsManager.addNewTest(newTest.get)
+    }
+  }
+
   /** Fitness is always computed on the tests that were flushed. */
   def fitnessCDGPRegression: Op => (Boolean, Seq[Double]) =
     if (state.sygusData.formalInvocations.isEmpty) fitnessOnlyTestCases
     else (s: Op) => {
       val evalTests = evalOnTests(s, state.testsManager.getTests())
-      // If the program passes the specified ratio of test cases, it will be verified
-      // and a counterexample will be produced (or program will be deemed correct).
+      // If the program passes the specified ratio of incomplete test cases, it will be
+      // verified and a counterexample will be produced (or program will be deemed correct).
       // NOTE: if the program does not pass all test cases, then the probability is high
       // that the produced counterexample will already be in the set of test cases.
       if (!doVerify(evalTests))
         (false, evalTests)
       else {
-        val (decision, r) = state.verify(s)
-        if (decision == "unsat" && isMseCloseToZero(evalTests))
-          (true, evalTests) // perfect program found; end of run
+        val (decision, model) = state.verify(s)
+        if (decision == "unsat")
+          (isMseCloseToZero(evalTests), evalTests)
         else if (decision == "sat") {
-          if (state.testsManager.newTests.size < maxNewTestsPerIter) {
-            val newTest = state.createTestFromFailedVerification(r.get)
-            if (newTest.isDefined)
-              state.testsManager.addNewTest(newTest.get)
-          }
+          addNewTest(model.get)
           (false, evalTests)
         }
         else {
