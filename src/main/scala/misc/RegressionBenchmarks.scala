@@ -595,9 +595,12 @@ object RegressionBenchmarks extends App {
     Seq(
       PropVarSymmetry2("r1", "r2", rangesGtZero("r1", "r2"))
     ))
-  val b_resistance_par2_c = Benchmark("resistance_par2_c", Seq("r1", "r2"),
+  val b_resistance_par2_c1 = Benchmark("resistance_par2_c1", Seq("r1", "r2"),
     Seq(
-      CustomConstraint("(=> (= r1 r2) (= {0} (/ r1 2.0)))", range=rangesGtZero("r1", "r2")),
+      CustomConstraint("(=> (= r1 r2) (= {0} (/ r1 2.0)))", range=rangesGtZero("r1", "r2"))
+    ))
+  val b_resistance_par2_c2 = Benchmark("resistance_par2_c2", Seq("r1", "r2"),
+    Seq(
       CustomConstraint("(and (<= {0} r1) (<= {0} r2))", range=rangesGtZero("r1", "r2"))
     ))
   val b_resistance_par2_sc = Benchmark("resistance_par2_sc", Seq("r1", "r2"),
@@ -621,9 +624,12 @@ object RegressionBenchmarks extends App {
     Seq(
       PropVarSymmetry3("r1", "r2", "r3", rangesGtZero("r1", "r2", "r3"))
     ))
-  val b_resistance_par3_c = Benchmark("resistance_par3_c", Seq("r1", "r2", "r3"),
+  val b_resistance_par3_c1 = Benchmark("resistance_par3_c1", Seq("r1", "r2", "r3"),
     Seq(
-      CustomConstraint("(=> (= r1 r2 r3) (= {0} (/ r1 3.0)))", range=rangesGtZero("r1", "r2", "r3")),
+      CustomConstraint("(=> (= r1 r2 r3) (= {0} (/ r1 3.0)))", range=rangesGtZero("r1", "r2", "r3"))
+    ))
+  val b_resistance_par3_c2 = Benchmark("resistance_par3_c2", Seq("r1", "r2", "r3"),
+    Seq(
       CustomConstraint("(and (<= {0} r1) (<= {0} r2) (<= {0} r3))", range=rangesGtZero("r1", "r2", "r3"))
     ))
   val b_resistance_par3_sc = Benchmark("resistance_par3_sc", Seq("r1", "r2", "r3"),
@@ -652,11 +658,13 @@ object RegressionBenchmarks extends App {
     ns.map{ n => Benchmark(b_gravity, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
     ns.map{ n => Benchmark(b_gravityNoG, generateTestsU(3, n, fGravityNoG, 0.0, 20.0)) },
     ns.map{ n => Benchmark(b_resistance_par2, generateTestsU(2, n, fResistancePar2, 0.0001, 20.0)) },
-    ns.map{ n => Benchmark(b_resistance_par2_c, generateTestsU(2, n, fResistancePar2, 0.0001, 20.0)) },
+    ns.map{ n => Benchmark(b_resistance_par2_c1, generateTestsU(2, n, fResistancePar2, 0.0001, 20.0)) },
+    ns.map{ n => Benchmark(b_resistance_par2_c2, generateTestsU(2, n, fResistancePar2, 0.0001, 20.0)) },
     ns.map{ n => Benchmark(b_resistance_par2_s, generateTestsU(2, n, fResistancePar2, 0.0001, 20.0)) },
     ns.map{ n => Benchmark(b_resistance_par2_sc, generateTestsU(2, n, fResistancePar2, 0.0001, 20.0)) },
     ns.map{ n => Benchmark(b_resistance_par3, generateTestsU(3, n, fResistancePar3, 0.0001, 20.0)) },
-    ns.map{ n => Benchmark(b_resistance_par3_c, generateTestsU(3, n, fResistancePar3, 0.0001, 20.0)) },
+    ns.map{ n => Benchmark(b_resistance_par3_c1, generateTestsU(3, n, fResistancePar3, 0.0001, 20.0)) },
+    ns.map{ n => Benchmark(b_resistance_par3_c2, generateTestsU(3, n, fResistancePar3, 0.0001, 20.0)) },
     ns.map{ n => Benchmark(b_resistance_par3_s, generateTestsU(3, n, fResistancePar3, 0.0001, 20.0)) },
     ns.map{ n => Benchmark(b_resistance_par3_sc, generateTestsU(3, n, fResistancePar3, 0.0001, 20.0)) }
   ).flatten
