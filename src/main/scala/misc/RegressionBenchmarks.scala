@@ -564,6 +564,7 @@ object RegressionBenchmarks extends App {
       PropAscending("x", range=Seq(Range("x", Some(-0.25), None))),
       PropDescending("x", range=Seq(Range("x", None, Some(-0.75))))
     ))
+
   // Task: calculate the force of gravity between two bodies
   // Solution: (6.674e-11 * m1 * m2) / r^2
   val b_gravity = Benchmark("gravity", Seq("m1", "m2", "r"),
@@ -573,6 +574,37 @@ object RegressionBenchmarks extends App {
       PropAscending("m1", range=rangesGtZero("m1", "m2", "r"), strict=true),
       PropAscending("m2", range=rangesGtZero("m1", "m2", "r"), strict=true)
     ))
+  val b_gravity_s = Benchmark("gravity_s", Seq("m1", "m2", "r"),
+    Seq(
+      PropVarSymmetry2("m1", "m2", rangesGtZero("m1", "m2", "r"))
+    ))
+  val b_gravity_b = Benchmark("gravity_b", Seq("m1", "m2", "r"),
+    Seq(
+      PropOutputBound(Some(0.0), None, range=rangesGtZero("m1", "m2", "r"))
+    ))
+  val b_gravity_m = Benchmark("gravity_m", Seq("m1", "m2", "r"),
+    Seq(
+      PropAscending("m1", range=rangesGtZero("m1", "m2", "r"), strict=true),
+      PropAscending("m2", range=rangesGtZero("m1", "m2", "r"), strict=true)
+    ))
+  val b_gravity_bm = Benchmark("gravity_bm", Seq("m1", "m2", "r"),
+    Seq(
+      PropOutputBound(Some(0.0), None, range=rangesGtZero("m1", "m2", "r")),
+      PropAscending("m1", range=rangesGtZero("m1", "m2", "r"), strict=true),
+      PropAscending("m2", range=rangesGtZero("m1", "m2", "r"), strict=true)
+    ))
+  val b_gravity_bs = Benchmark("gravity_bs", Seq("m1", "m2", "r"),
+    Seq(
+      PropVarSymmetry2("m1", "m2", rangesGtZero("m1", "m2", "r")),
+      PropOutputBound(Some(0.0), None, range=rangesGtZero("m1", "m2", "r"))
+    ))
+  val b_gravity_ms = Benchmark("gravity_ms", Seq("m1", "m2", "r"),
+    Seq(
+      PropVarSymmetry2("m1", "m2", rangesGtZero("m1", "m2", "r")),
+      PropAscending("m1", range=rangesGtZero("m1", "m2", "r"), strict=true),
+      PropAscending("m2", range=rangesGtZero("m1", "m2", "r"), strict=true)
+    ))
+
   // Task: calculate the force of gravity between two bodies (not taking into account a constant)
   // Solution: (m1 * m2) / r^2
   val b_gravityNoG = Benchmark("gravity_noG", Seq("m1", "m2", "r"),
@@ -641,7 +673,7 @@ object RegressionBenchmarks extends App {
 
 
 
-  val ns = Seq(5, 10)
+  val ns = Seq(3) //5, 10
 
   val benchmarks = Seq(
     ns.map{ n => Benchmark(b_keijzer12, generateTestsU(2, n, fKeijzer12, -20.0, 20.0)) },
@@ -656,6 +688,12 @@ object RegressionBenchmarks extends App {
     ns.map{ n => Benchmark(b_squares3_s, generateTestsU(3, n, fSquares3, -20.0, 20.0)) },
     ns.map{ n => Benchmark(b_squares3_bs, generateTestsU(3, n, fSquares3, -20.0, 20.0)) },
     ns.map{ n => Benchmark(b_gravity, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
+    ns.map{ n => Benchmark(b_gravity_b, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
+    ns.map{ n => Benchmark(b_gravity_m, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
+    ns.map{ n => Benchmark(b_gravity_s, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
+    ns.map{ n => Benchmark(b_gravity_bm, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
+    ns.map{ n => Benchmark(b_gravity_bs, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
+    ns.map{ n => Benchmark(b_gravity_ms, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
     ns.map{ n => Benchmark(b_gravityNoG, generateTestsU(3, n, fGravityNoG, 0.0, 20.0)) },
     ns.map{ n => Benchmark(b_resistance_par2, generateTestsU(2, n, fResistancePar2, 0.0001, 20.0)) },
     ns.map{ n => Benchmark(b_resistance_par2_c1, generateTestsU(2, n, fResistancePar2, 0.0001, 20.0)) },
@@ -673,14 +711,16 @@ object RegressionBenchmarks extends App {
 
   //////////////////////////////////////////////////////////////////////////
 
-  val dir = new File("resources/NRA/regression_formal")
+  val dirPath = "resources/NRA/regression_formal"
+
+  val dir = new File(dirPath)
   if (dir.exists())
     dir.delete()
   dir.mkdir()
 
   benchmarks.foreach{ b =>
     val sygusCode = generateSygusCode(b)
-    val path = "resources/NRA/regression_formal/" + b.fileName
+    val path = s"${dirPath}/${b.fileName}"
     println(sygusCode)
     println("\n\n")
     saveFile(path, sygusCode)
