@@ -196,13 +196,55 @@ abstract class EvalFunction[S, E](val state: State)
 
 
 
-abstract class EvalCDGPDiscrete[E](state: StateCDGP)
+abstract class EvalCDGP[E, EVecEl](state: StateCDGP)
                                   (implicit opt: Options, coll: Collector)
   extends EvalFunction[Op, E](state) {
-
-  val testsAbsDiff: Option[Int] = opt.getOptionInt("testsAbsDiff")
-  val testsRatio: Double = opt('testsRatio, 1.0, (x: Double) => x >= 0.0 && x <= 1.0)
   val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, Int.MaxValue, (x: Int) => x >= 0)
+  val testsRatio: Double = opt('testsRatio, 1.0, (x: Double) => x >= 0.0 && x <= 1.0)
+  val partialConstraintsInFitness: Boolean = opt('partialConstraintsInFitness, false)
+  val globalConstraintInFitness: Boolean = opt('globalConstraintInFitness, false)
+
+
+  /** Constructs a vector for fitness elements constructed with the use of the formal verification. */
+  def getConstraintsVector(s: Op, passValue: EVecEl, nonpassValue: EVecEl): Seq[EVecEl] = {
+    val vector = getPartialConstraintsVector(s, passValue, nonpassValue)
+    if (globalConstraintInFitness)
+      getGlobalConstraintsDecision(s, passValue, nonpassValue) +: vector
+    else
+      vector
+  }
+
+  /** Verifies solution on all formal constraints in order to add this info to the fitness vector. */
+  def getGlobalConstraintsDecision(s: Op, passValue: EVecEl, nonpassValue: EVecEl): EVecEl = {
+    val (dec, _) = state.verify(s)
+    if (dec == "unsat") passValue else nonpassValue
+  }
+
+  /** Verifies solution on partial constraints in order to add this info to the fitness vector. */
+  def getPartialConstraintsVector(s: Op, passValue: EVecEl, nonpassValue: EVecEl): Seq[EVecEl] = {
+    state.sygusData.formalConstr.map{ constr =>
+      val template = new TemplateVerification(state.sygusData, false, state.timeout, Some(Seq(constr)))
+      val (dec, _) = state.verify(s, template)
+      if (dec == "unsat") passValue else nonpassValue
+    }
+  }
+
+  def handleEvalException(test: (I, Option[O]), s: Op, message: String) {
+    val msg = s"Error during evalutation of $s and test $test: $message"
+    coll.set("error_evalOnTests", msg)
+    println(msg)
+  }
+}
+
+
+
+
+
+abstract class EvalCDGPDiscrete[E](state: StateCDGP)
+                                  (implicit opt: Options, coll: Collector)
+  extends EvalCDGP[E, Int](state) {
+  // Parameters:
+  val testsAbsDiff: Option[Int] = opt.getOptionInt("testsAbsDiff")
 
 
   /**
@@ -211,7 +253,11 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP)
     * program directly on the tests, or will have to resort to a solver.
     */
   def evalOnTests(s: Op, tests: Seq[(I, Option[O])]): Seq[Int] = {
-    for (test <- tests) yield { evaluateTest(s, test) }
+    val testsStandard = for (test <- tests) yield { evaluateTest(s, test) }
+    if (partialConstraintsInFitness || globalConstraintInFitness)
+      getConstraintsVector(s, 0, 1) ++: testsStandard
+    else
+      testsStandard
   }
 
 
@@ -219,11 +265,6 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP)
     * Computes a fitness data for this test.
     */
   def evaluateTest(s: Op, test: (I, Option[O])): Int = {
-    def handleException(test: (I, Option[O]), message: String) {
-      val msg = s"Error during evalutation of $s and test $test: $message"
-      coll.set("error_evalOnTests", msg)
-      println(msg)
-    }
     try {
       if (test._2.isDefined)
       // User can define test cases for a problem, in which generally single-answer
@@ -234,7 +275,7 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP)
     }
     catch {
       case _: ExceptionIncorrectOperation => 1
-      case e: Throwable => handleException(test, e.getMessage); 1
+      case e: Throwable => handleEvalException(test, s, e.getMessage); 1
     }
   }
 
@@ -503,14 +544,9 @@ class EvalGPRInt(state: StateGPR)
   */
 abstract class EvalCDGPContinuous[E](state: StateCDGP)
                                     (implicit opt: Options, coll: Collector)
-  extends EvalFunction[Op, E](state) {
-
+  extends EvalCDGP[E, Double](state) {
   // Parameters:
-  val testsRatio: Double = opt('testsRatio, 1.0, (x: Double) => x >= 0.0 && x <= 1.0)
   val optThreshold: Double = opt.paramDouble('optThreshold, 1.0e-5)
-  val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, 5, (x: Int) => x >= 0)
-  val partialConstraintsInFitness: Boolean = opt('partialConstraintsInFitness, false)
-  val globalConstraintInFitness: Boolean = opt('globalConstraintInFitness, false)
 
   checkValidity()
 
@@ -523,41 +559,12 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
   def evalOnTests(s: Op, tests: Seq[(I, Option[O])]): Seq[Double] = {
     val testsStandard = for (test <- tests) yield { evaluateTest(s, test) }
     if (partialConstraintsInFitness || globalConstraintInFitness)
-      getConstraintsVector(s) ++: testsStandard
+      getConstraintsVector(s, 0.0, 1.0) ++: testsStandard
     else
       testsStandard
   }
 
-  /** Constructs a vector for fitness elements constructed with the use of the formal verification. */
-  def getConstraintsVector(s: Op): Seq[Double] = {
-    val vector = getPartialConstraintsVector(s)
-    if (globalConstraintInFitness)
-      getGlobalConstraintsDecision(s) +: vector
-    else
-      vector
-  }
-
-  /** Verifies solution on all formal constraints in order to add this info to the fitness vector. */
-  def getGlobalConstraintsDecision(s: Op): Double = {
-    val (dec, _) = state.verify(s)
-    if (dec == "unsat") 0.0 else 1.0
-  }
-
-  /** Verifies solution on partial constraints in order to add this info to the fitness vector. */
-  def getPartialConstraintsVector(s: Op): Seq[Double] = {
-    state.sygusData.formalConstr.map{ constr =>
-      val template = new TemplateVerification(state.sygusData, false, state.timeout, Some(Seq(constr)))
-      val (dec, _) = state.verify(s, template)
-      if (dec == "unsat") 0.0 else 1.0
-    }
-  }
-
   def evaluateTest(s: Op, test: (I, Option[O])): Double = {
-    def handleException(test: (I, Option[O]), message: String) {
-      val msg = s"Error during evalutation of $s and test $test: $message"
-      coll.set("error_evalOnTests", msg)
-      println(msg)
-    }
     try {
       if (test._2.isDefined)
       // User can define test cases for a problem, in which generally single-answer
@@ -571,7 +578,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
       case _: ExceptionIncorrectOperation =>
         Double.PositiveInfinity
       case e: Throwable =>
-        handleException(test, e.getMessage)
+        handleEvalException(test, s, e.getMessage)
         Double.PositiveInfinity
     }
   }
