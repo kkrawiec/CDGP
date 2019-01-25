@@ -604,6 +604,13 @@ object RegressionBenchmarks extends App {
       PropAscending("m1", range=rangesGtZero("m1", "m2", "r"), strict=true),
       PropAscending("m2", range=rangesGtZero("m1", "m2", "r"), strict=true)
     ))
+  val b_gravity_bms = Benchmark("gravity_bms", Seq("m1", "m2", "r"),
+    Seq(
+      PropVarSymmetry2("m1", "m2", rangesGtZero("m1", "m2", "r")),
+      PropOutputBound(Some(0.0), None, range=rangesGtZero("m1", "m2", "r")),
+      PropAscending("m1", range=rangesGtZero("m1", "m2", "r"), strict=true),
+      PropAscending("m2", range=rangesGtZero("m1", "m2", "r"), strict=true)
+    ))
 
   // Task: calculate the force of gravity between two bodies (not taking into account a constant)
   // Solution: (m1 * m2) / r^2
@@ -694,6 +701,7 @@ object RegressionBenchmarks extends App {
     ns.map{ n => Benchmark(b_gravity_bm, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
     ns.map{ n => Benchmark(b_gravity_bs, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
     ns.map{ n => Benchmark(b_gravity_ms, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
+    ns.map{ n => Benchmark(b_gravity_bms, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
     ns.map{ n => Benchmark(b_gravityNoG, generateTestsU(3, n, fGravityNoG, 0.0, 20.0)) },
     ns.map{ n => Benchmark(b_resistance_par2, generateTestsU(2, n, fResistancePar2, 0.0001, 20.0)) },
     ns.map{ n => Benchmark(b_resistance_par2_c1, generateTestsU(2, n, fResistancePar2, 0.0001, 20.0)) },
