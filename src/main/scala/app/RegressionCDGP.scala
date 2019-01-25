@@ -78,7 +78,7 @@ object RegressionCDGP {
     }
 
     if (opt('logPassedConstraints, false)) {
-      println("\nPassed constraints:")
+      println("\nPassed constraints (0 = passed):")
       println(coll.get("result.best.passedConstraints").getOrElse("n/a"))
     }
 
@@ -141,7 +141,7 @@ object RegressionCDGP {
         val passed = cdgpState.sygusData.formalConstr.map{ constr =>
           val template = new TemplateVerification(cdgpState.sygusData, false, cdgpState.timeout, Some(Seq(constr)))
           val (dec, _) = cdgpState.verify(bestOp, template)
-          if (dec == "unsat") 1 else 0
+          if (dec == "unsat") 0 else 1  // 0 means passed
         }
         coll.setResult("best.passedConstraints", passed)
       }

@@ -508,13 +508,9 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
   // Parameters:
   val testsRatio: Double = opt('testsRatio, 1.0, (x: Double) => x >= 0.0 && x <= 1.0)
   val optThreshold: Double = opt.paramDouble('optThreshold, 1.0e-5)
-  //val verificationMode: String = opt.paramString('verificationMode, "ratioIncomplete")
-  //val verModeValues = Set("ratioIncomplete", "mse")
-  //assert(verModeValues.contains(verificationMode), s"verificationMode accepts values: ${verModeValues.mkString(", ")}}.")
-  // Verified will be solutions with fitness not worse then this times the solutions of best in the population
-  //val verificationRatio: Double = opt.paramDouble('verificationRatio, 1.1)
-  //assert(verificationRatio >= 1.0, "verificationRatio cannot be lower than 1.0.")
   val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, 5, (x: Int) => x >= 0)
+  val partialConstraintsInFitness: Boolean = opt('partialConstraintsInFitness, false)
+  val globalConstraintInFitness: Boolean = opt('globalConstraintInFitness, false)
 
   checkValidity()
 
@@ -525,27 +521,58 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
     * program directly on the tests, or will have to resort to a solver.
     */
   def evalOnTests(s: Op, tests: Seq[(I, Option[O])]): Seq[Double] = {
+    val testsStandard = for (test <- tests) yield { evaluateTest(s, test) }
+    if (partialConstraintsInFitness || globalConstraintInFitness)
+      getConstraintsVector(s) ++: testsStandard
+    else
+      testsStandard
+  }
+
+  /** Constructs a vector for fitness elements constructed with the use of the formal verification. */
+  def getConstraintsVector(s: Op): Seq[Double] = {
+    val vector = getPartialConstraintsVector(s)
+    if (globalConstraintInFitness)
+      getGlobalConstraintsDecision(s) +: vector
+    else
+      vector
+  }
+
+  /** Verifies solution on all formal constraints in order to add this info to the fitness vector. */
+  def getGlobalConstraintsDecision(s: Op): Double = {
+    val (dec, _) = state.verify(s)
+    if (dec == "unsat") 0.0 else 1.0
+  }
+
+  /** Verifies solution on partial constraints in order to add this info to the fitness vector. */
+  def getPartialConstraintsVector(s: Op): Seq[Double] = {
+    state.sygusData.formalConstr.map{ constr =>
+      val template = new TemplateVerification(state.sygusData, false, state.timeout, Some(Seq(constr)))
+      val (dec, _) = state.verify(s, template)
+      if (dec == "unsat") 0.0 else 1.0
+    }
+  }
+
+  def evaluateTest(s: Op, test: (I, Option[O])): Double = {
     def handleException(test: (I, Option[O]), message: String) {
       val msg = s"Error during evalutation of $s and test $test: $message"
       coll.set("error_evalOnTests", msg)
       println(msg)
     }
-    for (test <- tests) yield {
-      try {
-        if (test._2.isDefined)
-        // User can define test cases for a problem, in which generally single-answer
-        // property does not hold. We will use domain for those cases, since it is more
-        // efficient.
-          evalOnTestsDomain(s, test)
-        else evalOnTestsSolver(s, test)
-      }
-      catch {
-        // return PositiveInfinity for situations like division by 0
-        case _: ExceptionIncorrectOperation => Double.PositiveInfinity
-        case e: Throwable =>
-          handleException(test, e.getMessage)
-          Double.PositiveInfinity
-      }
+    try {
+      if (test._2.isDefined)
+      // User can define test cases for a problem, in which generally single-answer
+      // property does not hold. We will use domain for those cases, since it is more
+      // efficient.
+        evalOnTestsDomain(s, test)
+      else evalOnTestsSolver(s, test)
+    }
+    catch {
+      // return PositiveInfinity for situations like division by 0
+      case _: ExceptionIncorrectOperation =>
+        Double.PositiveInfinity
+      case e: Throwable =>
+        handleException(test, e.getMessage)
+        Double.PositiveInfinity
     }
   }
 
@@ -558,7 +585,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
     val testModel: Map[String, Any] = test._1
     val (dec, _) = state.checkIsProgramCorrectForInput(s, testModel)
     // 0.0 is returned for a correct answer (sat).
-    // This becomes questionable when aggregated with error.
+    // This becomes questionable if aggregated with error.
     if (dec == "sat") 0.0 else 1.0
   }
 
