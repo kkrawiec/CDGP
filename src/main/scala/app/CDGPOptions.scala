@@ -156,6 +156,7 @@ object CDGPOptions {
   args += OptionInfo("optionsFile", "String", desc="Path to property file from which options will be read.")
   args += OptionInfo("optThreshold", "Double", default=Some("1.0e-5"), desc="Optimality threshold. If the solution's error is below this number, then the it is assumed to be optimal and the run is terminated.")
   args += OptionInfo("partialConstraintsInFitness", "Bool", default=Some("false"), desc="If true, then the solution will be verified separetely on every formal constraint and the result will be prepended to the fitness vector.")
+  args += OptionInfo("partialConstraintsVisibleForTestsRatio", "Bool", default=Some("false"), desc="If true, then the solution will be verified separetely on every formal constraint and the result will be prepended to the fitness vector.")
   args += OptionInfo("printTests", "Bool", default=Some("false"), desc="Prints every added test and after the evolution ends prints all collected tests.")
   args += OptionInfo("printQueries", "Bool", default=Some("false"), desc="Print all queries to SMT solver.")
   args += OptionInfo("recDepthLimit", "Int", default=Some("1000"), desc="A limit of calls for recursive functions.")
@@ -168,7 +169,7 @@ object CDGPOptions {
   args += OptionInfo("solverInteractive", "Bool", default=Some("true"), desc="Run solver in interactive mode (much faster).")
   args += OptionInfo("solverTimeout", "Int", desc="Time after which solver will be terminated.")
   args += OptionInfo("solverType", "String", choice=Set("z3", "cvc4", "other"), default=Some("z3"), desc="Type of the solver. Must be specified, because some solvers require different options to work effectively.")
-  args += OptionInfo("testsAbsDiff", "Int", desc="???.")
+  args += OptionInfo("testsDiff", "Int", desc="If specified, solution will be verified if they do not pass at most testsDiff tests. TestsRatio parameter would be ignored.")
   args += OptionInfo("testsRatio", "Double", default=Some("1.0"), desc="Ratio of tests which must be passed in order to apply verification in search for a counterexample.")
   args += OptionInfo("verbose", "Bool", default=Some("false"), desc="More printing.")
 

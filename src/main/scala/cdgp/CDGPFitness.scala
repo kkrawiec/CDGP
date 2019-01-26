@@ -201,8 +201,15 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP)
   extends EvalFunction[Op, E](state) {
   val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, Int.MaxValue, (x: Int) => x >= 0)
   val testsRatio: Double = opt('testsRatio, 1.0, (x: Double) => x >= 0.0 && x <= 1.0)
+  val testsDiff: Option[Int] = opt.getOptionInt("testsDiff")
   val partialConstraintsInFitness: Boolean = opt('partialConstraintsInFitness, false)
   val globalConstraintInFitness: Boolean = opt('globalConstraintInFitness, false)
+
+  /** The number of constraints tests prepended to the evaluation vector.*/
+  val numberOfConstraintTests: Int = {
+    (if (!partialConstraintsInFitness) 0 else state.sygusData.formalConstr.size) +
+      (if (!globalConstraintInFitness) 0 else 1)
+  }
 
 
   /** Constructs a vector for fitness elements constructed with the use of the formal verification. */
@@ -229,6 +236,9 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP)
     }
   }
 
+  def extractTestsNormal(eval: Seq[Double]): Seq[Double] = eval.drop(numberOfConstraintTests)
+  def extractTestsConstraints(eval: Seq[Double]): Seq[Double] = eval.take(numberOfConstraintTests)
+
   def handleEvalException(test: (I, Option[O]), s: Op, message: String) {
     val msg = s"Error during evalutation of $s and test $test: $message"
     coll.set("error_evalOnTests", msg)
@@ -243,9 +253,6 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP)
 abstract class EvalCDGPDiscrete[E](state: StateCDGP)
                                   (implicit opt: Options, coll: Collector)
   extends EvalCDGP[E, Int](state) {
-  // Parameters:
-  val testsAbsDiff: Option[Int] = opt.getOptionInt("testsAbsDiff")
-
 
   /**
     * Tests a program on the available tests and returns the vector of 0s (passed test)
@@ -342,8 +349,8 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP)
 
   def doVerify(evalTests: Seq[Int]): Boolean = {
     val numPassed = evalTests.count(_ == 0).asInstanceOf[Double]
-    if (testsAbsDiff.isDefined)
-      numPassed >= evalTests.size - testsAbsDiff.get
+    if (testsDiff.isDefined)
+      numPassed >= evalTests.size - testsDiff.get
     else
       evalTests.isEmpty || (numPassed / evalTests.size) >= testsRatio
   }
@@ -547,6 +554,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
   extends EvalCDGP[E, Double](state) {
   // Parameters:
   val optThreshold: Double = opt.paramDouble('optThreshold, 1.0e-5)
+  val partialConstraintsVisibleForTestsRatio: Boolean = opt('partialConstraintsVisibleForTestsRatio, false)
 
   checkValidity()
 
@@ -670,9 +678,15 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
     */
   def doVerify(evalTests: Seq[Double]): Boolean = {
     // Verify only those solutions which pass all incomplete tests
-    val (incompleteTests, _) = evalTests.zip(state.testsManager.tests).filter { case (_, t) => t._2.isEmpty }.unzip
-    val numPassed = incompleteTests.count(_ == 0.0).asInstanceOf[Double]
-    incompleteTests.isEmpty || (numPassed / incompleteTests.size) >= testsRatio
+    lazy val evalConstr = extractTestsConstraints(evalTests)
+    var (eval, _) = extractTestsNormal(evalTests).zip(state.testsManager.tests).
+      filter { case (_, t) => t._2.isEmpty }.unzip
+    eval = if (partialConstraintsVisibleForTestsRatio) evalConstr ++ eval else eval
+    val numPassed = eval.count(_ == 0.0).asInstanceOf[Double]
+    if (testsDiff.isDefined)
+      numPassed >= eval.size - testsDiff.get
+    else
+      eval.isEmpty || (numPassed / eval.size) >= testsRatio
   }
 
   /**
