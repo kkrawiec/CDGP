@@ -6,13 +6,11 @@ import scala.collection.mutable
 
 
 /**
-  * Manages the set of test cases during evolution run.
+  * Manages the set of test cases during evolution run. If test output is None, then
+  * the desired output for test's input is not known yet or can assume many possible values.
   */
-class TestsManagerCDGP[I,O](testsHistory: Boolean = false, printAddedTests: Boolean = false, saveTests: Boolean = false) {
-
-  // Set of counterexamples collected along the run.
-  // The Option is None if the desired output for a given input is not known yet.
-  val tests: mutable.LinkedHashMap[I, Option[O]] = mutable.LinkedHashMap[I, Option[O]]()
+class TestsManagerCDGP[I,O](val tests: mutable.LinkedHashMap[I, Option[O]], testsHistory: Boolean = false,
+                            printAddedTests: Boolean = false, saveTests: Boolean = false) {
   // Set of counterexamples collected from the current generation. To be reseted after each iteration.
   val newTests: mutable.Set[(I, Option[O])] = mutable.Set[(I, Option[O])]()
 
@@ -75,5 +73,13 @@ class TestsManagerCDGP[I,O](testsHistory: Boolean = false, printAddedTests: Bool
     coll.set(s"$prefix.totalUnknownOutputs", getNumberOfUnknownOutputs)
     if (saveTests)
       coll.set(s"$prefix.collected", tests.toString)
+  }
+}
+
+
+object TestsManagerCDGP {
+  def apply[I,O](testsHistory: Boolean = false, printAddedTests: Boolean = false, saveTests: Boolean = false): TestsManagerCDGP[I,O] = {
+    val tests: mutable.LinkedHashMap[I, Option[O]] = mutable.LinkedHashMap[I, Option[O]]()
+    new TestsManagerCDGP(tests, testsHistory, printAddedTests, saveTests)
   }
 }
