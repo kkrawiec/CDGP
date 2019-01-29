@@ -9,8 +9,8 @@ import scala.collection.mutable
   * Manages the set of test cases during evolution run. If test output is None, then
   * the desired output for test's input is not known yet or can assume many possible values.
   */
-class TestsManagerCDGP[I,O](val tests: mutable.LinkedHashMap[I, Option[O]], testsHistory: Boolean = false,
-                            printAddedTests: Boolean = false, saveTests: Boolean = false) {
+class TestsManagerCDGP[I,O](val tests: mutable.LinkedHashMap[I, Option[O]], val testsHistory: Boolean = false,
+                            val printAddedTests: Boolean = false, val saveTests: Boolean = false) {
   // Set of counterexamples collected from the current generation. To be reseted after each iteration.
   val newTests: mutable.Set[(I, Option[O])] = mutable.Set[(I, Option[O])]()
 
@@ -81,5 +81,28 @@ object TestsManagerCDGP {
   def apply[I,O](testsHistory: Boolean = false, printAddedTests: Boolean = false, saveTests: Boolean = false): TestsManagerCDGP[I,O] = {
     val tests: mutable.LinkedHashMap[I, Option[O]] = mutable.LinkedHashMap[I, Option[O]]()
     new TestsManagerCDGP(tests, testsHistory, printAddedTests, saveTests)
+  }
+}
+
+object NoiseAdder {
+  /**
+    * Returns a new instance of the tests manager with noise added to the tests. Noise can be added both
+    * to the dependent variable (noiseY) and independent variables (noiseX). Noise on the certain variable is
+    * generated from the normal distribution with the mean 0 and with the standard deviation equal to
+    * delta * standard deviation of the variable in question (computed from the sample).
+    *
+    * @param manager tests manager.
+    * @param deltaY Factor of the noise on the dependent variable. 0.0 means no noise.
+    * @param deltaX Factor of the noise on the independent variables. 0.0 means no noise.
+    * @return new tests manager instance with noise added to tests.
+    */
+  def addNoiseStdDev(manager: TestsManagerCDGP[Seq[Double], Double], deltaY: Double, deltaX: Double = 0.0): TestsManagerCDGP[Seq[Double], Double] = {
+    val tests = manager.tests.toSeq
+
+    new TestsManagerCDGP(manager.tests, manager.testsHistory, manager.printAddedTests, manager.saveTests)
+  }
+
+  def addNoiseToSeqStdDev(seq: Seq[Double]): Seq[Double] = {
+    ??? //val dev = Tools.stddev()
   }
 }
