@@ -14,7 +14,7 @@ class NoSolutionException(val badInput: String) extends Exception {
 
 
 abstract class State(val sygusData: SygusProblemData,
-                     val testsManager: TestsManagerCDGP[Map[String, Any], Any])
+                     var testsManager: TestsManagerCDGP[Map[String, Any], Any])
                     (implicit opt: Options, coll: Collector, rng: TRandom) {
   // The types for input and output
   type I = Map[String, Any]
