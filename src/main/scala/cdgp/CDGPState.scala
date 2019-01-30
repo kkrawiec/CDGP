@@ -13,12 +13,12 @@ class NoSolutionException(val badInput: String) extends Exception {
 
 
 
-abstract class State(val sygusData: SygusProblemData)
+abstract class State(val sygusData: SygusProblemData,
+                     val testsManager: TestsManagerCDGP[Map[String, Any], Any])
                     (implicit opt: Options, coll: Collector, rng: TRandom) {
   // The types for input and output
   type I = Map[String, Any]
   type O = Any
-  val testsManager = TestsManagerCDGP[I, O](opt("logTestsHistory", false), opt("printTests", false), opt("saveTests", false))
   val silent = opt('silent, false)
 
   // Initializing population of test cases
@@ -51,9 +51,10 @@ abstract class State(val sygusData: SygusProblemData)
 
 
 
-class StateSMTSolver(sygusData: SygusProblemData)
+class StateSMTSolver(sygusData: SygusProblemData,
+                     testsManager: TestsManagerCDGP[Map[String, Any], Any])
                     (implicit opt: Options, coll: Collector, rng: TRandom)
-  extends State(sygusData) {
+  extends State(sygusData, testsManager) {
 
   // Parameters
   val printQueries = opt('printQueries, false)
@@ -199,9 +200,10 @@ class StateSMTSolver(sygusData: SygusProblemData)
 
 
 
-class StateCDGP(sygusData: SygusProblemData)
+class StateCDGP(sygusData: SygusProblemData,
+                testsManager: TestsManagerCDGP[Map[String, Any], Any])
                (implicit opt: Options, coll: Collector, rng: TRandom)
-  extends StateSMTSolver(sygusData) {
+  extends StateSMTSolver(sygusData, testsManager) {
 
   // Parameters
   val searchForSecondOutput = opt('searchForSecondOutput, true)
@@ -319,11 +321,12 @@ object StateCDGP {
     StateCDGP(LoadSygusBenchmark(benchmark))
   def apply(problem: SyGuS16)
            (implicit opt: Options, coll: Collector, rng: TRandom): StateCDGP = {
-    new StateCDGP(SygusProblemData(problem, opt('mixedSpecAllowed, true)))
+    StateCDGP(SygusProblemData(problem, opt('mixedSpecAllowed, true)))
   }
   def apply(problem: SygusProblemData)
            (implicit opt: Options, coll: Collector, rng: TRandom): StateCDGP = {
-    new StateCDGP(problem)
+    val testsManager = TestsManagerCDGP[Map[String, Any], Any](opt("logTestsHistory", false), opt("printTests", false), opt("saveTests", false))
+    new StateCDGP(problem, testsManager)
   }
 
   /**
@@ -341,11 +344,10 @@ object StateCDGP {
 
 
 
-
-
-class StateGPR(sygusData: SygusProblemData)
+class StateGPR(sygusData: SygusProblemData,
+               testsManager: TestsManagerCDGP[Map[String, Any], Any])
               (implicit opt: Options, coll: Collector, rng: TRandom)
-  extends StateCDGP(sygusData) {
+  extends StateCDGP(sygusData, testsManager) {
 
   // Parameters
   val gprRetryIfUndefined = opt('gprRetryIfUndefined, true)
@@ -396,10 +398,11 @@ object StateGPR {
     StateGPR(LoadSygusBenchmark(benchmark))
   def apply(problem: SyGuS16)
            (implicit opt: Options, coll: Collector, rng: TRandom): StateGPR = {
-    new StateGPR(SygusProblemData(problem, opt('mixedSpecAllowed, true)))
+    StateGPR(SygusProblemData(problem, opt('mixedSpecAllowed, true)))
   }
   def apply(problem: SygusProblemData)
            (implicit opt: Options, coll: Collector, rng: TRandom): StateGPR = {
-    new StateGPR(problem)
+    val testsManager = TestsManagerCDGP[Map[String, Any], Any](opt("logTestsHistory", false), opt("printTests", false), opt("saveTests", false))
+    new StateGPR(problem, testsManager)
   }
 }

@@ -1,6 +1,6 @@
 package cdgp
 
-import fuel.util.Collector
+import fuel.util.{Collector, Options, TRandom}
 
 import scala.collection.mutable
 
@@ -8,12 +8,13 @@ import scala.collection.mutable
 /**
   * Manages the set of test cases during evolution run. If test output is None, then
   * the desired output for test's input is not known yet or can assume many possible values.
+  *
+  * @param newTests Set of counterexamples collected from the current generation. To be reseted after each iteration.
   */
-class TestsManagerCDGP[I,O](val tests: mutable.LinkedHashMap[I, Option[O]], val testsHistory: Boolean = false,
+class TestsManagerCDGP[I,O](val tests: mutable.LinkedHashMap[I, Option[O]],
+                            val newTests: mutable.Set[(I, Option[O])],
+                            val testsHistory: Boolean = false,
                             val printAddedTests: Boolean = false, val saveTests: Boolean = false) {
-  // Set of counterexamples collected from the current generation. To be reseted after each iteration.
-  val newTests: mutable.Set[(I, Option[O])] = mutable.Set[(I, Option[O])]()
-
   private var flushNo = 0
   def getNumFlushes: Int = flushNo
   // Stores the number of tests after each use of flushHelpers.
@@ -80,11 +81,14 @@ class TestsManagerCDGP[I,O](val tests: mutable.LinkedHashMap[I, Option[O]], val 
 object TestsManagerCDGP {
   def apply[I,O](testsHistory: Boolean = false, printAddedTests: Boolean = false, saveTests: Boolean = false): TestsManagerCDGP[I,O] = {
     val tests: mutable.LinkedHashMap[I, Option[O]] = mutable.LinkedHashMap[I, Option[O]]()
-    new TestsManagerCDGP(tests, testsHistory, printAddedTests, saveTests)
+    val newTests = mutable.Set[(I, Option[O])]()
+    new TestsManagerCDGP(tests, newTests, testsHistory, printAddedTests, saveTests)
   }
 }
 
-object NoiseAdder {
+
+
+object NoiseAdderStdDev {
   /**
     * Returns a new instance of the tests manager with noise added to the tests. Noise can be added both
     * to the dependent variable (noiseY) and independent variables (noiseX). Noise on the certain variable is
@@ -96,13 +100,75 @@ object NoiseAdder {
     * @param deltaX Factor of the noise on the independent variables. 0.0 means no noise.
     * @return new tests manager instance with noise added to tests.
     */
-  def addNoiseStdDev(manager: TestsManagerCDGP[Seq[Double], Double], deltaY: Double, deltaX: Double = 0.0): TestsManagerCDGP[Seq[Double], Double] = {
-    val tests = manager.tests.toSeq
+  def apply(manager: TestsManagerCDGP[Map[String, Any], Any], deltaY: Double, deltaX: Double = 0.0)
+           (implicit rng: TRandom): TestsManagerCDGP[Map[String, Any], Any] = {
+    if ((manager.tests.isEmpty && manager.newTests.isEmpty) || (deltaX == 0.0 && deltaY == 0.0)) {
+      manager  // if no tests or both delta=0 then return manager
+    }
+    else {
+      val allTestsSet = manager.newTests.toSet ++ manager.tests.toSet
+      val keys = if (manager.tests.nonEmpty) manager.tests.head._1.keys else manager.newTests.head._1.keys
 
-    new TestsManagerCDGP(manager.tests, manager.testsHistory, manager.printAddedTests, manager.saveTests)
+      // Create a vector of std deviations for each column
+      val stdDevs = keys.map{ k: String => stdDevForInputVar(allTestsSet, k) }.toSeq
+      val stdDevOut = stdDevForOutput(allTestsSet)
+
+      // Randomizing tests
+      val tests2 = randomizeTests(manager.tests.toSeq, stdDevs, stdDevOut, deltaY=deltaY, deltaX=deltaX)
+      val newTests2 = randomizeTests(manager.newTests.toSeq, stdDevs, stdDevOut, deltaY=deltaY, deltaX=deltaX)
+
+      // Adding tests
+      val tests3 = mutable.LinkedHashMap[Map[String, Any], Option[Any]]()
+      val newTests3 = mutable.Set[(Map[String, Any], Option[Any])]()
+      tests2.foreach(t => tests3 += t)
+      newTests2.foreach(t => newTests3 += t)
+
+      // println("Tests before:\n" + manager.getTests().mkString("\n"))
+      // println("New tests before:\n" + manager.newTests.mkString("\n"))
+      val t = new TestsManagerCDGP[Map[String, Any], Any](tests3, newTests3, manager.testsHistory, manager.printAddedTests, manager.saveTests)
+      // println("Tests after:\n" + t.getTests().mkString("\n"))
+      // println("New tests after:\n" + t.newTests.mkString("\n"))
+      t
+    }
   }
 
-  def addNoiseToSeqStdDev(seq: Seq[Double]): Seq[Double] = {
-    ??? //val dev = Tools.stddev()
+  def apply(manager: TestsManagerCDGP[Map[String, Any], Any])
+           (implicit rng: TRandom, opt: Options): TestsManagerCDGP[Map[String, Any], Any] = {
+    val deltaY = opt('noiseDeltaY, 0.0)
+    val deltaX = opt('noiseDeltaX, 0.0)
+    apply(manager, deltaY=deltaY, deltaX=deltaX)
+  }
+
+  def randomizeTests(tests: Seq[(Map[String, Any], Option[Any])],
+                     stdDevs: Seq[Double], stdDevOut: Double,
+                     deltaY: Double, deltaX: Double)
+                    (implicit rng: TRandom):
+  Seq[(Map[String, Any], Option[Any])] = {
+    tests.map { case (input, output) =>
+      if (output.isEmpty) (input, output)
+      else {
+        val newInput = input.toSeq.zip(stdDevs).map{case ((k, value), dev) =>
+          (k, addNoise(value.asInstanceOf[Double], dev, deltaX))
+        }.toMap
+        val newOutput = Some(addNoise(output.get.asInstanceOf[Double], stdDevOut, deltaY))
+        (newInput, newOutput)
+      }
+    }
+  }
+
+  /** Standard deviation for a set of tests where tests without defined output are ignored. */
+  def stdDevForInputVar(tests: Set[(Map[String, Any], Option[Any])], key: String): Double = {
+    val col = tests.filter(_._2.isDefined).map(_._1(key)).toSeq.asInstanceOf[Seq[Double]]
+    Tools.stddev(col)
+  }
+
+  /** Standard deviation for a set of tests where tests without defined output are ignored. */
+  def stdDevForOutput(tests: Set[(Map[String, Any], Option[Any])]): Double = {
+    val col = tests.filter(_._2.isDefined).map(_._2.get).toSeq.asInstanceOf[Seq[Double]]
+    Tools.stddev(col)
+  }
+
+  def addNoise(x: Double, stdDev: Double, delta: Double)(implicit rng: TRandom): Double = {
+    x + rng.nextGaussian() * stdDev * delta
   }
 }

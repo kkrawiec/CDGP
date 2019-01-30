@@ -12,7 +12,7 @@ import swim.tree.Op
 object RegressionCDGP {
 
   def getEvalForSeqDouble(state: StateCDGP, method: String)
-                         (implicit coll: Collector, opt: Options):
+                         (implicit coll: Collector, opt: Options, rng: TRandom):
   EvalFunction[Op, FSeqDouble] = {
     if (method == "CDGP")
       new EvalCDGPSeqDouble(state)
@@ -26,7 +26,7 @@ object RegressionCDGP {
     (selection, evoMode) match {
       case ("tournament", "generational") =>
         val eval = new EvalCDGPDoubleMSE(state)
-        val alg = CDGPGenerational(eval)
+        val alg = CDGPGenerationalR(eval)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (finalPop, alg.bsf.bestSoFar)
 

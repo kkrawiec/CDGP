@@ -132,6 +132,8 @@ object CDGPOptions {
   args += OptionInfo("selection", "String", choice=Set("lexicase", "tournament"), default=Some("lexicase"), desc="Selection of the evolutionary algorithm.")
 
   // other args
+  args += OptionInfo("noiseDeltaX", "Double", default=Some("0.0"), desc="In regression mode, this will be the modifier for the standard deviation of the independent variables. Higher value means higher noise.")
+  args += OptionInfo("noiseDeltaY", "Double", default=Some("0.0"), desc="In regression mode, this will be the modifier for the standard deviation of the dependent variable. Higher value means higher noise.")
   args += OptionInfo("globalConstraintInFitness", "Bool", default=Some("false"), desc="If true, then the solution will be verified on all formal constraints at once and the result will be prepended to the fitness vector.")
   args += OptionInfo("gprMaxInt", "Int", default=Some("100"), desc="Upper bound for Int terminals in GPR.")
   args += OptionInfo("gprMaxDouble", "Double", default=Some("1.0"), desc="Upper bound for Double terminals in GPR.")

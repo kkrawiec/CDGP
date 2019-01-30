@@ -39,6 +39,12 @@ object Tools {
     */
   def double2str(d: Double): String = df.format(d)
 
+  def avg(xs: Seq[Double]): Double = {
+    if (xs.isEmpty) throw new Exception("Trying to compute average from an empty list!")
+    else xs.sum / xs.size
+  }
+
+  def stddev(xs: Seq[Double]): Double = stddev(xs, avg(xs))
   def stddev(xs: Seq[Double], avg: Double): Double = xs match {
     case Nil => -1.0
     case ys => math.sqrt((0.0 /: ys) {

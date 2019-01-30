@@ -1,6 +1,6 @@
 package cdgp
 
-import fuel.util.{Collector, Options}
+import fuel.util.{Collector, Options, TRandom}
 import swim.RecursiveDomain
 import swim.tree.{LongerOrMaxPassedOrdering, Op}
 import sygus.{IntConst, LiteralTerm, StringConst, Term}
@@ -736,11 +736,11 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
 
 
 class EvalGPSeqDouble(state: StateCDGP)
-                     (implicit opt: Options, coll: Collector)
+                     (implicit opt: Options, coll: Collector, rng: TRandom)
   extends EvalCDGPContinuous[FSeqDouble](state) {
   override def apply(s: Op, init: Boolean): FSeqDouble = {
-      val (isPerfect, eval) = fitnessOnlyTestCases(s)
-      FSeqDouble(isPerfect, eval, s.size)
+    val (isPerfect, eval) = fitnessOnlyTestCases(s)
+    FSeqDouble(isPerfect, eval, s.size)
   }
   override def updateEval(s: (Op, FSeqDouble)): (Op, FSeqDouble) = {
     val missingTests = state.testsManager.dropFromTests(s._2.totalTests) ++ state.testsManager.newTests.toList
@@ -753,7 +753,7 @@ class EvalGPSeqDouble(state: StateCDGP)
 
 
 class EvalCDGPSeqDouble(state: StateCDGP)
-                       (implicit opt: Options, coll: Collector)
+                       (implicit opt: Options, coll: Collector, rng: TRandom)
   extends EvalGPSeqDouble(state) {
   override def apply(s: Op, init: Boolean): FSeqDouble = {
     if (init) {
@@ -769,7 +769,7 @@ class EvalCDGPSeqDouble(state: StateCDGP)
 
 
 class EvalGPDoubleMSE(state: StateCDGP)
-                       (implicit opt: Options, coll: Collector)
+                     (implicit opt: Options, coll: Collector, rng: TRandom)
   extends EvalCDGPContinuous[FDouble](state) {
   override def apply(s: Op, init: Boolean): FDouble = {
     val (isPerfect, eval) = fitnessOnlyTestCases(s)
@@ -790,7 +790,7 @@ class EvalGPDoubleMSE(state: StateCDGP)
 
 
 class EvalCDGPDoubleMSE(state: StateCDGP)
-                       (implicit opt: Options, coll: Collector)
+                       (implicit opt: Options, coll: Collector, rng: TRandom)
   extends EvalGPDoubleMSE(state) {
   override def apply(s: Op, init: Boolean): FDouble = {
     if (init) {

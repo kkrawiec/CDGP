@@ -114,6 +114,28 @@ object CDGPGenerational {
 
 
 
+class CDGPGenerationalR[E <: Fitness]
+                       (moves: GPMoves,
+                        cdgpEval: CDGPEvaluation[Op, E])
+                       (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
+  extends CDGPGenerational(moves, cdgpEval) {
+  override def initialize = {
+    Common.addNoiseToTests(cdgpEval.state)(opt, rng); super.initialize
+  }
+}
+
+object CDGPGenerationalR {
+  def apply[E <: Fitness](eval: EvalFunction[Op, E])
+                         (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerational[E] = {
+    implicit val ordering = eval.ordering
+    val grammar = eval.state.sygusData.getSwimGrammar(rng)
+    val moves = GPMoves(grammar, Common.isFeasible(eval.state.synthTask.fname, opt))
+    val cdgpEval = new CDGPEvaluation[Op, E](eval)
+    new CDGPGenerationalR[E](moves, cdgpEval)
+  }
+}
+
+
 
 /**
   * This is an implementation of the steady state GP.
@@ -225,13 +247,15 @@ class CDGPGenerationalLexicaseR(moves: GPMoves,
      with CDGPAlgorithm[Op, FSeqDouble] {
   val bsf = BestSoFar[Op, FSeqDouble](ordering, it)
   override def cdgpState = cdgpEval.state
-  override def initialize = super.initialize// andThen Common.printPop
+  override def initialize = {
+    Common.addNoiseToTests(cdgpEval.state)(opt, rng); super.initialize
+  }
   override def epilogue = super.epilogue andThen bsf andThen reportStats
   override def iter = (s: StatePop[(Op, FSeqDouble)]) =>
     (createBreeder(s) andThen evaluate andThen super.report andThen updateAfterIteration)(s)
   override def evaluate = cdgpEval
 
-  def createBreeder(s: StatePop[(Op, FSeqDouble)]): (StatePop[(Op, FSeqDouble)] => StatePop[Op]) = {
+  def createBreeder(s: StatePop[(Op, FSeqDouble)]): StatePop[(Op, FSeqDouble)] => StatePop[Op] = {
     val epsForTests = EpsLexicaseSelection.medianAbsDev(s)
     val sel = new EpsLexicaseSelection[Op, FSeqDouble](epsForTests)
     SimpleBreeder(sel, moves: _*)
@@ -349,7 +373,10 @@ class CDGPSteadyStateLexicaseR[E <: FSeqDouble](moves: GPMoves,
   val n = opt('reportFreq, opt('populationSize, 1000))
 
   override def cdgpState = cdgpEval.state
-  override def initialize  = super.initialize
+
+  override def initialize = {
+    Common.addNoiseToTests(cdgpEval.state)(opt, rng); super.initialize
+  }
   override def iter = (s: StatePop[(Op, E)]) => (createBreeder(s) andThen
     CallEvery(n, report) andThen
     cdgpEval.updatePopulationEvalsAndTests andThen
@@ -521,5 +548,9 @@ object Common {
       println(x)
     println()
     s
+  }
+
+  def addNoiseToTests(state: State)(implicit opt: Options, rng: TRandom): Unit = {
+    state.testsManager = NoiseAdderStdDev(state.testsManager)
   }
 }
