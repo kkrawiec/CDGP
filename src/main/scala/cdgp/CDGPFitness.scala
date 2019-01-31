@@ -48,7 +48,7 @@ case class FSeqDouble(correct: Boolean, value: Seq[Double], progSize: Int)
   override def iterator = value.iterator
   override val totalTests: Int = length
 
-  lazy val mse: Double = if (value.isEmpty) 0.0 else value.map{ x => x*x }.sum / value.size.toDouble
+  lazy val mse: Double = if (value.isEmpty) 0.0 else Tools.mse(value)
 
   override def saveInColl(coll: Collector): Unit = {
     //val mseRound = BigDecimal(mse).setScale(5, BigDecimal.RoundingMode.HALF_UP).toDouble
@@ -655,7 +655,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
   }
 
   def isMseCloseToZero(evalTests: Seq[Double]): Boolean = {
-    evalTests.map(x => x * x).sum / evalTests.size <= optThreshold
+    Tools.mse(evalTests) <= optThreshold
   }
 
 
@@ -773,7 +773,7 @@ class EvalGPDoubleMSE(state: StateCDGP)
   extends EvalCDGPContinuous[FDouble](state) {
   override def apply(s: Op, init: Boolean): FDouble = {
     val (isPerfect, eval) = fitnessOnlyTestCases(s)
-    val mse = eval.map{ x => x * x }.sum
+    val mse = Tools.mse(eval)
     FDouble(isPerfect, mse, s.size)
   }
   override def updateEval(s: (Op, FDouble)): (Op, FDouble) = {
@@ -795,12 +795,12 @@ class EvalCDGPDoubleMSE(state: StateCDGP)
   override def apply(s: Op, init: Boolean): FDouble = {
     if (init) {
       val (_, eval) = fitnessOnlyTestCases(s)
-      val mse = eval.map{ x => x * x }.sum
+      val mse = Tools.mse(eval)
       FDouble(false, mse, s.size) // correctness set to false to not trigger correctness based only on the MSE
     }
     else {
       val (isPerfect, eval) = fitnessCDGPRegression(s)
-      val mse = eval.map{ x => x * x }.sum
+      val mse = Tools.mse(eval)
       FDouble(isPerfect, mse, s.size)
     }
   }

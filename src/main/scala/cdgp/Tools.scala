@@ -52,6 +52,9 @@ object Tools {
     } / xs.size)
   }
 
+  /** Computes MSE of the list of errors. */
+  def mse(xs: Seq[Double]): Double = if (xs.isEmpty) 0.0 else xs.map(x => x*x).sum / xs.size
+
   def allOccurences(s: String, x: String): List[Int] = {
     var list = List[Int]()
     var i = 0
