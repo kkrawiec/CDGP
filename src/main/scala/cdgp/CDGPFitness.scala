@@ -204,21 +204,26 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP)
   val testsDiff: Option[Int] = opt.getOptionInt("testsDiff")
   val partialConstraintsInFitness: Boolean = opt('partialConstraintsInFitness, false)
   val globalConstraintInFitness: Boolean = opt('globalConstraintInFitness, false)
+  val sizeInFitness: Boolean = opt('sizeInFitness, false)
 
   /** The number of constraints tests prepended to the evaluation vector.*/
   val numberOfConstraintTests: Int = {
     (if (!partialConstraintsInFitness) 0 else state.sygusData.formalConstr.size) +
-      (if (!globalConstraintInFitness) 0 else 1)
+      (if (sizeInFitness) 1 else 0) +
+      (if (globalConstraintInFitness) 1 else 0)
   }
 
 
   /** Constructs a vector for fitness elements constructed with the use of the formal verification. */
   def getConstraintsVector(s: Op, passValue: EVecEl, nonpassValue: EVecEl): Seq[EVecEl] = {
-    val vector = getPartialConstraintsVector(s, passValue, nonpassValue)
+    var vector = Seq[EVecEl]()
+    if (partialConstraintsInFitness)
+      vector = getPartialConstraintsVector(s, passValue, nonpassValue) ++: vector
     if (globalConstraintInFitness)
-      getGlobalConstraintsDecision(s, passValue, nonpassValue) +: vector
-    else
-      vector
+      vector = getGlobalConstraintsDecision(s, passValue, nonpassValue) +: vector
+    if (sizeInFitness)
+      vector = getSize(s) +: vector
+    vector
   }
 
   /** Verifies solution on all formal constraints in order to add this info to the fitness vector. */
@@ -226,6 +231,9 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP)
     val (dec, _) = state.verify(s)
     if (dec == "unsat") passValue else nonpassValue
   }
+
+  /** Size of the Op converted to the correct unit. */
+  def getSize(s: Op): EVecEl
 
   /** Verifies solution on partial constraints in order to add this info to the fitness vector. */
   def getPartialConstraintsVector(s: Op, passValue: EVecEl, nonpassValue: EVecEl): Seq[EVecEl] = {
@@ -254,6 +262,8 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP)
                                   (implicit opt: Options, coll: Collector)
   extends EvalCDGP[E, Int](state) {
 
+  override def getSize(s: Op): Int = s.size
+
   /**
     * Tests a program on the available tests and returns the vector of 0s (passed test)
     * and 1s (failed test). Depending on the problem will either optimize by executing
@@ -261,7 +271,7 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP)
     */
   def evalOnTests(s: Op, tests: Seq[(I, Option[O])]): Seq[Int] = {
     val testsStandard = for (test <- tests) yield { evaluateTest(s, test) }
-    if (partialConstraintsInFitness || globalConstraintInFitness)
+    if (partialConstraintsInFitness || globalConstraintInFitness || sizeInFitness)
       getConstraintsVector(s, 0, 1) ++: testsStandard
     else
       testsStandard
@@ -559,6 +569,8 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
   checkValidity()
 
 
+  override def getSize(s: Op): Double = s.size.toDouble
+
   /**
     * Tests a program on the available tests and returns the vector of 0s (passed test)
     * and 1s (failed test). Depending on the problem will either optimize by executing
@@ -566,7 +578,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
     */
   def evalOnTests(s: Op, tests: Seq[(I, Option[O])]): Seq[Double] = {
     val testsStandard = for (test <- tests) yield { evaluateTest(s, test) }
-    if (partialConstraintsInFitness || globalConstraintInFitness)
+    if (partialConstraintsInFitness || globalConstraintInFitness || sizeInFitness)
       getConstraintsVector(s, 0.0, 1.0) ++: testsStandard
     else
       testsStandard
