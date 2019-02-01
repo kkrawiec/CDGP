@@ -563,11 +563,22 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
                                     (implicit opt: Options, coll: Collector)
   extends EvalCDGP[E, Double](state) {
   // Parameters:
-  val optThreshold: Double = opt.paramDouble('optThreshold, 1.0e-5)
+  val optThreshold: Double = getOptThreshold
   val partialConstraintsVisibleForTestsRatio: Boolean = opt('partialConstraintsVisibleForTestsRatio, false)
 
   checkValidity()
 
+
+  def getOptThreshold: Double = {
+    if (opt.allOptions.contains("optThreshold"))
+      opt.paramDouble("optThreshold")
+    else {
+      val c = opt.paramDouble("optThresholdC", 0.01)
+      val allTestsY = state.testsManager.getAllCollectedTests.filter(_._2.isDefined).map(_._2.get.asInstanceOf[Double])
+      val s = Tools.stddev(allTestsY)
+      (s * c) * (s * c)  // squared because of square in mse
+    }
+  }
 
   override def getSize(s: Op): Double = s.size.toDouble
 

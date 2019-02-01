@@ -20,9 +20,10 @@ class TestsManagerCDGP[I,O](val tests: mutable.LinkedHashMap[I, Option[O]],
   // Stores the number of tests after each use of flushHelpers.
   val history: mutable.Map[Int, Int] = mutable.Map[Int, Int]()
 
-  def getTests(): List[(I, Option[O])] = {
-    tests.toList
-  }
+  /** Returns collected 'old' tests. */
+  def getTests(): List[(I, Option[O])] = tests.toList
+  /** Returns both collected 'new' and 'old' tests. */
+  def getAllCollectedTests: List[(I, Option[O])] = tests.toList ++: newTests.toList
   def getNumberOfTests: Int = tests.size
   def getNumberOfKnownOutputs: Int = tests.values.count(_.isDefined)
   def getNumberOfUnknownOutputs: Int = tests.size - getNumberOfKnownOutputs
