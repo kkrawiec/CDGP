@@ -564,6 +564,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
   extends EvalCDGP[E, Double](state) {
   // Parameters:
   val optThreshold: Double = getOptThreshold
+  coll.set("cdgp.optThreshold", optThreshold)
   val partialConstraintsVisibleForTestsRatio: Boolean = opt('partialConstraintsVisibleForTestsRatio, false)
 
   checkValidity()
