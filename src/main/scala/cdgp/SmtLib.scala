@@ -654,7 +654,7 @@ object SMTLIBFormatter {
         Op(getNt(Symbol(op)), Symbol(op), args:_*)
       }
     } catch {
-      case _:Throwable => throw new Exception(s"Wrong encoding of Op instance: $s!")
+      case _:Throwable => throw new Exception(s"Wrong encoding of Op instance: $s")
     }
   }
 }

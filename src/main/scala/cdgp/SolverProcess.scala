@@ -98,14 +98,12 @@ case class SolverFromScript(path: String, args: String = SolverFromScript.ARGS_Z
     val outputRest = if (lines.size == 1) None else Some(lines.tail.mkString("\n"))
     if (outputDec == "sat" || outputDec == "unsat" || outputDec == "unknown" || outputDec == "timeout")
       (outputDec, outputRest)
-    else throw new UnknownSolverOutputException(s"Solver did not return sat, unsat, nor unknown, but this: $output.\nQuery:\n$query")
+    else throw new UnknownSolverOutputException(s"Solver did not return sat, unsat, nor unknown, but this: $output\nQuery:\n$query")
   }
 
   /** Executes a query and returns raw output as a String. */
-  def executeQuery(query: Query): String = executeQuery(query.getScript)
-
-  /** Executes a query and returns raw output as a String. */
-  private def executeQuery(inputStr: String): String = {
+  def executeQuery(query: Query): String = {
+    val inputStr = query.getScript
     if (verbose) println(s"Input to the solver:\n$inputStr\n")
     val output = apply(inputStr).trim
     if (verbose) print("Solver output:\n" + output)
@@ -223,7 +221,7 @@ case class SolverInteractive(path: String, args: String = SolverInteractive.ARGS
         ("unsat", outputData)
       }
       else if (output == "unknown" || output == "timeout") (output, None)
-      else throw new UnknownSolverOutputException(s"Solver did not return sat, unsat, nor unknown, but this: $output.\nQuery:\n$query")
+      else throw new UnknownSolverOutputException(s"Solver did not return sat, unsat, nor unknown, but this: $output\nQuery:\n$query")
     }
   }
 
