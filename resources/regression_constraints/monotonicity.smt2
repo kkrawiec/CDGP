@@ -1,3 +1,21 @@
+(echo "monotonic: 1.5*x+y  (query with quantifiers; sat=OK)")
+(set-logic NRA)
+(set-option :pp.decimal true)
+(set-option :produce-models true)
+
+(define-fun f ((x Real)(y Real)) Real (+ (* 1.5 x) y) )
+(assert (forall ((x Real)(y Real)(x1 Real)) (=> (> x1 x)  (> (f x1 y) (f x y)))))
+
+(check-sat)
+(get-model)
+
+
+
+(reset)
+(echo "")
+
+
+
 (echo "non-monotonic: x^2+y^2  (query with quantifiers; sat=OK)")
 (set-logic NRA)
 (set-option :pp.decimal true)
