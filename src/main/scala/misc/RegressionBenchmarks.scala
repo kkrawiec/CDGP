@@ -217,7 +217,7 @@ object RegressionBenchmarks extends App {
 
 
 
-  val ns = Seq(3) //5, 10
+  val ns = Seq(3, 5, 10) //3, 5, 10
 
   val benchmarks = Seq(
     ns.map{ n => Benchmark(b_keijzer12, generateTestsU(2, n, fKeijzer12, -20.0, 20.0)) },
@@ -231,15 +231,15 @@ object RegressionBenchmarks extends App {
     ns.map{ n => Benchmark(b_squares3_b, generateTestsU(3, n, fSquares3, -20.0, 20.0)) },
     ns.map{ n => Benchmark(b_squares3_s, generateTestsU(3, n, fSquares3, -20.0, 20.0)) },
     ns.map{ n => Benchmark(b_squares3_bs, generateTestsU(3, n, fSquares3, -20.0, 20.0)) },
-    ns.map{ n => Benchmark(b_gravity, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
-    ns.map{ n => Benchmark(b_gravity_b, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
-    ns.map{ n => Benchmark(b_gravity_m, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
-    ns.map{ n => Benchmark(b_gravity_s, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
-    ns.map{ n => Benchmark(b_gravity_bm, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
-    ns.map{ n => Benchmark(b_gravity_bs, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
-    ns.map{ n => Benchmark(b_gravity_ms, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
-    ns.map{ n => Benchmark(b_gravity_bms, generateTestsU(3, n, fGravity, 0.0, 20.0)) },
-    ns.map{ n => Benchmark(b_gravityNoG, generateTestsU(3, n, fGravityNoG, 0.0, 20.0)) },
+    ns.map{ n => Benchmark(b_gravity, generateTestsU(3, n, fGravity, 0.0001, 20.0)) },
+    ns.map{ n => Benchmark(b_gravity_b, generateTestsU(3, n, fGravity, 0.0001, 20.0)) },
+    ns.map{ n => Benchmark(b_gravity_m, generateTestsU(3, n, fGravity, 0.0001, 20.0)) },
+    ns.map{ n => Benchmark(b_gravity_s, generateTestsU(3, n, fGravity, 0.0001, 20.0)) },
+    ns.map{ n => Benchmark(b_gravity_bm, generateTestsU(3, n, fGravity, 0.0001, 20.0)) },
+    ns.map{ n => Benchmark(b_gravity_bs, generateTestsU(3, n, fGravity, 0.0001, 20.0)) },
+    ns.map{ n => Benchmark(b_gravity_ms, generateTestsU(3, n, fGravity, 0.0001, 20.0)) },
+    ns.map{ n => Benchmark(b_gravity_bms, generateTestsU(3, n, fGravity, 0.0001, 20.0)) },
+    ns.map{ n => Benchmark(b_gravityNoG, generateTestsU(3, n, fGravityNoG, 0.0001, 20.0)) },
     ns.map{ n => Benchmark(b_resistance_par2, generateTestsU(2, n, fResistancePar2, 0.0001, 20.0)) },
     ns.map{ n => Benchmark(b_resistance_par2_c1, generateTestsU(2, n, fResistancePar2, 0.0001, 20.0)) },
     ns.map{ n => Benchmark(b_resistance_par2_c2, generateTestsU(2, n, fResistancePar2, 0.0001, 20.0)) },
