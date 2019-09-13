@@ -3,7 +3,7 @@ package misc
 import java.io.File
 
 import app.{OptionInfo, OptionsValidator}
-import cdgp.Tools
+import cdgp.{LoadSygusBenchmark, SygusProblemData, TemplateVerification, Tools}
 import fuel.util.{Options, OptionsMap}
 
 import scala.collection.mutable
@@ -13,6 +13,14 @@ object SolutionVerifier extends App {
   def loadOptions(file: File): Options = {
     println("Options loaded from file: " + file.getAbsolutePath)
     Options.loadFromFile(file)
+  }
+
+  def verifySolution(opt: Options, bpathRoot0: String = ""): (Boolean, Option[String]) = {
+    val bpathRoot = if (bpathRoot0.last=="/") bpathRoot0 else bpathRoot0 + "/"
+    val bpath = bpathRoot + opt('benchmark)
+    val sygusData = SygusProblemData(LoadSygusBenchmark(bpath))
+    val templateVer = new TemplateVerification(sygusData)
+    ???
   }
 
   def processFile(options: Options): Unit = {
