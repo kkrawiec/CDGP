@@ -33,11 +33,12 @@ abstract class State(val sygusData: SygusProblemData,
   }
 
   /**
-    * Converts a value to the format used in Java (necessary esp. for strings).
+    * Converts a value in the format returned by an SMT solver to the format used
+    * in Java (necessary esp. for strings, because Z3 uses, e.g., '\00' to encode char 0).
     */
   def convertValue(value: Any): Any =
     value match {
-      case str: String => Tools.convertToJavaString(str)
+      case str: String => Tools.convertSmtToJavaString(str)
       case _ => value
     }
 
@@ -69,7 +70,7 @@ class StateSMTSolver(sygusData: SygusProblemData,
 
   // Templates for solver queries
   lazy val templateVerification = new TemplateVerification(sygusData, timeout = timeout)
-  lazy val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(sygusData, timeout = timeout)
+  lazy val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(sygusData, timeout = timeout)  // currently not used
   lazy val templateIsProgramCorrectForInput = new TemplateIsProgramCorrectForInput(sygusData, timeout = timeout)
   lazy val templateFindOutput = new TemplateFindOutput(sygusData, timeout = timeout)
   lazy val templateFindOutputNeg = new TemplateFindOutput(sygusData, negateConstr = true, timeout = timeout)
@@ -124,7 +125,16 @@ class StateSMTSolver(sygusData: SygusProblemData,
 
 
   /**
-    * Verifies a program with respect to the specification.
+    * Verifies a program with respect to the specification. Model is converted to a map.
+    */
+  def verifyAndParseModel(s: Op): (String, Option[Map[String, Any]]) = {
+    val (dec, modelText) = verify(s, templateVerification)
+    val model = if (modelText.isEmpty) None else Some(GetValueParser(modelText.get).toMap)
+    return (dec, model)
+  }
+
+  /**
+    * Verifies a program with respect to the specification. Model is returned as a raw output from the solver.
     */
   def verify(s: Op): (String, Option[String]) = verify(s, templateVerification)
 
@@ -139,7 +149,7 @@ class StateSMTSolver(sygusData: SygusProblemData,
 
 
   /**
-    * Checks, if a particular output is consistent with the specification..
+    * Checks, if a particular output is consistent with the specification.
     */
   def checkIsOutputCorrect(s: Op,
                            testInputsMap: Map[String, Any],
@@ -154,8 +164,8 @@ class StateSMTSolver(sygusData: SygusProblemData,
     * Checks, if a program is correct for the particular test case.
     */
   def checkIsProgramCorrectForInput(s: Op,
-                                    testModel: Map[String, Any]): (String, Option[String]) = {
-    val query = templateIsProgramCorrectForInput(s, testModel)
+                                    testInput: Map[String, Any]): (String, Option[String]) = {
+    val query = templateIsProgramCorrectForInput(s, testInput)
     printQuery("\nQuery checkIsProgramCorrectForInput:\n" + query)
     solver.runSolver(query)
   }

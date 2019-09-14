@@ -74,7 +74,7 @@ object Tools {
     * Finds in the string all hex encoded chars (e.g. \x00) and converts them to chars.
     * Additionally replaces \n, \t and other such sequences for their appropriate chars.
     */
-  def convertToJavaString(s: String): String = {
+  def convertSmtToJavaString(s: String): String = {
     var res = ""
     var i = 0
     while (i < s.size) {

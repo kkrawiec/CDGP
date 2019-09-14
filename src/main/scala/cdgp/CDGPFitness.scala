@@ -287,8 +287,8 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP)
       // User can define test cases for a problem, in which generally single-answer
       // property does not hold. We will use domain for those cases, since it is more
       // efficient.
-        evalOnTestsDomain(s, test)
-      else evalOnTestsSolver(s, test)
+        evalTestUsingDomain(s, test)
+      else evalTestUsingSolver(s, test)
     }
     catch {
       case _: ExceptionIncorrectOperation => 1
@@ -302,9 +302,9 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP)
     * Tests here always have None as the answer, because in general there is no
     * single answer for the problem being solved in 'solver' mode.
     */
-  def evalOnTestsSolver(s: Op, test: (I, Option[O])): Int = {
-    val testModel: Map[String, Any] = test._1
-    val (dec, _) = state.checkIsProgramCorrectForInput(s, testModel)
+  def evalTestUsingSolver(s: Op, test: (I, Option[O])): Int = {
+    val testInput: Map[String, Any] = test._1
+    val (dec, _) = state.checkIsProgramCorrectForInput(s, testInput)
     if (dec == "sat") 0 else 1
   }
 
@@ -321,7 +321,7 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP)
     * Names of variables in test should be the same as those in the function's invocation.
     * They will be renamed for those in the function's declaration.
     */
-  def evalOnTestsDomain(s: Op, test: (I, Option[O])): Int = {
+  def evalTestUsingDomain(s: Op, test: (I, Option[O])): Int = {
     assert(test._2.isDefined, "Trying to evaluate using the domain a test without defined expected output.")
     val testInput: Map[String, Any] = test._1
     val testOutput: Option[Any] = test._2
@@ -602,8 +602,8 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
       // User can define test cases for a problem, in which generally single-answer
       // property does not hold. We will use domain for those cases, since it is more
       // efficient.
-        evalOnTestsDomain(s, test)
-      else evalOnTestsSolver(s, test)
+        evalTestUsingDomain(s, test)
+      else evalTestUsingSolver(s, test)
     }
     catch {
       // return PositiveInfinity for situations like division by 0
@@ -620,9 +620,9 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
     * Tests here always have None as the answer, because in general there is no
     * single answer for the problem being solved in 'solver' mode.
     */
-  def evalOnTestsSolver(s: Op, test: (I, Option[O])): Double = {
-    val testModel: Map[String, Any] = test._1
-    val (dec, _) = state.checkIsProgramCorrectForInput(s, testModel)
+  def evalTestUsingSolver(s: Op, test: (I, Option[O])): Double = {
+    val testInput: Map[String, Any] = test._1
+    val (dec, _) = state.checkIsProgramCorrectForInput(s, testInput)
     // 0.0 is returned for a correct answer (sat).
     // This becomes questionable if aggregated with error.
     if (dec == "sat") 0.0 else 1.0
@@ -640,7 +640,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
     * Names of variables in test should be the same as those in the function's invocation.
     * They will be renamed for those in the function's declaration.
     */
-  def evalOnTestsDomain(s: Op, test: (I, Option[O])): Double = {
+  def evalTestUsingDomain(s: Op, test: (I, Option[O])): Double = {
     assert(test._2.isDefined, "Trying to domain-evaluate using a test without defined expected output.")
     val testInput: Map[String, Any] = test._1
     val testOutput: Option[Any] = test._2

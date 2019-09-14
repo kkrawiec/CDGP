@@ -14,12 +14,12 @@ class TestTools {
 
   @Test
   def test_convertHexToChars(): Unit = {
-    assertEquals("asd fgh", Tools.convertToJavaString("asd fgh"))
-    assertEquals(" A ", Tools.convertToJavaString(" \\x41 "))
-    assertEquals("\n", Tools.convertToJavaString("\\n"))
-    assertEquals("as\nas", Tools.convertToJavaString("as\\nas"))
-    assertEquals("\"", Tools.convertToJavaString("\"\""))
-    assertEquals(Character.toString(7) + "\b", Tools.convertToJavaString("\\a\\b"))
-    assertEquals(Character.toString(11), Tools.convertToJavaString("\\v"))
+    assertEquals("asd fgh", Tools.convertSmtToJavaString("asd fgh"))
+    assertEquals(" A ", Tools.convertSmtToJavaString(" \\x41 "))
+    assertEquals("\n", Tools.convertSmtToJavaString("\\n"))
+    assertEquals("as\nas", Tools.convertSmtToJavaString("as\\nas"))
+    assertEquals("\"", Tools.convertSmtToJavaString("\"\""))
+    assertEquals(Character.toString(7) + "\b", Tools.convertSmtToJavaString("\\a\\b"))
+    assertEquals(Character.toString(11), Tools.convertSmtToJavaString("\\v"))
   }
 }

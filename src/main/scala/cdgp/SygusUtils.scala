@@ -48,7 +48,9 @@ case class SygusProblemData(problem: SyGuS16,
   val (testCasesConstr, formalConstr) =
     if (mixedSpecAllowed) SygusUtils.divideOnTestsAndFormalConstr(postcond, synthTask)
     else (Seq(), postcond)
+  /**A list of all arguments used in synth-function's calls in formal constraints.**/
   val formalInvocations: Seq[Seq[String]] = SygusUtils.getSynthFunsInvocationsInfo(formalConstr, synthTask.fname)
+  /**A list of all arguments used in synth-function's calls in both formal and test constraints.**/
   val allInvocations: Seq[Seq[String]] = SygusUtils.getSynthFunsInvocationsInfo(postcond, synthTask.fname)
 
   val singleInvocFormal: Boolean = SygusUtils.singleInvocationProp(formalInvocations)
@@ -631,7 +633,7 @@ object SygusUtils {
   }
 
   /**
-    * Checks, if the constraints contains let terms, or composite terms as
+    * Checks, if the constraints contain let terms or composite terms as
     * arguments to the synth-function. Both of these cases make it impossible
     * to use GP test cases mode, because it requires concrete values as
     * arguments to the synth-function instead of expressions.
