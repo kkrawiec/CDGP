@@ -574,14 +574,19 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
     * Tests a program on the available tests and returns the vector of 0s (passed test)
     * and 1s (failed test). Depending on the problem will either optimize by executing
     * program directly on the tests, or will have to resort to a solver.
+    *
+    * Takes into account partial constraints.
     */
-  def evalOnTests(s: Op, tests: Seq[(I, Option[O])]): Seq[Double] = {
-    val testsStandard = for (test <- tests) yield { evaluateTest(s, test) }
+  def evalOnTestsAndConstraints(s: Op, tests: Seq[(I, Option[O])]): Seq[Double] = {
+    val testsStandard = evalOnTests(s, tests)
     if (partialConstraintsInFitness || globalConstraintInFitness || sizeInFitness)
       getConstraintsVector(s, 0.0, 1.0) ++: testsStandard
     else
       testsStandard
   }
+
+  def evalOnTests(s: Op, tests: Seq[(I, Option[O])]): Seq[Double] =
+    for (test <- tests) yield { evaluateTest(s, test) }
 
   def evaluateTest(s: Op, test: (I, Option[O])): Double = {
     try {
@@ -665,7 +670,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
     */
   def fitnessOnlyTestCases: Op => (Boolean, Seq[Double]) =
     (s: Op) => {
-      val evalTests = evalOnTests(s, state.testsManager.getTests())
+      val evalTests = evalOnTestsAndConstraints(s, state.testsManager.getTests())
       (isMseCloseToZero(evalTests), evalTests)
     }
 
@@ -706,7 +711,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
   def fitnessCDGPRegression: Op => (Boolean, Seq[Double]) =
     if (state.sygusData.formalInvocations.isEmpty) fitnessOnlyTestCases
     else (s: Op) => {
-      val evalTests = evalOnTests(s, state.testsManager.getTests())
+      val evalTests = evalOnTestsAndConstraints(s, state.testsManager.getTests())
       // If the program passes the specified ratio of incomplete test cases, it will be
       // verified and a counterexample will be produced (or program will be deemed correct).
       // NOTE: if the program does not pass all test cases, then the probability is high
