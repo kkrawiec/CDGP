@@ -59,7 +59,9 @@ final class TestPartialConstraints {
     assertEquals(None, test._2)
     val res1 = state.checkIsProgramCorrectForInput(Op('*, Op('x), Op('x)), Map("x"-> -2.0))
     val res2 = state.checkIsProgramCorrectForInput(Op('x), Map("x"-> -2.0))
+    val res3 = state.checkIsProgramCorrectForInput(Op('*, Op('x), Op(-1.0)), Map("x"-> -2.0))
     assertEquals("sat", res1._1)
     assertEquals("sat", res2._1)
+    assertEquals("sat", res3._1)
   }
 }

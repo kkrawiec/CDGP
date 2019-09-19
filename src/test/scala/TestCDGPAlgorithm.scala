@@ -3,16 +3,34 @@ package tests
 import cdgp._
 import fuel.core.StatePop
 import fuel.func.TournamentSelection
-import fuel.util.{Options, Rng}
+import fuel.util.{CollectorStdout, Options, Rng}
 import org.junit.Test
 import org.junit.Assert._
 import swim.tree.Op
+
+
+object TestCDGPAlgorithm {
+  val scriptTestsWithTheSameInputs =
+"""(set-logic QF_NRA)
+(synth-fun waveFn ((x1 Real)) Real)
+(declare-var x1 Real)
+(constraint (= (waveFn 2.0) 0.1))
+(constraint (= (waveFn 1.0) 0.2))
+(constraint (= (waveFn 0.0) 0.3))
+(constraint (= (waveFn 0.0) 0.4))
+(constraint (=> (> x1 0.01) (<= (waveFn x1) 0.0)))
+(constraint (=> (< x1 -0.01) (>= (waveFn x1) 0.0)))
+(constraint (= (waveFn x1) (- (waveFn (- x1)))))
+"""
+}
+
 
 
 final class TestCDGPAlgorithm {
   val ordFInt = FIntOrdering
   val ordFSeqInt = FSeqIntOrdering
   implicit val rng = Rng(Options("--seed 0"))
+
   @Test
   def test_FInt(): Unit = {
     val t0_20 = FInt(true, 0, 20, 1)
@@ -127,5 +145,35 @@ final class TestCDGPAlgorithm {
     assertEquals(-1, ord.compare(a, c))
     assertEquals(1, ord.compare(c, b))
     assertEquals(0, ord.compare(c, d))
+  }
+
+
+  @Test
+  def test_testsWithTheSameInputs(): Unit = {
+    implicit val emptyOpt = Options(s"--printAddedTests true --selection lexicase --evolutionMode steadyState ${Global.solverConfig}")
+    implicit val coll = CollectorStdout(emptyOpt)
+    implicit val rng = Rng(emptyOpt)
+    val problem = LoadSygusBenchmark.parseText(TestCDGPAlgorithm.scriptTestsWithTheSameInputs)
+    val state = StateCDGP(problem)
+    val eval = new EvalCDGPSeqDouble(state)
+    val alg = CDGPSteadyStateLexicaseR(eval)
+
+    assertEquals(4, state.sygusData.testCasesConstrToTests.size)
+    assertEquals(4, state.testsManager.newTests.size)
+    assertEquals(0, state.testsManager.tests.size)  //it is 0 because tests are flushed after initialization
+
+    val pop = alg.initialize.apply()
+
+    assertEquals(0, state.testsManager.newTests.size)
+    assertEquals(4, state.testsManager.tests.size)
+
+    state.testsManager.addNewTest((Map("x1"->2.0), Some(6.0)), allowDuplicates = false)
+    assertEquals(0, state.testsManager.newTests.size)
+    state.testsManager.addNewTest((Map("x1"->2.0), Some(6.0)), allowDuplicates = true)
+    assertEquals(1, state.testsManager.newTests.size)
+    state.testsManager.flushHelpers()
+
+    assertEquals(0, state.testsManager.newTests.size)
+    assertEquals(5, state.testsManager.tests.size)
   }
 }

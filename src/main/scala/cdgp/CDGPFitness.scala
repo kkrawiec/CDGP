@@ -285,8 +285,8 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP)
     try {
       if (test._2.isDefined)
       // User can define test cases for a problem, in which generally single-answer
-      // property does not hold. We will use domain for those cases, since it is more
-      // efficient.
+      // property does not hold. We will use domain for those tests cases, since it is
+      // more efficient.
         evalTestUsingDomain(s, test)
       else evalTestUsingSolver(s, test)
     }
@@ -329,23 +329,10 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP)
     val output = domain(s)(inputVector)
     if (output.isEmpty)
       1  // None means that recurrence depth was exceeded
-    else if (testOutput.isDefined) {
-      if (output.get == state.convertValue(testOutput.get))
-        0
-      else
-        1
-    }
-    else {
-      // Situation, when the test case has None as the expected output
-      // We don't allow such a situation
-      throw new Exception("Trying to domain-evaluate a test without defined correct answer!")
-
-      // The code below can be used to try to find the expected output for the test
-      //val (dec, _) = checkIsOutputCorrectForInput(s, testInput, output.get)
-      //if (dec == "sat")
-      //  testsManager.updateTest((testInput, output))
-      //if (dec == "sat") 0 else 1
-    }
+    else if (output.get == state.convertValue(testOutput.get))
+      0  // output was correct
+    else
+      1  // output was incorrect
   }
 
   def fitnessOnlyTestCases: Op => (Boolean, Seq[Int]) =
@@ -384,7 +371,7 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP)
           if (state.testsManager.newTests.size < maxNewTestsPerIter) {
             val newTest = state.createTestFromFailedVerification(r.get)
             if (newTest.isDefined)
-              state.testsManager.addNewTest(newTest.get)
+              state.testsManager.addNewTest(newTest.get, allowDuplicates=false)
           }
           (false, evalTests)
         }
@@ -463,7 +450,7 @@ abstract class EvalGPRDiscrete[E](state: StateGPR)
         if (state.testsManager.newTests.size < maxNewTestsPerIter) {
           val newTest = state.createRandomTest()
           if (newTest.isDefined)
-            state.testsManager.addNewTest(newTest.get)
+            state.testsManager.addNewTest(newTest.get, allowDuplicates=false)
         }
       }
       def apply(s: Op): (Boolean, Seq[Int]) = {
@@ -648,19 +635,8 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
     val output = domain(s)(inputVector)
     if (output.isEmpty)
       Double.MaxValue   // Recurrence depth was exceeded
-    else if (testOutput.isDefined)
+    else
       math.abs(output.get.asInstanceOf[Double] - testOutput.get.asInstanceOf[Double])
-    else {
-      // Situation, when the test case has None as the expected output
-      // We don't allow such a situation
-      throw new Exception("Trying to domain-evaluate using a test without defined expected output.")
-
-      // The code below can be used to try to find the expected output for the test
-      //val (dec, _) = checkIsOutputCorrect(s, testInput, output.get)
-      //if (dec == "sat")
-      //  testsManager.updateTest((testInput, output))
-      //if (dec == "sat") 0 else 1
-    }
   }
 
   def checkValidity(): Unit = {
@@ -722,7 +698,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
     if (state.testsManager.newTests.size < maxNewTestsPerIter) {
       val newTest = state.createTestFromFailedVerification(model)
       if (newTest.isDefined)
-        state.testsManager.addNewTest(newTest.get)
+        state.testsManager.addNewTest(newTest.get, allowDuplicates=false)
     }
   }
 

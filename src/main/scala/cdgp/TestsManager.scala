@@ -9,36 +9,49 @@ import scala.collection.mutable
   * Manages the set of test cases during evolution run. If test output is None, then
   * the desired output for test's input is not known yet or can assume many possible values.
   *
-  * @param newTests Set of counterexamples collected from the current generation. To be reseted after each iteration.
+  * @param newTests Set of counterexamples collected from the current generation. To be reset after each iteration.
   */
-class TestsManagerCDGP[I,O](val tests: mutable.LinkedHashMap[I, Option[O]],
-                            val newTests: mutable.Set[(I, Option[O])],
+class TestsManagerCDGP[I,O](val tests: mutable.ArrayBuffer[(I, Option[O])],
+                            val newTests: mutable.ArrayBuffer[(I, Option[O])],
                             val testsHistory: Boolean = false,
                             val printAddedTests: Boolean = false, val saveTests: Boolean = false) {
   private var flushNo = 0
   def getNumFlushes: Int = flushNo
-  // Stores the number of tests after each use of flushHelpers.
+
+  /**
+    * Stores inputs of the tests used so that duplicates can be quickly detected when needed.
+    * Tests from newTests are not taken into account.
+    */
+  private val keysIndex = mutable.HashSet[I](tests.map(_._1):_*)
+
+  /** Stores the number of tests added after each use of flushHelpers. **/
   val history: mutable.Map[Int, Int] = mutable.Map[Int, Int]()
 
   /** Returns collected 'old' tests. */
-  def getTests(): List[(I, Option[O])] = tests.toList
+  def getTests(): Seq[(I, Option[O])] = tests
   /** Returns both collected 'new' and 'old' tests. */
   def getAllCollectedTests: List[(I, Option[O])] = tests.toList ++: newTests.toList
   def getNumberOfTests: Int = tests.size
-  def getNumberOfKnownOutputs: Int = tests.values.count(_.isDefined)
-  def getNumberOfUnknownOutputs: Int = tests.size - getNumberOfKnownOutputs
+  def getNumberOfKnownOutputs: Int = tests.count{ case (in, out) => out.isDefined}
+  def getNumberOfUnknownOutputs: Int = getNumberOfTests - getNumberOfKnownOutputs
 
-  def addNewTests(ts:Seq[(I, Option[O])]) { ts.foreach(addNewTest(_)) }
-
-  def addNewTest(t: (I, Option[O])) {
+  def addNewTests(ts:Seq[(I, Option[O])], allowDuplicates: Boolean = true) { ts.foreach(addNewTest(_, allowDuplicates)) }
+  def addNewTest(t: (I, Option[O]), allowDuplicates: Boolean = true) {
     //println("** Trying to add new test: " + t)
-    if (!tests.contains(t._1)) {
-      newTests.+=(t)
+    if (allowDuplicates || (!keysIndex.contains(t._1) && !newTests.exists(_._1 == t._1))) {
+      newTests.append(t)
     }
   }
-  def updateTest(t: (I, Option[O])) {
-    //println("** Updated test: " + t)
-    tests.put(t._1, t._2)
+
+  /** Updates test for the given index. **/
+  def updateTest(index: Int, t: (I, Option[O])) {
+    //println(s"** Updated test #$index: $t")
+    val prevKey = tests(index)._1
+    tests(index) = t
+    // updating keyIndex
+    if (!tests.exists(_._1.equals(prevKey)))
+      keysIndex.remove(prevKey)  // key is not present, remove it
+    keysIndex += t._1
   }
 
   /**
@@ -53,11 +66,13 @@ class TestsManagerCDGP[I,O](val tests: mutable.LinkedHashMap[I, Option[O]],
     * by clearing newTests.
     */
   def flushHelpers() {
-    for (test <- newTests)
-      if (!tests.contains(test._1)) {
-        tests.put(test._1, test._2)
-        if (printAddedTests) println("Added test: " + test)
-      }
+    for (test <- newTests) {
+      // It's not checked whether a duplicate is added or not, because such check was already conducted
+      // when the test was added to the newTests list.
+      tests.append(test)  // append test
+      keysIndex.add(test._1)
+      if (printAddedTests) println(s"Added test: $test")
+    }
     if (testsHistory && newTests.nonEmpty)
       history.put(flushNo, newTests.size)
     newTests.clear
@@ -81,8 +96,8 @@ class TestsManagerCDGP[I,O](val tests: mutable.LinkedHashMap[I, Option[O]],
 
 object TestsManagerCDGP {
   def apply[I,O](testsHistory: Boolean = false, printAddedTests: Boolean = false, saveTests: Boolean = false): TestsManagerCDGP[I,O] = {
-    val tests: mutable.LinkedHashMap[I, Option[O]] = mutable.LinkedHashMap[I, Option[O]]()
-    val newTests = mutable.Set[(I, Option[O])]()
+    val tests = mutable.ArrayBuffer[(I, Option[O])]()
+    val newTests = mutable.ArrayBuffer[(I, Option[O])]()
     new TestsManagerCDGP(tests, newTests, testsHistory, printAddedTests, saveTests)
   }
 }
@@ -119,9 +134,9 @@ object NoiseAdderStdDev {
       val newTests2 = randomizeTests(manager.newTests.toSeq, stdDevs, stdDevOut, deltaY=deltaY, deltaX=deltaX)
 
       // Adding tests
-      val tests3 = mutable.LinkedHashMap[Map[String, Any], Option[Any]]()
-      val newTests3 = mutable.Set[(Map[String, Any], Option[Any])]()
-      tests2.foreach(t => tests3 += t)
+      val tests3 = mutable.ArrayBuffer[(Map[String, Any], Option[Any])]()
+      val newTests3 = mutable.ArrayBuffer[(Map[String, Any], Option[Any])]()
+      tests2.foreach(t => tests3.append(t))
       newTests2.foreach(t => newTests3 += t)
 
       // println("Tests before:\n" + manager.getTests().mkString("\n"))

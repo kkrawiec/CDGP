@@ -86,8 +86,8 @@ class StateSMTSolver(sygusData: SygusProblemData,
 
 
   /**
-    * Creates a complete test, i.e. a test containing both input and the only correct
-    * output for that input.
+    * Creates a complete test, i.e. a test containing both input and the correct output
+    * for that input.
     * @param model Valuation of synth-variables. Will be converted to synth-fun inputs
     *              in test case.
     * @param output An output of the test case computed by the solver.

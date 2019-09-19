@@ -68,7 +68,7 @@ object TestCDGPState {
 (check-synth)"""
 
   val scriptMaxFixedX =
-    """(set-logic LIA)
+"""(set-logic LIA)
 (synth-fun max2 ((argA Int) (argB Int)) Int
   ((Start Int (argA argB 0 1
 (+ Start Start)
@@ -107,6 +107,8 @@ object TestCDGPState {
 (check-synth)
 """
 }
+
+
 
 final class TestCDGPState {
   implicit val emptyOpt = Options(s"--selection lexicase --evolutionMode generational ${Global.solverConfig}")
@@ -176,7 +178,7 @@ final class TestCDGPState {
       (Map("name" -> " \\x00\\x00"),Some("")),
       (Map("name" -> "\\x00 \\x00\\x00"),Some("\\x00")),
       (Map("name" -> " \\x00"),Some("")))
-    tests.foreach{ t => state.testsManager.tests += t }
+    tests.foreach{ t => state.testsManager.tests.append(t) }
     val op = SMTLIBFormatter.smtlibToOp("""(str.substr name 0 (str.indexof name " " 0))""")
     assertEquals(0, eval.evalOnTests(op, state.testsManager.getTests()).sum)
   }
@@ -420,6 +422,5 @@ final class TestCDGPState {
     assertEquals(Map("a"->0, "b"->1), StateCDGP.modelToSynthFunInputs(Map("x"->0, "y"->1, "z"->9), Seq("x", "y"), Seq("a", "b")))
     assertEquals(Map("a"->0, "b"->2, "c"->1), StateCDGP.modelToSynthFunInputs(Map("x"->0, "y"->1), Seq("x", "2", "y"), Seq("a", "b", "c")))
     assertEquals(Map("a"->1, "b"->2, "c"->3), StateCDGP.modelToSynthFunInputs(Map("x"->0, "y"->1), Seq("1", "2", "3"), Seq("a", "b", "c")))
-
   }
 }
