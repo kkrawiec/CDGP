@@ -20,9 +20,10 @@ abstract class State(val sygusData: SygusProblemData,
   type I = Map[String, Any]
   type O = Any
   val silent = opt('silent, false)
+  val allowTestDuplicates: Boolean = opt('allowTestDuplicates, false)
 
   // Initializing population of test cases
-  testsManager.addNewTests(sygusData.testCasesConstrToTests)
+  testsManager.addNewTests(sygusData.testCasesConstrToTests, allowInputDuplicates=true, allowTestDuplicates=allowTestDuplicates)
   // testsManager.flushHelpers() // This is done elsewhere (at the beginning of evolution)
 
   /**

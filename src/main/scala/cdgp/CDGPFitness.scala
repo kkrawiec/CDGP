@@ -371,7 +371,7 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP)
           if (state.testsManager.newTests.size < maxNewTestsPerIter) {
             val newTest = state.createTestFromFailedVerification(r.get)
             if (newTest.isDefined)
-              state.testsManager.addNewTest(newTest.get, allowDuplicates=false)
+              state.testsManager.addNewTest(newTest.get, allowInputDuplicates=false, allowTestDuplicates=false)
           }
           (false, evalTests)
         }
@@ -450,7 +450,7 @@ abstract class EvalGPRDiscrete[E](state: StateGPR)
         if (state.testsManager.newTests.size < maxNewTestsPerIter) {
           val newTest = state.createRandomTest()
           if (newTest.isDefined)
-            state.testsManager.addNewTest(newTest.get, allowDuplicates=false)
+            state.testsManager.addNewTest(newTest.get, allowInputDuplicates=false, allowTestDuplicates=false)
         }
       }
       def apply(s: Op): (Boolean, Seq[Int]) = {
@@ -703,7 +703,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
     if (state.testsManager.newTests.size < maxNewTestsPerIter) {
       val newTest = state.createTestFromFailedVerification(model)
       if (newTest.isDefined)
-        state.testsManager.addNewTest(newTest.get, allowDuplicates=false)
+        state.testsManager.addNewTest(newTest.get, allowInputDuplicates=false, allowTestDuplicates=false)
     }
   }
 

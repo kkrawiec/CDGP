@@ -167,13 +167,22 @@ final class TestCDGPAlgorithm {
     assertEquals(0, state.testsManager.newTests.size)
     assertEquals(4, state.testsManager.tests.size)
 
-    state.testsManager.addNewTest((Map("x1"->2.0), Some(6.0)), allowDuplicates = false)
+    state.testsManager.addNewTest((Map("x1"->2.0), Some(6.0)), allowInputDuplicates=false)
     assertEquals(0, state.testsManager.newTests.size)
-    state.testsManager.addNewTest((Map("x1"->2.0), Some(6.0)), allowDuplicates = true)
-    assertEquals(1, state.testsManager.newTests.size)
+    state.testsManager.addNewTest((Map("x1"->2.0), Some(6.0)), allowInputDuplicates=true, allowTestDuplicates=true)
+    state.testsManager.addNewTest((Map("x1"->2.0), Some(6.0)), allowInputDuplicates=true, allowTestDuplicates=true)
+    assertEquals(2, state.testsManager.newTests.size)
     state.testsManager.flushHelpers()
 
     assertEquals(0, state.testsManager.newTests.size)
-    assertEquals(5, state.testsManager.tests.size)
+    assertEquals(6, state.testsManager.tests.size)
+
+    state.testsManager.addNewTest((Map("x1"->2.0), Some(6.0)), allowInputDuplicates=true, allowTestDuplicates=false)
+    state.testsManager.addNewTest((Map("x1"->2.0), Some(6.0)), allowInputDuplicates=true, allowTestDuplicates=false)
+    assertEquals(0, state.testsManager.newTests.size)
+    state.testsManager.flushHelpers()
+
+    assertEquals(0, state.testsManager.newTests.size)
+    assertEquals(6, state.testsManager.tests.size)
   }
 }

@@ -35,11 +35,15 @@ class TestsManagerCDGP[I,O](val tests: mutable.ArrayBuffer[(I, Option[O])],
   def getNumberOfKnownOutputs: Int = tests.count{ case (in, out) => out.isDefined}
   def getNumberOfUnknownOutputs: Int = getNumberOfTests - getNumberOfKnownOutputs
 
-  def addNewTests(ts:Seq[(I, Option[O])], allowDuplicates: Boolean = true) { ts.foreach(addNewTest(_, allowDuplicates)) }
-  def addNewTest(t: (I, Option[O]), allowDuplicates: Boolean = true) {
+  def addNewTests(ts:Seq[(I, Option[O])], allowInputDuplicates: Boolean = true, allowTestDuplicates: Boolean = false) {
+    ts.foreach(addNewTest(_, allowInputDuplicates, allowTestDuplicates))
+  }
+  /** This method takes into account only newTests and inputs of the tests. Duplicates of already accepted tests are not checked. **/
+  def addNewTest(t: (I, Option[O]), allowInputDuplicates: Boolean = true, allowTestDuplicates: Boolean = false) {
     //println("** Trying to add new test: " + t)
-    if (allowDuplicates || (!keysIndex.contains(t._1) && !newTests.exists(_._1 == t._1))) {
-      newTests.append(t)
+    if (allowInputDuplicates || (!keysIndex.contains(t._1) && !newTests.exists(_._1 == t._1))) {
+      if (allowTestDuplicates || (!keysIndex.contains(t._1) && !newTests.contains(t)))
+        newTests.append(t)
     }
   }
 
