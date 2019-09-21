@@ -157,7 +157,7 @@ object CDGPOptions {
                      desc="Maximum time for a multipop scenario.")
   args += OptionInfo("notes", "String", desc="Any additional notes to be saved in logs.")
   args += OptionInfo("optionsFile", "String", desc="Path to property file from which options will be read.")
-  args += OptionInfo("optThreshold", "Double", default=None, desc="Optimality threshold. If the solution's error is below this number, then the it is assumed to be optimal and the run is terminated. If not specified, it is computed automatically as 0.001 times standard deviation of tests outputs.")
+  args += OptionInfo("optThreshold", "Double", default=None, desc="Optimality threshold. If the solution's error is below this number, then it is assumed to be optimal and the run is terminated. If not specified, it is computed automatically as 0.001 times standard deviation of tests outputs.")
   args += OptionInfo("optThresholdC", "Double", default=Some("0.01"), desc="Factor C for automatic scaling of the optimality threshold ((C*stddev)^2).")
   args += OptionInfo("partialConstraintsInFitness", "Bool", default=Some("false"), desc="If true, then the correctness of solution will be checked separately on individual constraints, and this information will be prepended to the evaluation vector.")
   args += OptionInfo("partialConstraintsVisibleForTestsRatio", "Bool", default=Some("false"), desc="If true, then the testsRatio will take into account parts of the evaluation vector corresponding to formal partial constraints.")
