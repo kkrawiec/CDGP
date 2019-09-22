@@ -161,6 +161,7 @@ object CDGPOptions {
   args += OptionInfo("optThresholdC", "Double", default=Some("0.01"), desc="Factor C for automatic scaling of the optimality threshold ((C*stddev)^2).")
   args += OptionInfo("partialConstraintsInFitness", "Bool", default=Some("false"), desc="If true, then the correctness of solution will be checked separately on individual constraints, and this information will be prepended to the evaluation vector.")
   args += OptionInfo("partialConstraintsVisibleForTestsRatio", "Bool", default=Some("false"), desc="If true, then the testsRatio will take into account parts of the evaluation vector corresponding to formal partial constraints.")
+  args += OptionInfo("partialConstraintsWeight", "Int", default=Some("1"), desc="The weight of the partial constraints for lexicase selection. For example the weight of 2 means that each partial constraint will occur twice in the fitness vector.")
   args += OptionInfo("printTests", "Bool", default=Some("false"), desc="Prints every added test and after the evolution ends prints all collected tests.")
   args += OptionInfo("printQueries", "Bool", default=Some("false"), desc="Print all queries to SMT solver.")
   args += OptionInfo("recDepthLimit", "Int", default=Some("1000"), desc="A limit of calls for recursive functions.")

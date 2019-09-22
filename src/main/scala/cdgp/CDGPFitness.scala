@@ -41,14 +41,14 @@ case class FSeqInt(correct: Boolean, value: Seq[Int], progSize: Int)
 }
 
 
-case class FSeqDouble(correct: Boolean, value: Seq[Double], progSize: Int)
+case class FSeqDouble(correct: Boolean, value: Seq[Double], progSize: Int, numPCtests: Int)
   extends Seq[Double] with Fitness {
   override def length: Int = value.length
   override def apply(idx: Int) = value(idx)
   override def iterator = value.iterator
   override val totalTests: Int = length
 
-  lazy val mse: Double = if (value.isEmpty) 0.0 else Tools.mse(value)
+  lazy val mse: Double = if (value.isEmpty) 0.0 else Tools.mse(value.drop(numPCtests))
 
   override def saveInColl(coll: Collector): Unit = {
     //val mseRound = BigDecimal(mse).setScale(5, BigDecimal.RoundingMode.HALF_UP).toDouble
@@ -205,24 +205,26 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP)
   val partialConstraintsInFitness: Boolean = opt('partialConstraintsInFitness, false)
   val globalConstraintInFitness: Boolean = opt('globalConstraintInFitness, false)
   val sizeInFitness: Boolean = opt('sizeInFitness, false)
+  val partialConstraintsWeight = opt('partialConstraintsWeight, 1, (x: Int) => x >= 1)
 
   /** The number of constraints tests prepended to the evaluation vector.*/
   val numberOfConstraintTests: Int = {
-    (if (!partialConstraintsInFitness) 0 else state.sygusData.formalConstr.size) +
+    partialConstraintsWeight *
+    ((if (!partialConstraintsInFitness) 0 else state.sygusData.formalConstr.size) +
       (if (sizeInFitness) 1 else 0) +
-      (if (globalConstraintInFitness) 1 else 0)
+      (if (globalConstraintInFitness) 1 else 0))
   }
-
 
   /** Constructs a vector for fitness elements constructed with the use of the formal verification. */
   def getConstraintsVector(s: Op, passValue: EVecEl, nonpassValue: EVecEl): Seq[EVecEl] = {
     var vector = Seq[EVecEl]()
+    val w = partialConstraintsWeight
     if (partialConstraintsInFitness)
-      vector = getPartialConstraintsVector(s, passValue, nonpassValue) ++: vector
+      vector = Tools.duplicateElements(getPartialConstraintsVector(s, passValue, nonpassValue), w) ++: vector
     if (globalConstraintInFitness)
-      vector = getGlobalConstraintsDecision(s, passValue, nonpassValue) +: vector
+      vector = Tools.duplicateElements(Seq(getGlobalConstraintsDecision(s, passValue, nonpassValue)), w) ++: vector
     if (sizeInFitness)
-      vector = getSize(s) +: vector
+      vector = Tools.duplicateElements(Seq(getSize(s)), w) ++: vector
     vector
   }
 
@@ -660,7 +662,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
   }
 
   def isMseCloseToZero(evalTests: Seq[Double]): Boolean = {
-    Tools.mse(evalTests) <= optThreshold
+    Tools.mse(extractTestsNormal(evalTests)) <= optThreshold
   }
 
 
@@ -745,13 +747,13 @@ class EvalGPSeqDouble(state: StateCDGP)
   extends EvalCDGPContinuous[FSeqDouble](state) {
   override def apply(s: Op, init: Boolean): FSeqDouble = {
     val (isPerfect, eval) = fitnessOnlyTestCases(s)
-    FSeqDouble(isPerfect, eval, s.size)
+    FSeqDouble(isPerfect, eval, s.size, numPCtests=numberOfConstraintTests)
   }
   override def updateEval(s: (Op, FSeqDouble)): (Op, FSeqDouble) = {
     val missingTests = state.testsManager.dropFromTests(s._2.totalTests) ++ state.testsManager.newTests.toList
-    (s._1, FSeqDouble(s._2.correct, s._2.value ++ evalOnTests(s._1, missingTests), s._1.size))
+    (s._1, FSeqDouble(s._2.correct, s._2.value ++ evalOnTests(s._1, missingTests), s._1.size, s._2.numPCtests))
   }
-  override def defaultValue(s: Op) = FSeqDouble(false, Seq(), s.size)
+  override def defaultValue(s: Op) = FSeqDouble(false, Seq(), s.size, 0)
   override val correct = (e: FSeqDouble) => e.correct
   override val ordering = FSeqDoubleOrderingMSE
 }
@@ -763,11 +765,11 @@ class EvalCDGPSeqDouble(state: StateCDGP)
   override def apply(s: Op, init: Boolean): FSeqDouble = {
     if (init) {
       val (_, eval) = fitnessOnlyTestCases(s)
-      FSeqDouble(false, eval, s.size) // correctness set to false to not trigger correctness based only on the MSE
+      FSeqDouble(false, eval, s.size, numPCtests=numberOfConstraintTests) // correctness set to false to not trigger correctness based only on the MSE
     }
     else {
       val (isPerfect, eval) = fitnessCDGPRegression(s)
-      FSeqDouble(isPerfect, eval, s.size)
+      FSeqDouble(isPerfect, eval, s.size, numPCtests=numberOfConstraintTests)
     }
   }
 }
@@ -778,7 +780,7 @@ class EvalGPDoubleMSE(state: StateCDGP)
   extends EvalCDGPContinuous[FDouble](state) {
   override def apply(s: Op, init: Boolean): FDouble = {
     val (isPerfect, eval) = fitnessOnlyTestCases(s)
-    val mse = Tools.mse(eval)
+    val mse = Tools.mse(extractTestsNormal(eval))
     FDouble(isPerfect, mse, s.size)
   }
   override def updateEval(s: (Op, FDouble)): (Op, FDouble) = {
@@ -800,12 +802,12 @@ class EvalCDGPDoubleMSE(state: StateCDGP)
   override def apply(s: Op, init: Boolean): FDouble = {
     if (init) {
       val (_, eval) = fitnessOnlyTestCases(s)
-      val mse = Tools.mse(eval)
+      val mse = Tools.mse(extractTestsNormal(eval))
       FDouble(false, mse, s.size) // correctness set to false to not trigger correctness based only on the MSE
     }
     else {
       val (isPerfect, eval) = fitnessCDGPRegression(s)
-      val mse = Tools.mse(eval)
+      val mse = Tools.mse(extractTestsNormal(eval))
       FDouble(isPerfect, mse, s.size)
     }
   }

@@ -136,10 +136,10 @@ final class TestCDGPAlgorithm {
   @Test
   def test_FSeqDoubleOrderingMSE(): Unit = {
     val ord = FSeqDoubleOrderingMSE
-    val a = FSeqDouble(true, Seq(0.0, 0.0), 20)
-    val b = FSeqDouble(true, Seq(0.0, 1.0), 20)
-    val c = FSeqDouble(true, Seq(0.0, 2.0), 20)
-    val d = FSeqDouble(true, Seq(2.0, 0.0), 20)
+    val a = FSeqDouble(true, Seq(0.0, 0.0), 20, numPCtests=0)
+    val b = FSeqDouble(true, Seq(0.0, 1.0), 20, numPCtests=0)
+    val c = FSeqDouble(true, Seq(0.0, 2.0), 20, numPCtests=0)
+    val d = FSeqDouble(true, Seq(2.0, 0.0), 20, numPCtests=0)
 
     assertEquals(-1, ord.compare(a, b))
     assertEquals(-1, ord.compare(a, c))

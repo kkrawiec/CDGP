@@ -49,10 +49,90 @@ object RegressionCDGP {
 
 
 
+  def run(implicit opt: Options): Unit = {
+    assert(!opt('parEval, false), "CDGP does not support multithreaded evaluation.")
+    implicit val coll = CollectorFile(opt)
+    implicit val rng = Rng(opt)
+
+    try {
+      val benchmark = opt('benchmark)
+      println(s"Benchmark: $benchmark")
+
+      val method = opt('method)
+      val selection = opt('selection, "lexicase")
+      val evoMode = opt('evolutionMode, "steadyState")
+      assert(method == "CDGP" || method == "GP", s"Invalid method '$method'! Possible values: 'CDGP', 'GP'.")
+      assert(selection == "tournament" || selection == "lexicase",
+        s"Invalid selection: '$selection'! Possible values: 'tournament', 'lexicase'.")
+      assert(evoMode == "generational" || evoMode == "steadyState",
+        s"Invalid evolutionMode: '$evoMode'! Possible values: 'generational', 'steadyState'.")
+
+      // Create CDGP state
+      val cdgpState = StateCDGP(benchmark)
+
+      // Run algorithm
+      val res = runConfigRegressionCDGP(cdgpState, method, selection, evoMode)
+      analyzeAndPrintResults(cdgpState, res)
+    }
+    catch {
+      case e: NoSolutionException =>
+        println(s"There is no solution to this problem.")
+        println(s"Input with no correct answer: " + e.badInput)
+        coll.set("cdgp.noCorrectSolution", true)
+        coll.set("terminatingException", e.toString)
+        coll.saveSnapshot("cdgp")
+      case e: java.util.concurrent.TimeoutException =>
+        println("Timeout!!!!!!!!!!!!!!!!!!!")
+        coll.set("cdgp.wasTimeout", true)
+        coll.saveSnapshot("cdgp")
+      case e: Throwable =>
+        println(s"Terminating exception occurred! Message: ${e.getMessage}")
+        coll.set("terminatingException", e.toString)
+        val sw = new StringWriter
+        e.printStackTrace(new PrintWriter(sw))
+        coll.set("terminatingExceptionStacktrace", sw.toString)
+        coll.deleteSnapshot("cdgp") // Remove any .cdgp file if it was created
+        coll.saveSnapshot("cdgp.error")
+        e.printStackTrace()
+    }
+  }
+
+
+  def analyzeAndPrintResults(cdgpState: StateCDGP,
+                             res: (Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]))
+                            (implicit opt: Options, coll: Collector): Unit = {
+    val bestOfRun = res._2
+    val (bestOp, _) = bestOfRun.get
+
+    // Verify correctness with respect to the specification
+    if (cdgpState.sygusData.formalConstr.nonEmpty) {
+      val (dec, model) = cdgpState.verify(bestOp)
+      coll.setResult("best.verificationDecision", dec)
+      coll.setResult("best.verificationModel", model)
+    }
+
+    // Save information about which constraints were passed
+    if (opt('logPassedConstraints, false)) {
+      // Create a 0/1 vector indicating if the ith constraint was passed
+      // 1 means that the constraint was passed
+      val passed = cdgpState.sygusData.formalConstr.map{ constr =>
+        val template = new TemplateVerification(cdgpState.sygusData, false, cdgpState.timeout, Some(Seq(constr)))
+        val (dec, _) = cdgpState.verify(bestOp, template)
+        if (dec == "unsat") 0 else 1  // 0 means passed
+      }
+      coll.setResult("best.passedConstraints", passed)
+    }
+
+    // Print and save results
+    coll.saveSnapshot("cdgp")
+    printResults(cdgpState, bestOfRun)
+  }
+
+
   def printResults(cdgpState: State, bestOfRun: Option[(Op, Fitness)])
-                  (implicit coll: Collector, opt: Options, rng: TRandom) {
+                  (implicit coll: Collector, opt: Options) {
     assume(bestOfRun.isDefined, "No solution (optimal or approximate) to the problem was found.")
-    def isOptimal(bestOfRun: (Op, Fitness)): Boolean = bestOfRun._2.correct
+    def isOptimal(bestOfRun: (Op, Fitness)): Boolean = bestOfRun._2.correct  //TODO: is this really a correct usage?
 
     val pn = 26
     println("\n")
@@ -94,85 +174,6 @@ object RegressionCDGP {
       println(solutionFull)
     }
   }
-
-
-
-
-
-  def run(implicit opt: Options): Unit = {
-    assert(!opt('parEval, false), "CDGP does not support multithreaded evaluation.")
-    implicit val coll = CollectorFile(opt)
-    implicit val rng = Rng(opt)
-
-    try {
-      val benchmark = opt('benchmark)
-      println(s"Benchmark: $benchmark")
-
-      val method = opt('method)
-      val selection = opt('selection, "lexicase")
-      val evoMode = opt('evolutionMode, "steadyState")
-      assert(method == "CDGP" || method == "GP", s"Invalid method '$method'! Possible values: 'CDGP', 'GP'.")
-      assert(selection == "tournament" || selection == "lexicase",
-        s"Invalid selection: '$selection'! Possible values: 'tournament', 'lexicase'.")
-      assert(evoMode == "generational" || evoMode == "steadyState",
-        s"Invalid evolutionMode: '$evoMode'! Possible values: 'generational', 'steadyState'.")
-
-      // Create CDGP state
-      val cdgpState = StateCDGP(benchmark)
-
-
-      // Run algorithm
-      val (_, bestOfRun) = runConfigRegressionCDGP(cdgpState, method, selection, evoMode)
-      val (bestOp, _) = bestOfRun.get
-
-
-      // Verify correctness with respect to the specification
-      if (cdgpState.sygusData.formalConstr.nonEmpty) {
-        val (dec, model) = cdgpState.verify(bestOp)
-        coll.setResult("best.verificationDecision", dec)
-        coll.setResult("best.verificationModel", model)
-      }
-
-
-      // Save information about which constraints were passed
-      if (opt('logPassedConstraints, false)) {
-        // Create a 0/1 vector indicating if the ith constraint was passed
-        // 1 means that the constraint was passed
-        val passed = cdgpState.sygusData.formalConstr.map{ constr =>
-          val template = new TemplateVerification(cdgpState.sygusData, false, cdgpState.timeout, Some(Seq(constr)))
-          val (dec, _) = cdgpState.verify(bestOp, template)
-          if (dec == "unsat") 0 else 1  // 0 means passed
-        }
-        coll.setResult("best.passedConstraints", passed)
-      }
-
-      // Print and save results
-      coll.saveSnapshot("cdgp")
-      printResults(cdgpState, bestOfRun)
-    }
-    catch {
-      case e: NoSolutionException =>
-        println(s"There is no solution to this problem.")
-        println(s"Input with no correct answer: " + e.badInput)
-        coll.set("cdgp.noCorrectSolution", true)
-        coll.set("terminatingException", e.toString)
-        coll.saveSnapshot("cdgp")
-      case e: java.util.concurrent.TimeoutException =>
-        println("Timeout!!!!!!!!!!!!!!!!!!!")
-        coll.set("cdgp.wasTimeout", true)
-        coll.saveSnapshot("cdgp")
-      case e: Throwable =>
-        println(s"Terminating exception occurred! Message: ${e.getMessage}")
-        coll.set("terminatingException", e.toString)
-        val sw = new StringWriter
-        e.printStackTrace(new PrintWriter(sw))
-        coll.set("terminatingExceptionStacktrace", sw.toString)
-        coll.deleteSnapshot("cdgp") // Remove any .cdgp file if it was created
-        coll.saveSnapshot("cdgp.error")
-        e.printStackTrace()
-    }
-  }
-
 
 
 

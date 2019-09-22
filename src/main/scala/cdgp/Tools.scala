@@ -137,4 +137,9 @@ object Tools {
       case 'f' | 'F' => 15
     }
   }
+
+  /** Duplicates each element in the sequence n times. **/
+  def duplicateElements[T](seq: Seq[T], n: Int): Seq[T] = {
+    if (n == 1) seq else seq.flatMap(Seq.fill(n)(_))
+  }
 }
