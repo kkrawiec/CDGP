@@ -671,7 +671,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
   def fitnessOnlyTestCases: Op => (Boolean, Seq[Double]) =
     (s: Op) => {
       val evalTests = evalOnTestsAndConstraints(s, state.testsManager.getTests())
-      (isMseCloseToZero(evalTests), evalTests)
+      (isMseCloseToZero(extractTestsNormal(evalTests)), evalTests)
     }
 
 
@@ -721,7 +721,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
       else {
         val (decision, model) = state.verify(s)
         if (decision == "unsat")
-          (isMseCloseToZero(evalTests), evalTests)
+          (isMseCloseToZero(extractTestsNormal(evalTests)), evalTests)
         else if (decision == "sat") {
           addNewTest(model.get)
           (false, evalTests)
