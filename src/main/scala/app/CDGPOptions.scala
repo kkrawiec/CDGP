@@ -132,8 +132,6 @@ object CDGPOptions {
   args += OptionInfo("selection", "String", choice=Set("lexicase", "tournament"), default=Some("lexicase"), desc="Selection of the evolutionary algorithm.")
 
   // other args
-  args += OptionInfo("noiseDeltaX", "Double", default=Some("0.0"), desc="In regression mode, this will be the modifier for the standard deviation of the independent variables. Higher value means higher noise.")
-  args += OptionInfo("noiseDeltaY", "Double", default=Some("0.0"), desc="In regression mode, this will be the modifier for the standard deviation of the dependent variable. Higher value means higher noise.")
   args += OptionInfo("allowTestDuplicates", "Bool", default=Some("false"), desc="If false, then the test duplicates will not be added to the set of test cases. In most cases the preferred option.")
   args += OptionInfo("globalConstraintInFitness", "Bool", default=Some("false"), desc="If true, then the solution will be verified on all formal constraints at once and the result will be prepended to the fitness vector.")
   args += OptionInfo("gprMaxInt", "Int", default=Some("100"), desc="Upper bound for Int terminals in GPR.")
@@ -155,6 +153,8 @@ object CDGPOptions {
   args += OptionInfo("multipop.M", "Int", default=Some("5"), desc="Number of populations.")
   args += OptionInfo("multipop.scheme", "String", choice=Set("none", "convectionEqualNumber"), default=Some("none"),
                      desc="Maximum time for a multipop scenario.")
+  args += OptionInfo("noiseDeltaX", "Double", default=Some("0.0"), desc="In regression mode, this will be the modifier for the standard deviation of the independent variables. Higher value means higher noise.")
+  args += OptionInfo("noiseDeltaY", "Double", default=Some("0.0"), desc="In regression mode, this will be the modifier for the standard deviation of the dependent variable. Higher value means higher noise.")
   args += OptionInfo("notes", "String", desc="Any additional notes to be saved in logs.")
   args += OptionInfo("optionsFile", "String", desc="Path to property file from which options will be read.")
   args += OptionInfo("optThreshold", "Double", default=None, desc="Optimality threshold. If the solution's error is below this number, then it is assumed to be optimal and the run is terminated. If not specified, it is computed automatically as 0.001 times standard deviation of tests outputs.")
