@@ -156,6 +156,7 @@ object CDGPOptions {
   args += OptionInfo("noiseDeltaX", "Double", default=Some("0.0"), desc="In regression mode, this will be the modifier for the standard deviation of the independent variables. Higher value means higher noise.")
   args += OptionInfo("noiseDeltaY", "Double", default=Some("0.0"), desc="In regression mode, this will be the modifier for the standard deviation of the dependent variable. Higher value means higher noise.")
   args += OptionInfo("notes", "String", desc="Any additional notes to be saved in logs.")
+  args += OptionInfo("numRestarts", "Int", desc="Number of times the algorithm will be restarted.")
   args += OptionInfo("optionsFile", "String", desc="Path to property file from which options will be read.")
   args += OptionInfo("optThreshold", "Double", default=None, desc="Optimality threshold. If the solution's error is below this number, then it is assumed to be optimal and the run is terminated. If not specified, it is computed automatically as 0.001 times standard deviation of tests outputs.")
   args += OptionInfo("optThresholdC", "Double", default=Some("0.01"), desc="Factor C for automatic scaling of the optimality threshold ((C*stddev)^2).")
