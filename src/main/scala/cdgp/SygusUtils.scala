@@ -162,8 +162,9 @@ object SygusUtils {
     vars.filter(_._2 == se).map{ x => Symbol(x._1) }
 
   def defaultGrammar(logic: String, vars: Seq[(String, SortExpr)], se: SortExpr): Seq[(Any, Seq[Any])] = {
-    lazy val bp_int = prodLIA_bool(varsForGrammar(vars, BoolSortExpr()))
-    lazy val bp_real = prodLRA_bool(varsForGrammar(vars, BoolSortExpr()))
+    val boolVars = varsForGrammar(vars, BoolSortExpr())
+    lazy val bp_int = prodLIA_bool(boolVars)
+    lazy val bp_real = prodLRA_bool(boolVars)
     val prods = logic match {
       case "LIA" | "QF_LIA" => List(bp_int, prodLIA(varsForGrammar(vars, IntSortExpr())), constInt)
       case "NIA" | "QF_NIA" => List(bp_int, prodNIA(varsForGrammar(vars, IntSortExpr())))
@@ -238,7 +239,7 @@ object SygusUtils {
             case CompositeGTerm(symbol: String, terms: List[GTerm])           => Symbol(symbol)
             case LiteralGTerm(literal: Literal)                               => literal
             case SymbolGTerm(symbol: String)                                  => Symbol(symbol) //Input(argNames.indexOf(symbol))
-            case LetGTerm(list: List[(String, SortExpr, GTerm)], term: GTerm) => ??? // TODO
+            case LetGTerm(list: List[(String, SortExpr, GTerm)], term: GTerm) => ??? // TODO: Not implemented yet
           }
           case LiteralGTerm(literal: Literal) => literal match {
             case IntConst(value: Int)          => value
@@ -249,7 +250,12 @@ object SygusUtils {
           }
           case SymbolGTerm(symbol: String)                                  => Symbol(symbol)
           case LetGTerm(list: List[(String, SortExpr, GTerm)], term: GTerm) => ??? // TODO: Not implemented yet
-          case GenericGTerm(identifier: String, sortExpr: SortExpr)         => ??? // TODO
+          case GenericGTerm(identifier: String, sortExpr: SortExpr)         => {
+            if (identifier == "Constant")
+              ConstantMarker(sortExpr.name)
+            else
+              ??? // TODO: Not implemented yet
+          }
         })
       }
   }
