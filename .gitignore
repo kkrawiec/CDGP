@@ -2,6 +2,7 @@
 .cache-tests
 .settings
 .idea
+*.iml
 
 CDGP.jar
 res*.txt.cdgp
