@@ -43,6 +43,7 @@ case class OptionInfo(name: String, tpe: String = "", desc: String = "", default
   */
 case class OptionsValidator(args: List[OptionInfo]) {
   val argsMap: Map[String, OptionInfo] = args.map(a => (a.name, a)).toMap
+  private val strictUnrecognizedPolicy = true
 
   /**
     * Checks if the arguments are correct with respect to what is expected by the
@@ -69,18 +70,20 @@ case class OptionsValidator(args: List[OptionInfo]) {
   /** Checks, if there was specified an unrecognized argument. */
   def checkUnrecognizedArgs(opt: Options): Unit = {
     opt.allOptions.foreach{ case (key, _) =>
-      if (!argsMap.contains(key))
+      if (strictUnrecognizedPolicy && !argsMap.contains(key))
         throw UnrecognizedArgumentException(s"Unrecognized arguments: '--$key'")
     }
   }
 
   /** Checks, if an incorrect value was specified. Currently, only choices are being checked. */
   def checkIncorrectValue(opt: Options): Unit = {
-    opt.allOptions.foreach{ case (key, value) if argsMap.contains(key) =>
-      val meta = argsMap(key)
-      if (meta.choice.nonEmpty && !meta.choice.contains(value)) {
-        throw IncorrectValueException(s"Incorrect value for: '--$key'. Possible values: ${meta.choice.mkString("'", "', '","'")}")
-      }
+    opt.allOptions.foreach{
+      case (key, value) if argsMap.contains(key) =>
+        val meta = argsMap(key)
+        if (meta.choice.nonEmpty && !meta.choice.contains(value)) {
+          throw IncorrectValueException(s"Incorrect value for: '--$key'. Possible values: ${meta.choice.mkString("'", "', '","'")}")
+        }
+      case _ => // Ignore
     }
   }
 
