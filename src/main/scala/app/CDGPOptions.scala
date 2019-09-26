@@ -197,8 +197,8 @@ object CDGPOptions {
   args += OptionInfo("saveBestSoFar", "Bool", default=Some("false"), desc="Saves the best solution found so far after every iteration.")
   args += OptionInfo("seed", "Int", default=Some("0"), desc="Seed for pseudorandom generator.")
   args += OptionInfo("snapshotFrequency", "Int", default=Some("0"), desc="Saves the snapshot of the current search state every n iterations (generations).")
-  args += OptionInfo("tournamentSize", "Int", default=Some("7"), desc="Population size.")
-  args += OptionInfo("tournamentDeselectSize", "Int", desc="Population size.")
+  args += OptionInfo("tournamentSize", "Int", default=Some("7"), desc="Size of the tournament in the tournament selection.")
+  args += OptionInfo("tournamentDeselectSize", "Int", desc="Size of the tournament in the tournament deselection.")
 
   // swim-specfic options
   args += OptionInfo("initMaxTreeDepth", "Int", default=Some("5"), desc=".")

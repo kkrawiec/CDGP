@@ -41,7 +41,7 @@ object RegressionCDGP {
 
       case ("lexicase", "steadyState") =>
         val eval = getEvalForSeqDouble(state, method)
-        val alg = CDGPSteadyStateLexicaseR(eval)
+        val alg = CDGPSteadyStateEpsLexicase(eval)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (finalPop, alg.bsf.bestSoFar)
     }
