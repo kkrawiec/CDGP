@@ -25,7 +25,7 @@ object RunCDGPConfigs extends App {
 
       case ("CDGP", "tournament", "steadyState") =>
         val eval = new EvalCDGPInt(StateCDGP(opt('benchmark)))
-        val alg = CDGPSteadyState(eval)
+        val alg = CDGPSteadyStateTournament(eval)
         val finalPop = RunExperiment(alg)
         (finalPop, alg.bsf.bestSoFar)
 
@@ -51,7 +51,7 @@ object RunCDGPConfigs extends App {
 
       case ("GPR", "tournament", "steadyState") =>
         val eval = new EvalGPRInt(StateGPR(opt('benchmark)))
-        val alg = CDGPSteadyState(eval)
+        val alg = CDGPSteadyStateTournament(eval)
         val finalPop = RunExperiment(alg)
         (finalPop, alg.bsf.bestSoFar)
 

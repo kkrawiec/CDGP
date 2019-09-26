@@ -24,7 +24,7 @@ object CDGP {
 
       case ("tournament", "steadyState") =>
         val eval = new EvalGPRInt(state)
-        val alg = CDGPSteadyState(eval)
+        val alg = CDGPSteadyStateTournament(eval)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (state, finalPop, alg.bsf.bestSoFar)
 
@@ -66,7 +66,7 @@ object CDGP {
         implicit val ordering = FIntOrdering
         val eval = new EvalCDGPInt(state)
         def cdgpCreator() = {
-          CDGPSteadyState(eval)
+          CDGPSteadyStateTournament(eval)
         }
         val multipopEA = new CDGPConvectionEqualNumber[Op, FInt](state, eval, cdgpCreator,
           reportPreDivide = CDGPConvectionEqualNumber.reportAvgsInGroups("_pre"))
@@ -115,7 +115,7 @@ object CDGP {
 
       case ("tournament", "steadyState") =>
         val eval = new EvalCDGPInt(state)
-        val alg = CDGPSteadyState(eval)
+        val alg = CDGPSteadyStateTournament(eval)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (state, finalPop, alg.bsf.bestSoFar)
 

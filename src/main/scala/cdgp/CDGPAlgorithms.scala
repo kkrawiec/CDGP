@@ -145,66 +145,6 @@ object CDGPGenerationalR {
 
 
 
-/**
-  * This is an implementation of the steady state GP.
-  * In a single iteration only one individual is selected, recombined and then it replaces
-  * certain other individual (deselection process).
-  *
-  * CDGP evaluation component is used to generate new counterexamples, and the test set
-  * generally grows with the number of iterations.
-  *
-  * @param moves Definition of solution transformations, e.g. mutation, crossover.
-  * @param cdgpEval CDGP evaluation component.
-  * @param opt Options.
-  * @param coll Collector for storing results and stats.
-  * @param rng Pseudorandom numbers generator.
-  * @param ordering Generates order on the fitness values.
-  */
-class CDGPSteadyState(moves: GPMoves,
-                      cdgpEval: CDGPEvaluationSteadyState[Op, FInt],
-                      correct: (Op, FInt) => Boolean)
-                     (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[FInt])
-      extends SteadyStateEA[Op, FInt](moves, cdgpEval.eval, correct,
-                                      CDGPSteadyState.getSelection(),
-                                      CDGPSteadyState.getDeselection()) with CDGPAlgorithm[Op, FInt] {
-  override def cdgpState = cdgpEval.state
-  override def initialize  = super.initialize
-  override def iter = super.iter andThen cdgpEval.updatePopulationEvalsAndTests andThen updateAfterIteration andThen bsf
-  override def epilogue = super.epilogue andThen bsf andThen reportStats
-  override def report = s => s
-  override def evaluate = // used only for the initial population
-    (s: StatePop[Op]) => {
-      cdgpEval.state.testsManager.flushHelpers()
-      if (cdgpEval.state.testsManager.tests.isEmpty)
-        Common.evalPopToDefault(cdgpEval.eval)(s)
-      else
-        StatePop(s.map{ op => (op, cdgpEval.eval(op, true)) })
-    }
-  override def algorithm =
-    (s: StatePop[(Op, FInt)]) =>  Common.restartLoop(initialize, super.algorithm andThen bsf, correct, it, bsf, opt)(s)
-}
-
-object CDGPSteadyState {
-  def getSelection()(implicit opt: Options, rng: TRandom): Selection[Op, FInt] =
-    new TournamentSelection(FIntOrdering, opt('tournamentSize, 7))
-
-  def getDeselection()(implicit opt: Options, rng: TRandom): Selection[Op, FInt] = {
-    val k = opt('tournamentSize, 7)
-    new TournamentSelection(FIntOrdering.reverse, opt('tournamentDeselectSize, k))
-  }
-
-  def apply(eval: EvalFunction[Op, FInt])
-           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyState = {
-    implicit val ordering = eval.ordering
-    val grammar = eval.state.sygusData.getSwimGrammar(rng)
-    val moves = GPMoves(grammar, Common.isFeasible(eval.state.synthTask.fname, opt))
-    val cdgpEval = new CDGPEvaluationSteadyState[Op, FInt](eval, eval.updateEval)
-    val correct = Common.correct(cdgpEval.eval)
-    new CDGPSteadyState(moves, cdgpEval, correct)
-  }
-}
-
-
 
 
 /**
@@ -320,12 +260,27 @@ class CDGPGenerationalCore[E <: Fitness]
 
 
 
-
-abstract class CDGPSteadyStateLexicaseCore[E <: Fitness]
-            (moves: GPMoves,
-             cdgpEval: CDGPEvaluationSteadyState[Op, E],
-             correct: (Op, E) => Boolean)
-            (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
+/**
+ * This is an implementation of the steady state GP.
+ * In a single iteration only one individual is selected, recombined and then it replaces
+ * certain other individual (deselection process).
+ *
+ * CDGP evaluation component is used to generate new counterexamples, and the test set
+ * generally grows with the number of iterations.
+ *
+ * @param moves Definition of solution transformations, e.g. mutation, crossover.
+ * @param cdgpEval CDGP evaluation component.
+ * @param correct A correctness predicate for solution and its evaluation.
+ * @param opt Options.
+ * @param coll Collector for storing results and stats.
+ * @param rng Pseudorandom numbers generator.
+ * @param ordering Generates order on the fitness values.
+ */
+abstract class CDGPSteadyStateCore[E <: Fitness]
+              (moves: GPMoves,
+               cdgpEval: CDGPEvaluationSteadyState[Op, E],
+               correct: (Op, E) => Boolean)
+              (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
   extends EACore[Op, E](moves, SequentialEval(cdgpEval.eval), correct) with CDGPAlgorithm[Op, E] {
   override def cdgpState = cdgpEval.state
   override def iter = (s: StatePop[(Op, E)]) => (createBreeder(s) andThen
@@ -350,39 +305,23 @@ abstract class CDGPSteadyStateLexicaseCore[E <: Fitness]
 }
 
 
-/**
- * This is an implementation of the steady state GP.
- * In a single iteration only one individual is selected, recombined and then it replaces
- * certain other individual (deselection process).
- *
- * This version of CDGP utilizes lexicase selection, which proves very effective in practice.
- *
- * CDGP evaluation component is used to generate new counterexamples, and the test set
- * generally grows with the number of iterations.
- *
- * @param moves Definition of solution transformations, e.g. mutation, crossover.
- * @param cdgpEval CDGP evaluation component.
- * @param opt Options.
- * @param coll Collector for storing results and stats.
- * @param rng Pseudorandom numbers generator.
- * @param ordering Generates order on the fitness values.
- */
-class CDGPSteadyStateLexicase[E <: Fitness](moves: GPMoves,
+
+class CDGPSteadyStateStaticBreeder[E <: Fitness](moves: GPMoves,
                                             cdgpEval: CDGPEvaluationSteadyState[Op, E],
                                             correct: (Op, E) => Boolean,
                                             selection: Selection[Op, E],
                                             deselection: Selection[Op, E])
                                            (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
-  extends CDGPSteadyStateLexicaseCore[E](moves, cdgpEval, correct) with CDGPAlgorithm[Op, E] {
+  extends CDGPSteadyStateCore[E](moves, cdgpEval, correct) with CDGPAlgorithm[Op, E] {
   val breeder = new SimpleSteadyStateBreeder[Op, E](selection, RandomMultiOperator(moves: _*), deselection, cdgpEval.eval)
   override def createBreeder(s: StatePop[(Op, E)]) = breeder
 }
 
 
+
 object CDGPSteadyStateLexicase {
   def getSelection()(implicit rng: TRandom): Selection[Op, FSeqInt] =
     new LexicaseSelection01[Op, FSeqInt]
-
   def getDeselection(eval: EvalFunction[Op, FSeqInt])(implicit opt: Options, rng: TRandom): Selection[Op, FSeqInt] =
     if (opt('lexicaseDeselection, false)) new LexicaseSelection01[Op, FSeqInt]
     else {
@@ -391,7 +330,7 @@ object CDGPSteadyStateLexicase {
     }
 
   def apply(eval: EvalFunction[Op, FSeqInt])
-           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyStateLexicase[FSeqInt] = {
+           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyStateStaticBreeder[FSeqInt] = {
     implicit val ordering = eval.ordering
     val grammar = eval.state.sygusData.getSwimGrammar(rng)
     val moves = GPMoves(grammar, Common.isFeasible(eval.state.synthTask.fname, opt))
@@ -399,7 +338,30 @@ object CDGPSteadyStateLexicase {
     val correct = Common.correct(cdgpEval.eval)
     val sel = CDGPSteadyStateLexicase.getSelection()
     val desel = CDGPSteadyStateLexicase.getDeselection(eval)
-    new CDGPSteadyStateLexicase(moves, cdgpEval, correct, sel, desel)
+    new CDGPSteadyStateStaticBreeder(moves, cdgpEval, correct, sel, desel)
+  }
+}
+
+
+
+object CDGPSteadyStateTournament {
+  def getSelection()(implicit opt: Options, rng: TRandom): Selection[Op, FInt] =
+    new TournamentSelection(FIntOrdering, opt('tournamentSize, 7))
+  def getDeselection(eval: EvalFunction[Op, FInt])(implicit opt: Options, rng: TRandom): Selection[Op, FInt] = {
+    val k = opt('tournamentSize, 7)
+    new TournamentSelection(eval.ordering.reverse, opt('tournamentDeselectSize, k))
+  }
+
+  def apply(eval: EvalFunction[Op, FInt])
+           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyStateStaticBreeder[FInt] = {
+    implicit val ordering = eval.ordering
+    val grammar = eval.state.sygusData.getSwimGrammar(rng)
+    val moves = GPMoves(grammar, Common.isFeasible(eval.state.synthTask.fname, opt))
+    val cdgpEval = new CDGPEvaluationSteadyState[Op, FInt](eval, eval.updateEval)
+    val correct = Common.correct(cdgpEval.eval)
+    val sel = getSelection()
+    val desel = getDeselection(cdgpEval.eval)
+    new CDGPSteadyStateStaticBreeder(moves, cdgpEval, correct, sel, desel)
   }
 }
 
@@ -415,7 +377,7 @@ class CDGPSteadyStateLexicaseR[E <: FSeqDouble](moves: GPMoves,
                                                 correct: (Op, E) => Boolean,
                                                 deselection: Selection[Op, E])
                                                (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
-  extends CDGPSteadyStateLexicaseCore[E](moves, cdgpEval, correct) with CDGPAlgorithm[Op, E] {
+  extends CDGPSteadyStateCore[E](moves, cdgpEval, correct) with CDGPAlgorithm[Op, E] {
   override def initialize: Unit => StatePop[(Op, E)] = {
     Common.addNoiseToTests(cdgpEval.state)(opt, rng); super.initialize
   }
@@ -425,7 +387,6 @@ class CDGPSteadyStateLexicaseR[E <: FSeqDouble](moves: GPMoves,
     new SimpleSteadyStateBreeder[Op, E](sel, RandomMultiOperator(moves: _*), deselection, cdgpEval.eval)
   }
 }
-
 
 object CDGPSteadyStateLexicaseR {
   def getDeselection[E <: FSeqDouble](eval: EvalFunction[Op, E])(implicit opt: Options, rng: TRandom): Selection[Op, E] = {
@@ -444,6 +405,7 @@ object CDGPSteadyStateLexicaseR {
     new CDGPSteadyStateLexicaseR[E](moves, cdgpEval, correct, desel)
   }
 }
+
 
 
 
