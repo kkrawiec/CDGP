@@ -164,24 +164,10 @@ object CDGPGenerationalTournament {
 
 object CDGPGenerationalLexicase {
   def apply[E <: FSeqInt](eval: EvalFunction[Op, E])
-           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalStaticBreeder[E] = {
+                         (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalStaticBreeder[E] = {
     val cdgpEval = new CDGPEvaluation[Op, E](eval)
     val sel = new LexicaseSelection01[Op, E]
     CDGPGenerationalStaticBreeder[E](cdgpEval, sel)
-  }
-}
-
-
-object CDGPGenerationalTournamentRegr {
-  def apply[E <: Fitness](eval: EvalFunction[Op, E])
-                         (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalStaticBreeder[E] = {
-    implicit val ordering = eval.ordering
-    val grammar = eval.state.sygusData.getSwimGrammar(rng)
-    val moves = GPMoves(grammar, Common.isFeasible(eval.state.synthTask.fname, opt))
-    val cdgpEval = new CDGPEvaluation[Op, E](eval)
-    val correct = Common.correct(cdgpEval.eval)
-    val sel = new TournamentSelection[Op, E](eval.ordering, opt('tournamentSize, 7))
-    new CDGPGenerationalStaticBreeder[E](moves, cdgpEval, correct, sel)
   }
 }
 
@@ -299,16 +285,16 @@ object CDGPSteadyStateStaticBreeder {
 
 
 object CDGPSteadyStateTournament {
-  def getSelection()(implicit opt: Options, rng: TRandom): Selection[Op, FInt] =
-    new TournamentSelection(FIntOrdering, opt('tournamentSize, 7))
-  def getDeselection(eval: EvalFunction[Op, FInt])(implicit opt: Options, rng: TRandom): Selection[Op, FInt] = {
+  def getSelection[E <: Fitness](eval: EvalFunction[Op, E])(implicit opt: Options, rng: TRandom): Selection[Op, E] =
+    new TournamentSelection(eval.ordering, opt('tournamentSize, 7))
+  def getDeselection[E <: Fitness](eval: EvalFunction[Op, E])(implicit opt: Options, rng: TRandom): Selection[Op, E] = {
     val k = opt('tournamentSize, 7)
     new TournamentSelection(eval.ordering.reverse, opt('tournamentDeselectSize, k))
   }
-  def apply(eval: EvalFunction[Op, FInt])
-           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyStateStaticBreeder[FInt] = {
+  def apply[E <: Fitness](eval: EvalFunction[Op, E])
+                         (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyStateStaticBreeder[E] = {
     val cdgpEval = new CDGPEvaluationSteadyState(eval, eval.updateEval)
-    val sel = getSelection()
+    val sel = getSelection(cdgpEval.eval)
     val desel = getDeselection(cdgpEval.eval)
     CDGPSteadyStateStaticBreeder(cdgpEval, sel, desel)
   }
@@ -316,18 +302,18 @@ object CDGPSteadyStateTournament {
 
 
 object CDGPSteadyStateLexicase {
-  def getSelection()(implicit rng: TRandom): Selection[Op, FSeqInt] =
-    new LexicaseSelection01[Op, FSeqInt]
-  def getDeselection(eval: EvalFunction[Op, FSeqInt])(implicit opt: Options, rng: TRandom): Selection[Op, FSeqInt] =
-    if (opt('lexicaseDeselection, false)) new LexicaseSelection01[Op, FSeqInt]
+  def getSelection[E <: FSeqInt]()(implicit rng: TRandom): Selection[Op, E] =
+    new LexicaseSelection01[Op, E]
+  def getDeselection[E <: FSeqInt](eval: EvalFunction[Op, E])(implicit opt: Options, rng: TRandom): Selection[Op, E] =
+    if (opt('lexicaseDeselection, false)) new LexicaseSelection01[Op, E]
     else {
       val k = opt('tournamentSize, 7)
-      new TournamentSelection[Op, FSeqInt](eval.ordering.reverse, opt('tournamentDeselectSize, k))
+      new TournamentSelection[Op, E](eval.ordering.reverse, opt('tournamentDeselectSize, k))
     }
-  def apply(eval: EvalFunction[Op, FSeqInt])
-           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyStateStaticBreeder[FSeqInt] = {
+  def apply[E <: FSeqInt](eval: EvalFunction[Op, E])
+                         (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyStateStaticBreeder[E] = {
     val cdgpEval = new CDGPEvaluationSteadyState(eval, eval.updateEval)
-    val sel = getSelection()
+    val sel = getSelection[E]()
     val desel = getDeselection(cdgpEval.eval)
     CDGPSteadyStateStaticBreeder(cdgpEval, sel, desel)
   }
@@ -341,7 +327,7 @@ object CDGPSteadyStateEpsLexicase {
   }
 
   def apply[E <: FSeqDouble](eval: EvalFunction[Op, E])
-           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyStateEpsLexicase[E] = {
+                            (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyStateEpsLexicase[E] = {
     implicit val ordering = eval.ordering
     val grammar = eval.state.sygusData.getSwimGrammar(rng)
     val moves = GPMoves(grammar, Common.isFeasible(eval.state.synthTask.fname, opt))

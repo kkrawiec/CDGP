@@ -31,7 +31,10 @@ object RegressionCDGP {
         (finalPop, alg.bsf.bestSoFar)
 
       case ("tournament", "steadyState") =>
-        ???
+        val eval = new EvalCDGPDoubleMSE(state)
+        val alg = CDGPSteadyStateTournament(eval)
+        val finalPop = Main.watchTime(alg, RunExperiment(alg))
+        (finalPop, alg.bsf.bestSoFar)
 
       case ("lexicase", "generational") =>
         val eval = getEvalForSeqDouble(state, method)
