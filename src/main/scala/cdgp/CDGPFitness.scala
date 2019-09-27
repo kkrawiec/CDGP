@@ -77,8 +77,7 @@ object FInt {
 }
 
 
-case class FDouble(correct: Boolean, value: Double, progSize: Int) extends Fitness {
-  override val totalTests: Int = ???
+case class FDouble(correct: Boolean, value: Double, progSize: Int, override val totalTests: Int) extends Fitness {
   override def saveInColl(coll: Collector): Unit = {
     val rounded = BigDecimal(value).setScale(5, BigDecimal.RoundingMode.HALF_UP).toDouble
     coll.setResult("best.mse", rounded)
@@ -86,7 +85,6 @@ case class FDouble(correct: Boolean, value: Double, progSize: Int) extends Fitne
   }
   override def toString: String = s"Fit($correct, $value, progSize=$progSize)"
 }
-
 
 object FSeqIntOrdering extends Ordering[FSeqInt] {
   override def compare(a: FSeqInt, b: FSeqInt): Int = {
@@ -751,7 +749,7 @@ class EvalGPSeqDouble(state: StateCDGP)
   }
   override def updateEval(s: (Op, FSeqDouble)): (Op, FSeqDouble) = {
     val missingTests = state.testsManager.dropFromTests(s._2.totalTests) ++ state.testsManager.newTests.toList
-    (s._1, FSeqDouble(s._2.correct, s._2.value ++ evalOnTests(s._1, missingTests), s._1.size, s._2.numPCtests))
+    (s._1, FSeqDouble(s._2.correct, s._2.value ++ evalOnTests(s._1, missingTests), s._2.progSize, s._2.numPCtests))
   }
   override def defaultValue(s: Op) = FSeqDouble(false, Seq(), s.size, 0)
   override val correct = (e: FSeqDouble) => e.correct
@@ -781,16 +779,16 @@ class EvalGPDoubleMSE(state: StateCDGP)
   override def apply(s: Op, init: Boolean): FDouble = {
     val (isPerfect, eval) = fitnessOnlyTestCases(s)
     val mse = Tools.mse(extractTestsNormal(eval))
-    FDouble(isPerfect, mse, s.size)
+    FDouble(isPerfect, mse, s.size, eval.size)
   }
   override def updateEval(s: (Op, FDouble)): (Op, FDouble) = {
     // evalOnTests returns a vector of absolute differences
     val missingTests = state.testsManager.dropFromTests(s._2.totalTests) ++ state.testsManager.newTests.toList
     val newValue = s._2.value + evalOnTests(s._1, missingTests).map{ x => x * x }.sum
-    val newFit = FDouble(s._2.correct, newValue, s._1.size)
+    val newFit = FDouble(s._2.correct, newValue, s._2.progSize, s._2.totalTests + missingTests.size)
     (s._1, newFit)
   }
-  override def defaultValue(s: Op) = FDouble(false, 0.0, s.size)
+  override def defaultValue(s: Op) = FDouble(false, 0.0, s.size, 0)
   override val correct = (e: FDouble) => e.correct
   override val ordering = FDoubleOrdering
 }
@@ -803,12 +801,12 @@ class EvalCDGPDoubleMSE(state: StateCDGP)
     if (init) {
       val (_, eval) = fitnessOnlyTestCases(s)
       val mse = Tools.mse(extractTestsNormal(eval))
-      FDouble(false, mse, s.size) // correctness set to false to not trigger correctness based only on the MSE
+      FDouble(false, mse, s.size, eval.size) // correctness set to false to not trigger correctness based only on the MSE
     }
     else {
       val (isPerfect, eval) = fitnessCDGPRegression(s)
       val mse = Tools.mse(extractTestsNormal(eval))
-      FDouble(isPerfect, mse, s.size)
+      FDouble(isPerfect, mse, s.size, eval.size)
     }
   }
 }

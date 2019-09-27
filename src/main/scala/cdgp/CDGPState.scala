@@ -24,6 +24,8 @@ abstract class State(val sygusData: SygusProblemData,
 
   // Initializing population of test cases
   testsManager.addNewTests(sygusData.testCasesConstrToTests, allowInputDuplicates=true, allowTestDuplicates=allowTestDuplicates)
+  if (opt('regression, false))
+    NoiseAdderStdDev(testsManager)  // try to add noise if this is a regression problem.
   // testsManager.flushHelpers() // This is done elsewhere (at the beginning of evolution)
 
   /**
@@ -336,7 +338,7 @@ object StateCDGP {
   }
   def apply(problem: SygusProblemData)
            (implicit opt: Options, coll: Collector, rng: TRandom): StateCDGP = {
-    val testsManager = TestsManagerCDGP[Map[String, Any], Any](opt("logTestsHistory", false), opt("printTests", false), opt("saveTests", false))
+    val testsManager = TestsManagerCDGP[Map[String, Any], Any]()
     new StateCDGP(problem, testsManager)
   }
 
@@ -413,7 +415,7 @@ object StateGPR {
   }
   def apply(problem: SygusProblemData)
            (implicit opt: Options, coll: Collector, rng: TRandom): StateGPR = {
-    val testsManager = TestsManagerCDGP[Map[String, Any], Any](opt("logTestsHistory", false), opt("printTests", false), opt("saveTests", false))
+    val testsManager = TestsManagerCDGP[Map[String, Any], Any]()
     new StateGPR(problem, testsManager)
   }
 }

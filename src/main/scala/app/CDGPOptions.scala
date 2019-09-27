@@ -146,7 +146,7 @@ object CDGPOptions {
   args += OptionInfo("logAllQueries", "Bool", default=Some("false"), desc="Log every query to the solver.")
   args += OptionInfo("logPassedConstraints", "Bool", default=Some("true"), desc="Save information about which constraints were passed. Requires a separate verification query for each constraint.")
   args += OptionInfo("logTestsHistory", "Bool", default=Some("false"), desc="Save for each generation the number of generated tests.")
-  args += OptionInfo("maxNewTestsPerIter", "Int", default=Some(Int.MaxValue.toString), desc="Maximum number of tests which can be added per iteration.")
+  args += OptionInfo("maxNewTestsPerIter", "Int", default=Some("10"), desc="Maximum number of tests which can be added per iteration.")
   args += OptionInfo("maxRecursiveCalls", "Int", default=Some("1"), desc="Maximum number of allowed recursive invocations in a candidate solution.")
   args += OptionInfo("maxSolverRestarts", "Int", default=Some("1"), desc="Maximum number of times a solver will be restarted after failure.")
   args += OptionInfo("mixedSpecAllowed", "Bool", default=Some("true"), desc=".")

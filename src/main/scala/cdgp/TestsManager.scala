@@ -1,7 +1,6 @@
 package cdgp
 
 import fuel.util.{Collector, Options, TRandom}
-
 import scala.collection.mutable
 
 
@@ -14,7 +13,8 @@ import scala.collection.mutable
 class TestsManagerCDGP[I,O](val tests: mutable.ArrayBuffer[(I, Option[O])],
                             val newTests: mutable.ArrayBuffer[(I, Option[O])],
                             val testsHistory: Boolean = false,
-                            val printAddedTests: Boolean = false, val saveTests: Boolean = false) {
+                            val printAddedTests: Boolean = false,
+                            val saveTests: Boolean = false) {
   private var flushNo = 0
   def getNumFlushes: Int = flushNo
 
@@ -99,12 +99,20 @@ class TestsManagerCDGP[I,O](val tests: mutable.ArrayBuffer[(I, Option[O])],
 
 
 object TestsManagerCDGP {
-  def apply[I,O](testsHistory: Boolean = false, printAddedTests: Boolean = false, saveTests: Boolean = false): TestsManagerCDGP[I,O] = {
+  def apply[I,O](testsHistory: Boolean = false, printAddedTests: Boolean = false, saveTests: Boolean = false)
+                (implicit opt: Options, rng: TRandom): TestsManagerCDGP[I,O] = {
     val tests = mutable.ArrayBuffer[(I, Option[O])]()
     val newTests = mutable.ArrayBuffer[(I, Option[O])]()
     new TestsManagerCDGP(tests, newTests, testsHistory, printAddedTests, saveTests)
   }
+  def apply[I,O]()(implicit opt: Options, rng: TRandom): TestsManagerCDGP[I,O] = {
+    val testsHistory = opt('logTestsHistory, false)
+    val printAddedTests = opt('printTests, false)
+    val saveTests = opt('saveTests, false)
+    TestsManagerCDGP(testsHistory, printAddedTests, saveTests)
+  }
 }
+
 
 
 
@@ -134,8 +142,8 @@ object NoiseAdderStdDev {
       val stdDevOut = stdDevForOutput(allTestsSet)
 
       // Randomizing tests
-      val tests2 = randomizeTests(manager.tests.toSeq, stdDevs, stdDevOut, deltaY=deltaY, deltaX=deltaX)
-      val newTests2 = randomizeTests(manager.newTests.toSeq, stdDevs, stdDevOut, deltaY=deltaY, deltaX=deltaX)
+      val tests2 = randomizeTests(manager.tests, stdDevs, stdDevOut, deltaY=deltaY, deltaX=deltaX)
+      val newTests2 = randomizeTests(manager.newTests, stdDevs, stdDevOut, deltaY=deltaY, deltaX=deltaX)
 
       // Adding tests
       val tests3 = mutable.ArrayBuffer[(Map[String, Any], Option[Any])]()

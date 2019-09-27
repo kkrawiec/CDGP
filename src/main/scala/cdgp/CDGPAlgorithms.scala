@@ -76,11 +76,26 @@ trait CDGPAlgorithm[S <: Op, E <: Fitness] {
 
 
 
-
+/**
+ * This is a standard generational GP in which evolved are program trees.
+ * All solutions from the current generation are used to create offsprings (guided by the
+ * selection process), and the new population is then populated by those offsprings.
+ *
+ * CDGP evaluation component is used to generate new counterexamples, and the test set
+ * generally grows with the number of iterations.
+ *
+ * @param moves Definition of solution transformations, e.g. mutation, crossover.
+ * @param cdgpEval CDGP evaluation component.
+ * @param correct A correctness predicate for solution and its evaluation.
+ * @param opt Options.
+ * @param coll Collector for storing results and stats.
+ * @param rng Pseudorandom numbers generator.
+ * @param ordering Generates order on the fitness values.
+ */
 abstract class CDGPGenerationalCore[E <: Fitness](moves: GPMoves,
-                                         cdgpEval: CDGPEvaluation[Op, E],
-                                         correct: (Op, E) => Boolean)
-                                        (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
+                                    cdgpEval: CDGPEvaluation[Op, E],
+                                    correct: (Op, E) => Boolean)
+                                   (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
   extends EACore[Op, E](moves, SequentialEval(cdgpEval.eval), correct) with CDGPAlgorithm[Op, E] {
   override def cdgpState = cdgpEval.state
   override def iter = (s: StatePop[(Op, E)]) => (
@@ -88,7 +103,7 @@ abstract class CDGPGenerationalCore[E <: Fitness](moves: GPMoves,
     evaluate andThen
     report andThen
     updateAfterIteration)(s)
-  override def initialize  = super.initialize
+  override def initialize  = RandomStatePop(moves.newSolution _) andThen evaluate andThen bsf andThen it
   override def epilogue = super.epilogue andThen reportStats
   //override def iter = super.iter andThen super.report andThen saveCurrentPop
   override def evaluate = cdgpEval
@@ -112,47 +127,53 @@ class CDGPGenerationalStaticBreeder[E <: Fitness](moves: GPMoves,
 }
 
 
-
-
-
-/**
-  * This is a standard generational GP in which evolved are program trees.
-  * All solutions from the current generation are used to create offsprings (guided by the
-  * selection process), and the new population is then populated by those offsprings.
-  *
-  * CDGP evaluation component is used to generate new counterexamples, and the test set
-  * generally grows with the number of iterations.
-  *
-  * @param moves Definition of solution transformations, e.g. mutation, crossover.
-  * @param cdgpEval CDGP evaluation component.
-  * @param opt Options.
-  * @param coll Collector for storing results and stats.
-  * @param rng Pseudorandom numbers generator.
-  * @param ordering Generates order on the fitness values.
-  */
-class CDGPGenerationalTournament[E <: Fitness]
-                      (moves: GPMoves,
-                       cdgpEval: CDGPEvaluation[Op, E],
-                       correct: (Op, E) => Boolean)
-                      (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
-      extends SimpleGP(moves, cdgpEval.eval, correct) with CDGPAlgorithm[Op, E] {
-  override def cdgpState = cdgpEval.state
-  override def iter =
-    SimpleBreeder(selection, moves: _*) andThen
-    evaluate andThen
-    report andThen
-    updateAfterIteration // andThen super.report // uncomment report to change the result (FUEL issue #6)
-  override def initialize  = super.initialize
-  override def epilogue = super.epilogue andThen reportStats
-  override def evaluate = cdgpEval
-  override def report = bsf
-  override def algorithm =
-    (s: StatePop[(Op, E)]) =>  Common.restartLoop(initialize, super.algorithm, correct, it, bsf, opt)(s)
+class CDGPGenerationalEpsLexicase[E <: FSeqDouble](moves: GPMoves,
+                                                   cdgpEval: CDGPEvaluation[Op, E],
+                                                   correct: (Op, E) => Boolean)
+                                                  (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
+  extends CDGPGenerationalCore(moves, cdgpEval, correct) {
+  def createBreeder(s: StatePop[(Op, E)]): (StatePop[(Op, E)] => StatePop[Op]) = {
+    val epsForTests = EpsLexicaseSelection.medianAbsDev(s)
+    val sel = new EpsLexicaseSelection[Op, E](epsForTests)
+    SimpleBreeder[Op, E](sel, RandomMultiOperator(moves: _*))
+  }
 }
+
+
+object CDGPGenerationalStaticBreeder {
+  def apply[E <: Fitness](cdgpEval: CDGPEvaluation[Op, E], sel: Selection[Op, E])
+                         (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalStaticBreeder[E] = {
+    implicit val ordering = cdgpEval.eval.ordering
+    val grammar = cdgpEval.eval.state.sygusData.getSwimGrammar(rng)
+    val moves = GPMoves(grammar, Common.isFeasible(cdgpEval.eval.state.synthTask.fname, opt))
+    val correct = Common.correct(cdgpEval.eval)
+    new CDGPGenerationalStaticBreeder(moves, cdgpEval, correct, sel)
+  }
+}
+
 
 object CDGPGenerationalTournament {
   def apply[E <: Fitness](eval: EvalFunction[Op, E])
-//                         (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalTournament[E] = {
+                         (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalStaticBreeder[E] = {
+    val cdgpEval = new CDGPEvaluation[Op, E](eval)
+    val sel = new TournamentSelection[Op, E](eval.ordering, opt('tournamentSize, 7))
+    CDGPGenerationalStaticBreeder[E](cdgpEval, sel)
+  }
+}
+
+
+object CDGPGenerationalLexicase {
+  def apply[E <: FSeqInt](eval: EvalFunction[Op, E])
+           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalStaticBreeder[E] = {
+    val cdgpEval = new CDGPEvaluation[Op, E](eval)
+    val sel = new LexicaseSelection01[Op, E]
+    CDGPGenerationalStaticBreeder[E](cdgpEval, sel)
+  }
+}
+
+
+object CDGPGenerationalTournamentRegr {
+  def apply[E <: Fitness](eval: EvalFunction[Op, E])
                          (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalStaticBreeder[E] = {
     implicit val ordering = eval.ordering
     val grammar = eval.state.sygusData.getSwimGrammar(rng)
@@ -160,125 +181,20 @@ object CDGPGenerationalTournament {
     val cdgpEval = new CDGPEvaluation[Op, E](eval)
     val correct = Common.correct(cdgpEval.eval)
     val sel = new TournamentSelection[Op, E](eval.ordering, opt('tournamentSize, 7))
-//    new CDGPGenerationalTournament[E](moves, cdgpEval, correct)
-    new CDGPGenerationalStaticBreeder[E](moves, cdgpEval, correct, sel) // why this is so slow?
+    new CDGPGenerationalStaticBreeder[E](moves, cdgpEval, correct, sel)
   }
 }
 
 
-
-class CDGPGenerationalTournamentR[E <: Fitness]
-                       (moves: GPMoves,
-                        cdgpEval: CDGPEvaluation[Op, E],
-                        correct: (Op, E) => Boolean)
-                       (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
-  extends CDGPGenerationalTournament(moves, cdgpEval, correct) {
-  override def initialize = {
-    Common.addNoiseToTests(cdgpEval.state)(opt, rng); super.initialize
-  }
-}
-
-object CDGPGenerationalTournamentR {
-  def apply[E <: Fitness](eval: EvalFunction[Op, E])
-                         (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalTournament[E] = {
-    implicit val ordering = eval.ordering
-    val grammar = eval.state.sygusData.getSwimGrammar(rng)
-    val moves = GPMoves(grammar, Common.isFeasible(eval.state.synthTask.fname, opt))
-    val cdgpEval = new CDGPEvaluation[Op, E](eval)
-    val correct = Common.correct(cdgpEval.eval)
-    new CDGPGenerationalTournamentR[E](moves, cdgpEval, correct)
-  }
-}
-
-
-
-
-
-/**
-  * This is a standard generational GP in which evolved are program trees.
-  * All solutions from the current generation are used to create offsprings (guided by the
-  * selection process), and the new population is then populated by those offsprings.
-  *
-  * This version of CDGP utilizes lexicase selection, which proves very effective in practice.
-  *
-  * CDGP evaluation component is used to generate new counterexamples, and the test set
-  * generally grows with the number of iterations.
-  *
-  * @param moves Definition of solution transformations, e.g. mutation, crossover.
-  * @param cdgpEval CDGP evaluation component.
-  * @param opt Options.
-  * @param coll Collector for storing results and stats.
-  * @param rng Pseudorandom numbers generator.
-  * @param ordering Generates order on the fitness values.
-  */
-class CDGPGenerationalLexicase(moves: GPMoves,
-                               cdgpEval: CDGPEvaluation[Op, FSeqInt],
-                               correct: (Op, FSeqInt) => Boolean)
-                              (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[Int])
-  extends LexicaseGPMain[Int, FSeqInt](moves, cdgpEval.eval, correct, FSeqIntOrdering)
-     with CDGPAlgorithm[Op, FSeqInt] {
-  override val selection = new LexicaseSelection01[Op, FSeqInt]
-  override def cdgpState = cdgpEval.state
-  override def initialize  = super.initialize
-  override def epilogue = super.epilogue andThen bsf andThen reportStats
-  override def iter = super.iter andThen updateAfterIteration
-  override def evaluate = cdgpEval
-  override def report = s => s
-  override def algorithm =
-    (s: StatePop[(Op, FSeqInt)]) =>  Common.restartLoop(initialize, super.algorithm andThen bsf, correct, it, bsf, opt)(s)
-}
-
-object CDGPGenerationalLexicase {
-  def apply(eval: EvalFunction[Op, FSeqInt])
-           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalLexicase = {
-    implicit val ordering = eval.ordering
-    val grammar = eval.state.sygusData.getSwimGrammar(rng)
-    val moves = GPMoves(grammar, Common.isFeasible(eval.state.synthTask.fname, opt))
-    val cdgpEval = new CDGPEvaluation[Op, FSeqInt](eval)
-    val correct = Common.correct(cdgpEval.eval)
-    new CDGPGenerationalLexicase(moves, cdgpEval, correct)
-  }
-}
-
-
-
-
-
-class CDGPGenerationalLexicaseR(moves: GPMoves,
-                                cdgpEval: CDGPEvaluation[Op, FSeqDouble],
-                                correct: (Op, FSeqDouble) => Boolean)
-                               (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[FSeqDouble])
-  extends EACore[Op, FSeqDouble](moves, SequentialEval(cdgpEval.eval), correct)
-     with CDGPAlgorithm[Op, FSeqDouble] {
-  val bsf = BestSoFar[Op, FSeqDouble](ordering, it)
-  override def cdgpState = cdgpEval.state
-  override def initialize = {
-    Common.addNoiseToTests(cdgpEval.state)(opt, rng); super.initialize
-  }
-  override def epilogue = super.epilogue andThen bsf andThen reportStats
-  override def iter = (s: StatePop[(Op, FSeqDouble)]) =>
-    (createBreeder(s) andThen evaluate andThen updateAfterIteration)(s)
-  override def evaluate = cdgpEval
-  override def report = s => s
-  override def algorithm =
-    (s: StatePop[(Op, FSeqDouble)]) =>  Common.restartLoop(initialize, super.algorithm andThen bsf, correct, it, bsf, opt)(s)
-
-  def createBreeder(s: StatePop[(Op, FSeqDouble)]): StatePop[(Op, FSeqDouble)] => StatePop[Op] = {
-    val epsForTests = EpsLexicaseSelection.medianAbsDev(s)
-    val sel = new EpsLexicaseSelection[Op, FSeqDouble](epsForTests)
-    SimpleBreeder(sel, moves: _*)
-  }
-}
-
-object CDGPGenerationalLexicaseR {
+object CDGPGenerationalEpsLexicase {
   def apply(eval: EvalFunction[Op, FSeqDouble])
-           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalLexicaseR = {
+           (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalEpsLexicase[FSeqDouble] = {
     implicit val ordering = eval.ordering
     val grammar = eval.state.sygusData.getSwimGrammar(rng)
     val moves = GPMoves(grammar, Common.isFeasible(eval.state.synthTask.fname, opt))
     val cdgpEval = new CDGPEvaluation[Op, FSeqDouble](eval)
     val correct = Common.correct(cdgpEval.eval)
-    new CDGPGenerationalLexicaseR(moves, cdgpEval, correct)
+    new CDGPGenerationalEpsLexicase(moves, cdgpEval, correct)
   }
 }
 
@@ -315,7 +231,7 @@ abstract class CDGPSteadyStateCore[E <: Fitness]
     CallEvery(opt('reportFreq, opt('populationSize, 1000)), report) andThen
     cdgpEval.updatePopulationEvalsAndTests andThen
     updateAfterIteration)(s)
-  override def initialize  = super.initialize
+  override def initialize  = super.initialize andThen bsf
   override def epilogue = super.epilogue andThen reportStats
   override def report = bsf
   override def evaluate = // used only for the initial population
@@ -362,9 +278,6 @@ class CDGPSteadyStateEpsLexicase[E <: FSeqDouble](moves: GPMoves,
                                                   deselection: Selection[Op, E])
                                                  (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
   extends CDGPSteadyStateCore[E](moves, cdgpEval, correct) {
-  override def initialize: Unit => StatePop[(Op, E)] = {
-    Common.addNoiseToTests(cdgpEval.state)(opt, rng); super.initialize
-  }
   def createBreeder(s: StatePop[(Op, E)]): (StatePop[(Op, E)] => StatePop[(Op, E)]) = {
     val epsForTests = EpsLexicaseSelection.medianAbsDev(s)
     val sel = new EpsLexicaseSelection[Op, E](epsForTests)
@@ -443,106 +356,6 @@ object CDGPSteadyStateEpsLexicase {
 
 
 
-
-class CDGPConvectionEqualNumber[S <: Op, E <: Fitness]
-      (override val cdgpState: State,
-       val evalFunc: EvalFunction[S,E],
-       eaCreator: () => EACore[S,E] with CDGPAlgorithm[S,E],
-       reportPreDivide: Seq[StatePop[(S, E)]] => Seq[StatePop[(S, E)]] = (s:Seq[StatePop[(S, E)]]) => s,
-       reportPostDivide: Seq[StatePop[(S, E)]] => Seq[StatePop[(S, E)]] = (s:Seq[StatePop[(S, E)]]) => s)
-      (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
-  extends MultipopulationEA[S, E](
-    MultipopulationEA.convectionEqualNumber(opt("multipop.M", 5), ordering),
-    eaCreator,
-    maxIter = Option(opt("multipop.maxGenerations", 100)),
-    maxTime = Option(opt("multipop.maxTime", 86400000)),
-    stop = (pop: StatePop[(S, E)]) => {pop.exists(_._2.correct)})
-  with CDGPAlgorithm[S, E] {
-
-  override def iter: Seq[StatePop[(S,E)]] => Seq[StatePop[(S,E)]] =
-    popsEvolve andThen savePop andThen reportPreDivide andThen popsDivide andThen
-    reportPostDivide andThen report //andThen printPops
-
-  def savePop(pops: Seq[StatePop[(S, E)]]): Seq[StatePop[(S, E)]] = {
-    pop = Some(StatePop(pops.flatten))
-    pops
-  }
-
-  override def report: Function1[Seq[StatePop[(S, E)]], Seq[StatePop[(S, E)]]] = bsfPops
-  override def epilogue: Function1[Seq[StatePop[(S, E)]], Seq[StatePop[(S, E)]]] =
-    bsfPops andThen reportStatsPops andThen epiloguePops
-  override val bsf = BestSoFar[S, E](ordering, it)
-
-
-  override def popsEvolve: Seq[StatePop[(S, E)]] => Seq[StatePop[(S, E)]] =
-    (pops: Seq[StatePop[(S,E)]]) => pops.map{ pop =>
-      val ea = eaCreator()
-      // Synchronize fitness to avoid problems
-      val synchrPop = StatePop(pop.map { s => evalFunc.updateEval(s) })
-      ea.apply(synchrPop)
-    }
-
-
-  def bsfPops: Function1[Seq[StatePop[(S, E)]], Seq[StatePop[(S, E)]]] =
-    (pops: Seq[StatePop[(S, E)]]) => {
-      pops.foreach(bsf(_))
-      pops
-    }
-
-  def reportStatsPops: Function1[Seq[StatePop[(S, E)]], Seq[StatePop[(S, E)]]] =
-    (pops: Seq[StatePop[(S, E)]]) => {
-      pops.foreach(reportStats(_))
-      pops
-    }
-
-  def epiloguePops: Function1[Seq[StatePop[(S, E)]], Seq[StatePop[(S, E)]]] =
-    (pops: Seq[StatePop[(S, E)]]) => {
-      coll.set("multipop.totalGenerations", it.count)
-      pops
-    }
-}
-
-
-object CDGPConvectionEqualNumber {
-  def reportAvgsInGroups(keyPopSuffix: String)(implicit coll: Collector): Seq[StatePop[(Op, FInt)]] => Seq[StatePop[(Op, FInt)]] =
-    (pops: Seq[StatePop[(Op, FInt)]]) => {
-      pops.indices.zip(pops).foreach { case (i, pop) =>
-        val numTests = pop.head._2.totalTests.asInstanceOf[Double]
-        val listRatios = pop.map{ case (s, e) => (numTests - e.value) / numTests }
-        val k = s"multipop.pop${i}${keyPopSuffix}.fitness"
-        computeAndSaveStats(k, listRatios)
-      }
-      pops
-    }
-
-  def reportAvgsInGroupsFSeqInt(keyPopSuffix: String)(implicit coll: Collector): Seq[StatePop[(Op, FSeqInt)]] => Seq[StatePop[(Op, FSeqInt)]] =
-    (pops: Seq[StatePop[(Op, FSeqInt)]]) => {
-      pops.indices.zip(pops).foreach { case (i, pop) =>
-        val numTests = pop.head._2.totalTests.asInstanceOf[Double]
-        val listRatios = pop.map{ case (s, e) => (numTests - e.sum) / numTests }
-        val k = s"multipop.pop${i}${keyPopSuffix}"
-        computeAndSaveStats(k, listRatios)
-      }
-      pops
-    }
-
-  protected def computeAndSaveStats(k: String, passedRatios: Seq[Double])(implicit coll: Collector) {
-    val avg = passedRatios.sum / passedRatios.size
-    val stdDev = Tools.stddev(passedRatios, avg)
-    computeAndSaveStats(k, avg, stdDev )
-  }
-
-  protected def computeAndSaveStats(k: String, avg: Double, stdDev: Double)(implicit coll: Collector) {
-    val roundedAvg = BigDecimal(avg).setScale(5, BigDecimal.RoundingMode.HALF_UP).toDouble
-    val roundedStdDev = BigDecimal(stdDev).setScale(5, BigDecimal.RoundingMode.HALF_UP).toDouble
-    coll.set(k+".fitnessAvg", coll.get(k+".fitnessAvg").getOrElse("") + s"$roundedAvg,")
-    coll.set(k+".fitnessStdDev", coll.get(k+".fitnessStdDev").getOrElse("") + s"$roundedStdDev,")
-  }
-}
-
-
-
-
 object Common {
   def correct[S, E](eval: EvalFunction[S, E]): (S, E) => Boolean =
     (_: S, e: E) => eval.correct(e)
@@ -571,10 +384,6 @@ object Common {
       println(x)
     println()
     s
-  }
-
-  def addNoiseToTests(state: State)(implicit opt: Options, rng: TRandom): Unit = {
-    state.testsManager = NoiseAdderStdDev(state.testsManager)
   }
 
   def restartLoop[S,E](initialize: Unit => StatePop[(S,E)],

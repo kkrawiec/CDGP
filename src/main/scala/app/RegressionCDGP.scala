@@ -26,7 +26,7 @@ object RegressionCDGP {
     (selection, evoMode) match {
       case ("tournament", "generational") =>
         val eval = new EvalCDGPDoubleMSE(state)
-        val alg = CDGPGenerationalTournamentR(eval)
+        val alg = CDGPGenerationalTournament(eval)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (finalPop, alg.bsf.bestSoFar)
 
@@ -35,7 +35,7 @@ object RegressionCDGP {
 
       case ("lexicase", "generational") =>
         val eval = getEvalForSeqDouble(state, method)
-        val alg = CDGPGenerationalLexicaseR(eval)
+        val alg = CDGPGenerationalEpsLexicase(eval)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (finalPop, alg.bsf.bestSoFar)
 
