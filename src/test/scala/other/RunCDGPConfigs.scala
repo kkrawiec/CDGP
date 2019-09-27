@@ -19,7 +19,7 @@ object RunCDGPConfigs extends App {
     val (res, bestOfRun) = (method, selection, evoMode) match {
       case ("CDGP", "tournament", "generational") =>
         val eval = new EvalCDGPInt(StateCDGP(opt('benchmark)))
-        val alg = CDGPGenerational(eval)
+        val alg = CDGPGenerationalTournament(eval)
         val finalPop = RunExperiment(alg)
         (finalPop, alg.bsf.bestSoFar)
 
@@ -45,7 +45,7 @@ object RunCDGPConfigs extends App {
 
       case ("GPR", "tournament", "generational") =>
         val eval = new EvalGPRInt(StateGPR(opt('benchmark)))
-        val alg = CDGPGenerational(eval)
+        val alg = CDGPGenerationalTournament(eval)
         val finalPop = RunExperiment(alg)
         (finalPop, alg.bsf.bestSoFar)
 

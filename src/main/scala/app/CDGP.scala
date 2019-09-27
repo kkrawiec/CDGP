@@ -18,7 +18,7 @@ object CDGP {
     (selection, evoMode) match {
       case ("tournament", "generational") =>
         val eval = new EvalGPRInt(state)
-        val alg = CDGPGenerational(eval)
+        val alg = CDGPGenerationalTournament(eval)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (state, finalPop, alg.bsf.bestSoFar)
 
@@ -54,7 +54,7 @@ object CDGP {
         implicit val ordering = FIntOrdering
         val eval = new EvalCDGPInt(state)
         def cdgpCreator() = {
-          CDGPGenerational(eval)
+          CDGPGenerationalTournament(eval)
         }
         val multipopEA = new CDGPConvectionEqualNumber[Op, FInt](state, eval, cdgpCreator,
           reportPreDivide = CDGPConvectionEqualNumber.reportAvgsInGroups("_pre"))
@@ -109,7 +109,7 @@ object CDGP {
     (selection, evoMode) match {
       case ("tournament", "generational") =>
         val eval = new EvalCDGPInt(state)
-        val alg = CDGPGenerational(eval)
+        val alg = CDGPGenerationalTournament(eval)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (state, finalPop, alg.bsf.bestSoFar)
 

@@ -27,12 +27,12 @@ class CDGPEvaluation[S, E](val eval: EvalFunction[S, E])
   extends Evaluation[S, E] {
   private val silent = opt('silent, false)
   def state: State = eval.state
-  def evaluate: Evaluation[S, E] = if (opt('parEval, false)) ParallelEval(eval) else SequentialEval(eval)
+  def evaluatePopulation: Evaluation[S, E] = if (opt('parEval, false)) ParallelEval(eval) else SequentialEval(eval)
 
   override def apply(s: StatePop[S]): StatePop[(S, E)] = cdgpEvaluate(s)
 
   def cdgpEvaluate: StatePop[S] => StatePop[(S, E)] =
-    updateTestsManager andThen evaluate
+    updateTestsManager andThen evaluatePopulation
 
   def updateTestsManager[T]: StatePop[T] => StatePop[T] =
     (s: StatePop[T]) => {
@@ -72,7 +72,7 @@ class CDGPEvaluationSteadyState[S, E](eval: EvalFunction[S, E],
   extends CDGPEvaluation[S, E](eval) {
 
   override def cdgpEvaluate: StatePop[S] => StatePop[(S, E)] =
-    updateTestsManager andThen evaluate andThen updatePopulationEvalsAndTests
+    updateTestsManager andThen evaluatePopulation andThen updatePopulationEvalsAndTests
 
   /**
     * 1) For every program in the population adds to it's evaluation an evaluation on the
