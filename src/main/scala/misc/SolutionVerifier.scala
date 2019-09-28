@@ -7,6 +7,7 @@ import cdgp.{LoadSygusBenchmark, SygusProblemData, TemplateVerification, Tools}
 import fuel.util.{Options, OptionsMap}
 
 import scala.collection.mutable
+import misc.benchmarks.BenchmarksGECCO19
 
 object SolutionVerifier extends App {
   def loadOptions(path: String): Options = loadOptions(new File(path))
@@ -32,7 +33,7 @@ object SolutionVerifier extends App {
   val args2 = mutable.MutableList[OptionInfo]()
   args2 += OptionInfo("dir", "String", required=true, desc="Path to a folder with property files.")
 
-  val RB = RegressionBenchmarks
+  val RB = BenchmarksGECCO19
   val constr_gravity = RB.b_gravity_b
 
 

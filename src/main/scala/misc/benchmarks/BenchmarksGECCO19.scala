@@ -1,39 +1,11 @@
-package misc
+package misc.benchmarks
 
-import java.io.{BufferedWriter, File, FileWriter}
-
-import scala.util.Random
-
-
-object RegressionBenchmarks extends App {
-  val rng = Random
-
-  def generateTestU(numVars: Int, fun: Seq[Double] => Double,
-                    minDouble: Double, maxDouble: Double): (Seq[Double], Double) = {
-    def rngDouble() = minDouble + rng.nextDouble() * (maxDouble+1-minDouble)
-    val in = 0.until(numVars).map{ i => BigDecimal(rngDouble()).setScale(5, BigDecimal.RoundingMode.HALF_UP).toDouble }
-    val out = fun(in)
-    (in, out)
-  }
-
-  def generateTestsU(numVars: Int, numTests: Int, fun: Seq[Double] => Double,
-                     minDouble: Double, maxDouble: Double): Seq[(Seq[Double], Double)] = {
-    0.until(numTests).map{ _ => generateTestU(numVars, fun, minDouble, maxDouble) }
-  }
-
-  def saveFile(path: String, text: String): Unit = {
-    try {
-      val file = new File(path)
-      val bw = new BufferedWriter(new FileWriter(file))
-      bw.write(text)
-      bw.close()
-    }
-    catch {
-      case e: Exception => println(s"Error while saving file $path.\nError:\n${e.getMessage}")
-    }
-  }
+import java.io.File
+import Utils._
+import misc.{Benchmark, CustomConstraint, PropApproxDerivative, PropAscendingFreeVars, PropDescendingFreeVars, PropOutputBound, PropSymmetryYAxis, PropVarSymmetry2, PropVarSymmetry3, Range, RegressionConstraints}
 
 
+object BenchmarksGECCO19 extends App {
   def fKeijzer12(vars: Seq[Double]): Double = vars(0) * vars(0) * vars(0) * vars(0) - vars(0) * vars(0) * vars(0) + 0.5 * vars(1) * vars(1) - vars(1)
   def fKoza1(vars: Seq[Double]): Double = vars(0) * vars(0) * vars(0) * vars(0) + vars(0) * vars(0) * vars(0) + vars(0) * vars(0) + vars(0)
   def fSquares1(vars: Seq[Double]): Double = vars(0) * vars(0)
@@ -44,19 +16,14 @@ object RegressionBenchmarks extends App {
   def fResistancePar2(vars: Seq[Double]): Double = (vars(0) * vars(1)) / (vars(0) + vars(1))
   def fResistancePar3(vars: Seq[Double]): Double = (vars(0) * vars(1) * vars(2)) / (vars(0)*vars(1) + vars(0)*vars(2) + vars(1)*vars(2))
 
-  def rangesGeqZero01(vars: String*): Seq[Range] = vars.map(x => Range(x, lb=Some(0.01), lbSign = ">="))
-  def rangesGtZero(vars: String*): Seq[Range] = vars.map(x => Range(x, lb=Some(0.0), lbSign = ">"))
-  def rangesLeqZero01(vars: String*): Seq[Range] = vars.map(x => Range(x, ub=Some(-0.01), ubSign = "<="))
-  def rangesLtZero(vars: String*): Seq[Range] = vars.map(x => Range(x, ub=Some(0.0), ubSign = "<"))
-
 
   val b_squares1 = Benchmark("squares1", Seq("x"), // x^2
     Seq(
       PropApproxDerivative("x", 1.0, 2.0, degree=1),
       PropSymmetryYAxis("x"),
       PropOutputBound(Some(0.0), None),
-      PropAscending("x", range=rangesGtZero("x")),
-      PropDescending("x", range=rangesLtZero("x"))
+      PropAscendingFreeVars("x", range=rangesGtZero("x")),
+      PropDescendingFreeVars("x", range=rangesLtZero("x"))
     ))
 
   val b_squares2 = Benchmark("squares2", Seq("x", "y"), // x^2 + y^2
@@ -66,8 +33,8 @@ object RegressionBenchmarks extends App {
       PropApproxDerivative("x", 1.0, 0.0, degree=3),
       PropSymmetryYAxis("x"),
       PropOutputBound(Some(0.0), None),
-      PropAscending("x", range=rangesGtZero("x")),
-      PropDescending("x", range=rangesLtZero("x"))
+      PropAscendingFreeVars("x", range=rangesGtZero("x")),
+      PropDescendingFreeVars("x", range=rangesLtZero("x"))
     ))
   val b_squares2_tests = Benchmark("squares2_tests", Seq("x", "y"), Seq())
   val b_squares2_b = Benchmark("squares2_b", Seq("x", "y"),
@@ -91,15 +58,15 @@ object RegressionBenchmarks extends App {
       PropApproxDerivative("y", 1.0, 0.0, degree=1),
       PropOutputBound(Some(0.0), None, range=Seq(Range("x", Some(1.0), None), Range("y", 0.0, 0.0))),
       PropOutputBound(Some(0.0), None, range=Seq(Range("y", Some(2.0), None), Range("x", 0.0, 0.0))),
-      PropAscending("x", range=Seq(Range("x", Some(1.0), None), Range("y", 0.0, 0.0))),
-      PropAscending("y", range=Seq(Range("y", Some(2.0), None), Range("x", 0.0, 0.0)))
+      PropAscendingFreeVars("x", range=Seq(Range("x", Some(1.0), None), Range("y", 0.0, 0.0))),
+      PropAscendingFreeVars("y", range=Seq(Range("y", Some(2.0), None), Range("x", 0.0, 0.0)))
     ))
   val b_koza1 = Benchmark("koza1", Seq("x"), //x^4 + x^3 + x^2 + x
     Seq(
       PropApproxDerivative("x", 1.0, 10.0, degree=1),
       PropOutputBound(Some(-0.5), None),
-      PropAscending("x", range=Seq(Range("x", Some(-0.25), None))),
-      PropDescending("x", range=Seq(Range("x", None, Some(-0.75))))
+      PropAscendingFreeVars("x", range=Seq(Range("x", Some(-0.25), None))),
+      PropDescendingFreeVars("x", range=Seq(Range("x", None, Some(-0.75))))
     ))
 
   // Task: calculate the force of gravity between two bodies
@@ -108,8 +75,8 @@ object RegressionBenchmarks extends App {
     Seq(
       PropVarSymmetry2("m1", "m2", rangesGtZero("m1", "m2", "r")),
       PropOutputBound(Some(0.0), None, range=rangesGtZero("m1", "m2", "r")),
-      PropAscending("m1", range=rangesGtZero("m1", "m2", "r"), strict=true),
-      PropAscending("m2", range=rangesGtZero("m1", "m2", "r"), strict=true)
+      PropAscendingFreeVars("m1", range=rangesGtZero("m1", "m2", "r"), strict=true),
+      PropAscendingFreeVars("m2", range=rangesGtZero("m1", "m2", "r"), strict=true)
     ))
   val b_gravity_s = Benchmark("gravity_s", Seq("m1", "m2", "r"),
     Seq(
@@ -121,14 +88,14 @@ object RegressionBenchmarks extends App {
     ))
   val b_gravity_m = Benchmark("gravity_m", Seq("m1", "m2", "r"),
     Seq(
-      PropAscending("m1", range=rangesGtZero("m1", "m2", "r"), strict=true),
-      PropAscending("m2", range=rangesGtZero("m1", "m2", "r"), strict=true)
+      PropAscendingFreeVars("m1", range=rangesGtZero("m1", "m2", "r"), strict=true),
+      PropAscendingFreeVars("m2", range=rangesGtZero("m1", "m2", "r"), strict=true)
     ))
   val b_gravity_bm = Benchmark("gravity_bm", Seq("m1", "m2", "r"),
     Seq(
       PropOutputBound(Some(0.0), None, range=rangesGtZero("m1", "m2", "r")),
-      PropAscending("m1", range=rangesGtZero("m1", "m2", "r"), strict=true),
-      PropAscending("m2", range=rangesGtZero("m1", "m2", "r"), strict=true)
+      PropAscendingFreeVars("m1", range=rangesGtZero("m1", "m2", "r"), strict=true),
+      PropAscendingFreeVars("m2", range=rangesGtZero("m1", "m2", "r"), strict=true)
     ))
   val b_gravity_bs = Benchmark("gravity_bs", Seq("m1", "m2", "r"),
     Seq(
@@ -138,15 +105,15 @@ object RegressionBenchmarks extends App {
   val b_gravity_ms = Benchmark("gravity_ms", Seq("m1", "m2", "r"),
     Seq(
       PropVarSymmetry2("m1", "m2", rangesGtZero("m1", "m2", "r")),
-      PropAscending("m1", range=rangesGtZero("m1", "m2", "r"), strict=true),
-      PropAscending("m2", range=rangesGtZero("m1", "m2", "r"), strict=true)
+      PropAscendingFreeVars("m1", range=rangesGtZero("m1", "m2", "r"), strict=true),
+      PropAscendingFreeVars("m2", range=rangesGtZero("m1", "m2", "r"), strict=true)
     ))
   val b_gravity_bms = Benchmark("gravity_bms", Seq("m1", "m2", "r"),
     Seq(
       PropVarSymmetry2("m1", "m2", rangesGtZero("m1", "m2", "r")),
       PropOutputBound(Some(0.0), None, range=rangesGtZero("m1", "m2", "r")),
-      PropAscending("m1", range=rangesGtZero("m1", "m2", "r"), strict=true),
-      PropAscending("m2", range=rangesGtZero("m1", "m2", "r"), strict=true)
+      PropAscendingFreeVars("m1", range=rangesGtZero("m1", "m2", "r"), strict=true),
+      PropAscendingFreeVars("m2", range=rangesGtZero("m1", "m2", "r"), strict=true)
     ))
 
   // Task: calculate the force of gravity between two bodies (not taking into account a constant)
@@ -155,8 +122,8 @@ object RegressionBenchmarks extends App {
     Seq(
       PropVarSymmetry2("m1", "m2", range=rangesGtZero("m1", "m2", "r")),
       PropOutputBound(Some(0.0), None, range=rangesGtZero("m1", "m2", "r")),
-      PropAscending("m1", range=rangesGtZero("m1", "m2", "r"), strict=true),
-      PropAscending("m2", range=rangesGtZero("m1", "m2", "r"), strict=true)
+      PropAscendingFreeVars("m1", range=rangesGtZero("m1", "m2", "r"), strict=true),
+      PropAscendingFreeVars("m2", range=rangesGtZero("m1", "m2", "r"), strict=true)
     ))
 
   // Task: calculate the total resistance of 2 parallel resistors
@@ -217,7 +184,7 @@ object RegressionBenchmarks extends App {
 
 
 
-  val ns = Seq(3, 5, 10) //3, 5, 10
+  val ns = Seq(3, 5, 10)
 
   val benchmarks = Seq(
     ns.map{ n => Benchmark(b_keijzer12, generateTestsU(2, n, fKeijzer12, -20.0, 20.0)) },
@@ -256,7 +223,7 @@ object RegressionBenchmarks extends App {
 
   //////////////////////////////////////////////////////////////////////////
 
-  val dirPath = "resources/NRA/regression_formal"
+  val dirPath = "resources/NRA/gecco19"
 
   val dir = new File(dirPath)
   if (dir.exists())
@@ -264,11 +231,10 @@ object RegressionBenchmarks extends App {
   dir.mkdir()
 
   benchmarks.foreach{ b =>
-    val sygusCode = RegressionConstraints.generateSygusCode(b)
+    val sygusCode = RegressionConstraints.generateSygusCode(b, logic="QF_NRA")
     val path = s"${dirPath}/${b.fileName}"
     println(sygusCode)
     println("\n\n")
-    saveFile(path, sygusCode)
+    Utils.saveFile(path, sygusCode)
   }
-
 }

@@ -124,13 +124,14 @@ case class PropOutputBound(lb: Option[Double], ub: Option[Double],
   * (declare-fun cdgp.P1.var1 () Real)
   * (assert (=> (> cdgp.P1.var1 var1)  (>= (f cdgp.P1.var1) (f var1))))
   *
-  * NOTE: the constraint presented above is assumed to be negated during verification. Normally,
-  * a universal quantifier on the cdgp.P1.var1 should be used in the assertion above. But in
-  * such a case a counterexample would not be produced, because cdgp.P1.var1 would be a bounded
-  * variable.
+  * NOTE: this constraint is able to produce counterexamples, but they are essentially rather
+  * uninformative, since not necessarily the output for that counterexample was incorrect.
+ *  This constraint SHOULD NOT be used as a partial constraint, because the checking of
+ *  correctness will yield incorrect results (since forall was abondoned).
   */
-case class PropAscending(var1: String, range: Seq[VarRange] = Seq(), strict: Boolean = false)
-  extends PropertyMonotonicity("PropAscending") {
+@deprecated("This version of monotonicity constraint not always behaves as it should. Please rather use PropAscending, unless you know what you are doing.")
+case class PropAscendingFreeVars(var1: String, range: Seq[VarRange] = Seq(), strict: Boolean = false)
+  extends PropertyMonotonicity("PropAscendingFreeVars") {
 
   override def encode(id: Int, b: Benchmark): (Seq[String], Seq[String]) = {
     val var1Prop = prefixedName(id, var1)
@@ -143,8 +144,9 @@ case class PropAscending(var1: String, range: Seq[VarRange] = Seq(), strict: Boo
   }
 }
 
-case class PropDescending(var1: String, range: Seq[VarRange] = Seq(), strict: Boolean = false)
-  extends PropertyMonotonicity("PropDescending") {
+@deprecated("This version of monotonicity constraint not always behaves as it should. Please rather use PropDescending, unless you know what you are doing.")
+case class PropDescendingFreeVars(var1: String, range: Seq[VarRange] = Seq(), strict: Boolean = false)
+  extends PropertyMonotonicity("PropDescendingFreeVars") {
 
   override def encode(id: Int, b: Benchmark): (Seq[String], Seq[String]) = {
     val var1Prop = prefixedName(id, var1)
@@ -158,6 +160,59 @@ case class PropDescending(var1: String, range: Seq[VarRange] = Seq(), strict: Bo
 }
 
 
+/**
+ * Produces constraint that is used to guarantee that the function is always ascending with the
+ * change on the var1 variable. In SMT-LIB this looks like this:
+ * (define-fun f ((var1 Real)(var2 Real)) Real ...)
+ * (assert (forall ((var1 Real)(var2 Real)(cdgp.P1.x Real))
+ *     (=> (> cdgp.P1.var1 var1)  (>= (f cdgp.P1.var1 var2) (f var1 var2)))
+ * ))
+ *
+ * NOTE: this constraint is not able to produce counterexamples. It can, however, be useful as
+ * a partial constraint in the fitness vector.
+ */
+case class PropAscending(var1: String, range: Seq[VarRange] = Seq(), strict: Boolean = false)
+  extends PropertyMonotonicity("PropAscending") {
+
+  def getForallVariablesList(var1Prop: String, b: Benchmark): String = {
+    val v1 = b.vars.mkString("(", " Real)(", " Real)")
+    val v2 = s"($var1Prop Real)"
+    s"(${v1}${v2})"
+  }
+
+  override def encode(id: Int, b: Benchmark): (Seq[String], Seq[String]) = {
+    val var1Prop = prefixedName(id, var1)
+    val decls = List()
+    val sign = if (strict) ">" else ">="
+    val varsChanged = RegressionConstraints.changeVarNames(b.vars, Map(var1->var1Prop))
+    val c = s"(=> (> $var1Prop $var1)  ($sign ${RegressionConstraints.funCall(b.funName, varsChanged)} ${RegressionConstraints.funCall(b.funName, b.vars)}))"
+    val cRange = wrapConstrInRanges(c, updateRange(range, var1, id))
+    val constr = List(s"(forall ${getForallVariablesList(var1Prop, b)} $cRange)")
+    (decls, constr)
+  }
+}
+
+
+case class PropDescending(var1: String, range: Seq[VarRange] = Seq(), strict: Boolean = false)
+  extends PropertyMonotonicity("PropDescending") {
+
+  def getForallVariablesList(var1Prop: String, b: Benchmark): String = {
+    val v1 = b.vars.mkString("(", " Real)(", " Real)")
+    val v2 = s"($var1Prop Real)"
+    s"(${v1}${v2})"
+  }
+
+  override def encode(id: Int, b: Benchmark): (Seq[String], Seq[String]) = {
+    val var1Prop = prefixedName(id, var1)
+    val decls = List()
+    val sign = if (strict) "<" else "<="
+    val varsChanged = RegressionConstraints.changeVarNames(b.vars, Map(var1->var1Prop))
+    val c = s"(=> (> $var1Prop $var1)  ($sign ${RegressionConstraints.funCall(b.funName, varsChanged)} ${RegressionConstraints.funCall(b.funName, b.vars)}))"
+    val cRange = wrapConstrInRanges(c, updateRange(range, var1, id))
+    val constr = List(s"(forall ${getForallVariablesList(var1Prop, b)} $cRange)")
+    (decls, constr)
+  }
+}
 
 
 
@@ -437,9 +492,9 @@ object RegressionConstraints {
   }
 
 
-  def generateSygusCode(b: Benchmark, mergeFormalConstr: Boolean = false): String = {
+  def generateSygusCode(b: Benchmark, mergeFormalConstr: Boolean = false, logic: String = "NRA"): String = {
     val sfName = b.funName
-    var s = "(set-logic QF_NRA)\n"
+    var s = s"(set-logic $logic)\n"
     s += s"(synth-fun $sfName ${b.argsSignature} Real)\n"
     // Synthesis variables
     s += b.vars.map { x => s"(declare-var $x Real)" }.mkString("", "\n", "\n")
