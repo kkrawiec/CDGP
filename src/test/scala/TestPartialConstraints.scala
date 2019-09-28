@@ -11,7 +11,7 @@ final class TestPartialConstraints {
   implicit val coll = CollectorStdout(emptyOpt)
   implicit val rng = Rng(emptyOpt)
 
-  val sygusMonotonicity =
+  val sygusMonotonicityOld =
     """
       |(set-logic QF_NRA)
       |(synth-fun f ((x Real)) Real)
@@ -19,13 +19,25 @@ final class TestPartialConstraints {
       |(constraint (= (f 1.0) 1.0))
       |
       |(declare-fun cdgp.P1.x () Real)
-      |(constraint (=> (> cdgp.P1.x x)  (>= (f cdgp.P1.x) (f x))))  ; this normally would be a negated implication for every cdgp.P1.x
+      |(constraint (=> (> cdgp.P1.x x)  (>= (f cdgp.P1.x) (f x))))
+      |(check-synth)
+    """.stripMargin
+
+  val sygusMonotonicityNew =
+    """
+      |(set-logic NRA)
+      |(synth-fun f ((x Real)) Real)
+      |(declare-var x Real)
+      |(constraint (= (f 1.0) 1.0))
+      |
+      |(constraint (forall ((x Real)(cdgp.P1.x Real))
+      |   (=> (> cdgp.P1.x x)  (>= (f cdgp.P1.x) (f x)))))
       |(check-synth)
     """.stripMargin
 
   @Test
   def test_monotonicity(): Unit = {
-    val problem = LoadSygusBenchmark.parseText(sygusMonotonicity)
+    val problem = LoadSygusBenchmark.parseText(sygusMonotonicityOld)
     val sygusData = SygusProblemData(problem)
     val state = StateCDGP(sygusData)
     val eval = new EvalCDGPSeqDouble(state)
@@ -42,26 +54,50 @@ final class TestPartialConstraints {
   }
 
   @Test
-  def test_monotonicity_tests(): Unit = {
-    val problem = LoadSygusBenchmark.parseText(sygusMonotonicity)
+  def test_monotonicityOld_tests(): Unit = {
+    val problem = LoadSygusBenchmark.parseText(sygusMonotonicityOld)
     val sygusData = SygusProblemData(problem)
     val state = StateCDGP(sygusData)
-    val eval = new EvalCDGPSeqDouble(state)
 
-    val (dec, model) = state.verifyAndParseModel(Op('*, Op('x), Op('x)))
+    val (_, model) = state.verifyAndParseModel(Op('*, Op('x), Op('x)))
     assertEquals(true, model.isDefined)
     val test = state.createTestFromCounterex(model.get)
     print(s"test:\n$test")
-    // Incomplete test. Monotonicity constraint includes a synth-function's call to auxiliary
+    // Incomplete test. Monotonicity constraint includes a synth-function's call with auxiliary
     // variable, and hence the problem does not have single-invocation property, and all tests
     // are incomplete.
-    // As a result,
     assertEquals(None, test._2)
     val res1 = state.checkIsProgramCorrectForInput(Op('*, Op('x), Op('x)), Map("x"-> -2.0))
     val res2 = state.checkIsProgramCorrectForInput(Op('x), Map("x"-> -2.0))
-    val res3 = state.checkIsProgramCorrectForInput(Op('*, Op('x), Op(-1.0)), Map("x"-> -2.0))
-    assertEquals("sat", res1._1)
+    val res3 = state.checkIsProgramCorrectForInput(Op('*, Op('x), Op(2.0)), Map("x"-> -2.0))
+    val res4 = state.checkIsProgramCorrectForInput(Op('*, Op('x), Op(-1.0)), Map("x"-> -2.0))
+    assertEquals("sat", res1._1)  // this result is not desired
     assertEquals("sat", res2._1)
     assertEquals("sat", res3._1)
+    assertEquals("sat", res4._1)  // this result is not desired
+  }
+
+  @Test
+  def test_monotonicityNew_tests(): Unit = {
+    val problem = LoadSygusBenchmark.parseText(sygusMonotonicityNew)
+    val sygusData = SygusProblemData(problem)
+    val state = StateCDGP(sygusData)
+
+    val (_, model) = state.verifyAndParseModel(Op('*, Op('x), Op('x)))
+    assertEquals(true, model.isDefined)
+    val test = state.createTestFromCounterex(model.get)
+    print(s"test:\n$test")
+    // Incomplete test. Monotonicity constraint includes a synth-function's call with auxiliary
+    // variable, and hence the problem does not have single-invocation property, and all tests
+    // are incomplete.
+    assertEquals(None, test._2)
+    val res1 = state.checkIsProgramCorrectForInput(Op('*, Op('x), Op('x)), Map("x"-> -2.0))
+    val res2 = state.checkIsProgramCorrectForInput(Op('x), Map("x"-> -2.0))
+    val res3 = state.checkIsProgramCorrectForInput(Op('*, Op('x), Op(2.0)), Map("x"-> -2.0))
+    val res4 = state.checkIsProgramCorrectForInput(Op('*, Op('x), Op(-1.0)), Map("x"-> -2.0))
+    assertEquals("unsat", res1._1)
+    assertEquals("sat", res2._1)
+    assertEquals("sat", res3._1)
+    assertEquals("unsat", res4._1)
   }
 }
