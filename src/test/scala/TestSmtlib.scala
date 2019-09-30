@@ -87,6 +87,13 @@ final class TestSmtlib {
     val query2 = templateVerification(op2)
     val (dec2, model2) = solver.runSolver(query2)
     assertEquals("unsat", dec2)
+
+    // what if a correct solution has a potential division by 0?
+    val op3 = Op.fromStr("ite(>=(x y) (div (* x x) x) y)", useSymbols = true)
+    val query3 = templateVerification(op3)
+    val (dec3, model3) = solver.runSolver(query3)
+    assertEquals("sat", dec3)  // This is actually desired in this case, because sat is returned while program is incorrect
+    assertEquals(Some(0), GetValueParser(model3.get).toMap.get("x"))
   }
 
   @Test
@@ -130,6 +137,13 @@ final class TestSmtlib {
     val query2 = templateIsProgramCorrectForInput(op2, inputs)
     val (dec2, model2) = solver.runSolver(query2)
     assertEquals("sat", dec2)
+
+    // what if an incorrect solution has a potential division by 0?
+    val inputs3 = Map("x" -> 5, "y" -> 0)
+    val op3 = Op.fromStr("ite(>=(x y) (div (* y y) y) y)", useSymbols = true)
+    val query3 = templateIsProgramCorrectForInput(op3, inputs3)
+    val (dec3, model3) = solver.runSolver(query3)
+    assertEquals("sat", dec3)  // This is undesired in this case, program is incorrect, but it is claimed to work correct for this input
   }
 
   @Test

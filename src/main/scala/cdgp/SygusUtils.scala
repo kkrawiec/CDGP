@@ -95,7 +95,7 @@ case class SygusSynthTask(fname: String,
                           args: Seq[(String, SortExpr)],
                           outputType: SortExpr,
                           grammarSygus: Seq[(Any, Seq[Any])]) {
-  val argNames: Seq[String] = args.unzip._1
+  val argNames: Seq[String] = args.map(_._1)
   val uninterpSwimGrammar: Grammar = SygusUtils.getSwimGrammar(grammarSygus)
   val canBeRecursive: Boolean = uninterpSwimGrammar.contains(Symbol(fname)) || uninterpSwimGrammar.contains(fname)
 
