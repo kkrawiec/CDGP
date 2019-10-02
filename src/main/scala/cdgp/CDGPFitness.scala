@@ -438,7 +438,7 @@ class EvalCDGPInt(state: StateCDGP)
 
 
 abstract class EvalGPRDiscrete[E](state: StateGPR)
-                        (implicit opt: Options, coll: Collector)
+                                 (implicit opt: Options, coll: Collector)
   extends EvalCDGPDiscrete[E](state) {
 
   def fitnessGPR: Op => (Boolean, Seq[Int]) = {

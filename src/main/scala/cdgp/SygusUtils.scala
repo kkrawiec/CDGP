@@ -697,7 +697,7 @@ object LoadSygusBenchmark {
   }
 
   def parseText(code: String, checkSupport: Boolean = true): SyGuS16 = {
-    val parseRes = SyGuS16.parseSyGuS16Text(code)
+    val parseRes = SyGuS16.parseSyGuS16Text(code, strict=false)
     if (parseRes.isLeft)
       throw new Exception("PARSE ERROR: " + parseRes.left)
     assume(parseRes.isRight)
