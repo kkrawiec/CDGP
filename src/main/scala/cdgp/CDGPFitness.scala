@@ -203,10 +203,10 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP)
   val partialConstraintsInFitness: Boolean = opt('partialConstraintsInFitness, false)
   val globalConstraintInFitness: Boolean = opt('globalConstraintInFitness, false)
   val sizeInFitness: Boolean = opt('sizeInFitness, false)
-  val partialConstraintsWeight = opt('partialConstraintsWeight, 1, (x: Int) => x >= 1)
+  val partialConstraintsWeight: Int = opt('partialConstraintsWeight, 1, (x: Int) => x >= 1)
 
   /** The number of constraints tests prepended to the evaluation vector.*/
-  val numberOfConstraintTests: Int = {
+  val numberOfSpecialTests: Int = {
     partialConstraintsWeight *
     ((if (!partialConstraintsInFitness) 0 else state.sygusData.formalConstr.size) +
       (if (sizeInFitness) 1 else 0) +
@@ -244,8 +244,10 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP)
     }
   }
 
-  def extractTestsNormal(eval: Seq[Double]): Seq[Double] = eval.drop(numberOfConstraintTests)
-  def extractTestsConstraints(eval: Seq[Double]): Seq[Double] = eval.take(numberOfConstraintTests)
+  def extractTestsNormal(eval: Seq[EVecEl]): Seq[EVecEl] = eval.drop(numberOfSpecialTests)
+  def extractTestsComplete(eval: Seq[EVecEl]): Seq[EVecEl] = extractTestsNormal(eval)
+  def extractTestsIncomplete(eval: Seq[EVecEl]): Seq[EVecEl] = extractTestsNormal(eval)
+  def extractTestsSpecial(eval: Seq[EVecEl]): Seq[EVecEl] = eval.take(numberOfSpecialTests)
 
   def handleEvalException(test: (I, Option[O]), s: Op, message: String) {
     val msg = s"Error during evalutation of $s and test $test: $message"
@@ -683,7 +685,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
     */
   def doVerify(evalTests: Seq[Double]): Boolean = {
     // Verify only those solutions which pass all incomplete tests
-    lazy val evalConstr = extractTestsConstraints(evalTests)
+    lazy val evalConstr = extractTestsSpecial(evalTests)
     var (eval, _) = extractTestsNormal(evalTests).zip(state.testsManager.tests).
       filter { case (_, t) => t._2.isEmpty }.unzip
     eval = if (partialConstraintsVisibleForTestsRatio) evalConstr ++ eval else eval
@@ -745,7 +747,7 @@ class EvalGPSeqDouble(state: StateCDGP)
   extends EvalCDGPContinuous[FSeqDouble](state) {
   override def apply(s: Op, init: Boolean): FSeqDouble = {
     val (isPerfect, eval) = fitnessOnlyTestCases(s)
-    FSeqDouble(isPerfect, eval, s.size, numPCtests=numberOfConstraintTests)
+    FSeqDouble(isPerfect, eval, s.size, numPCtests=numberOfSpecialTests)
   }
   override def updateEval(s: (Op, FSeqDouble)): (Op, FSeqDouble) = {
     val missingTests = state.testsManager.dropFromTests(s._2.totalTests) ++ state.testsManager.newTests.toList
@@ -763,11 +765,11 @@ class EvalCDGPSeqDouble(state: StateCDGP)
   override def apply(s: Op, init: Boolean): FSeqDouble = {
     if (init) {
       val (_, eval) = fitnessOnlyTestCases(s)
-      FSeqDouble(false, eval, s.size, numPCtests=numberOfConstraintTests) // correctness set to false to not trigger correctness based only on the MSE
+      FSeqDouble(false, eval, s.size, numPCtests=numberOfSpecialTests) // correctness set to false to not trigger correctness based only on the MSE
     }
     else {
       val (isPerfect, eval) = fitnessCDGPRegression(s)
-      FSeqDouble(isPerfect, eval, s.size, numPCtests=numberOfConstraintTests)
+      FSeqDouble(isPerfect, eval, s.size, numPCtests=numberOfSpecialTests)
     }
   }
 }
