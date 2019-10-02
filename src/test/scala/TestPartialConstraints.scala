@@ -36,8 +36,26 @@ final class TestPartialConstraints {
     """.stripMargin
 
   @Test
-  def test_monotonicity(): Unit = {
+  def test_monotonicityOld(): Unit = {
     val problem = LoadSygusBenchmark.parseText(sygusMonotonicityOld)
+    val sygusData = SygusProblemData(problem)
+    val state = StateCDGP(sygusData)
+    val eval = new EvalCDGPSeqDouble(state)
+
+    var op = Op('x)
+    var v = eval.getPartialConstraintsVector(op, passValue = 0, nonpassValue = 1)
+    println(s"PC Vector for $op: $v")
+    assert(0.0 == v.head)
+
+    op = Op('*, Op('x), Op('x))
+    v = eval.getPartialConstraintsVector(op, passValue = 0, nonpassValue = 1)
+    println(s"PC Vector for $op: $v")
+    assert(1.0 == v.head)
+  }
+
+  @Test
+  def test_monotonicityNew(): Unit = {
+    val problem = LoadSygusBenchmark.parseText(sygusMonotonicityNew)
     val sygusData = SygusProblemData(problem)
     val state = StateCDGP(sygusData)
     val eval = new EvalCDGPSeqDouble(state)
