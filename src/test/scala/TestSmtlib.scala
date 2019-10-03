@@ -13,7 +13,7 @@ final class TestSmtlib {
   println("Creating solver.")
   val solver = SolverManager(emptyOpt, coll)
   val specMax =
-    """(set-logic LIA)
+    """(set-logic NIA)
       |(synth-fun max2 ((x Int) (y Int)) Int)
       |(declare-var x Int)
       |(declare-var y Int)
@@ -26,7 +26,7 @@ final class TestSmtlib {
   val maxProblem = LoadSygusBenchmark.parseText(specMax)
   val maxData = SygusProblemData(maxProblem)
   val specMaxPartial =
-    """(set-logic LIA)
+    """(set-logic NIA)
       |(synth-fun max2 ((x Int) (y Int)) Int)
       |(declare-var x Int)
       |(constraint (>= (max2 x 1) x))
@@ -38,7 +38,7 @@ final class TestSmtlib {
   val maxPartialProblem = LoadSygusBenchmark.parseText(specMaxPartial)
   val maxPartialData = SygusProblemData(maxPartialProblem)
   val specMedian =
-    """(set-logic LIA)
+    """(set-logic NIA)
       |(synth-fun median3 ((a Int) (b Int) (c Int)) Int)
       |(declare-var a Int)
       |(declare-var b Int)
@@ -58,7 +58,7 @@ final class TestSmtlib {
   val medianProblem = LoadSygusBenchmark.parseText(specMedian)
   val medianData = SygusProblemData(medianProblem)
   val unitedMax =
-    """(set-logic LIA)
+    """(set-logic NIA)
       |(synth-fun united ((a Int)) Int)
       |(declare-var x Int)
       |(constraint (= (united 1) 5))
