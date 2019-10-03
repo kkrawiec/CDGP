@@ -6,7 +6,7 @@ import org.junit.Assert._
 import cdgp.{ConstParser, GetValueParser, ValueParseException}
 
 
-class TestGetValueParser {
+final class TestGetValueParser {
   @Test
   def testPass(): Unit = {
     assertEquals( Map( "x" -> 1, "y" -> -2 ), GetValueParser("""((x 1)
@@ -72,7 +72,7 @@ class TestGetValueParser {
 
 
 
-class TestConstParser {
+final class TestConstParser {
   @Test
   def testPass(): Unit = {
     assertEquals(true, ConstParser("true"))
@@ -100,7 +100,7 @@ class TestConstParser {
 }
 
 
-class TestOutputParserDreal3 {
+final class TestOutputParserDreal3 {
   @Test
   def test_parse_unsat(): Unit = {
     val s = "unsat"
