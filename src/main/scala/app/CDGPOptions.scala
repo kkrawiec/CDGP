@@ -181,6 +181,7 @@ object CDGPOptions {
   args += OptionInfo("solverType", "String", choice=Set("z3", "cvc4", "other"), default=Some("z3"), desc="Type of the solver. Must be specified, because some solvers require different options to work effectively.")
   args += OptionInfo("testsDiff", "Int", desc="If specified, solution will be verified if they do not pass at most testsDiff tests. TestsRatio parameter would be ignored.")
   args += OptionInfo("testsRatio", "Double", default=Some("1.0"), desc="Ratio of tests which must be passed in order to apply verification in search for a counterexample.")
+  args += OptionInfo("testsTypesForRatio", "[String]+", default=Some("c,i,s"), desc="Types of tests based on which ratio of passed tests will be computed. c - complete tests, i - incomplete tests, s - special tests (e.g., partial constraints). Example usage: --testsTypesForRatio i,c")
   args += OptionInfo("verbose", "Bool", default=Some("false"), desc="More printing.")
 
   // fuel and swim options
@@ -201,8 +202,8 @@ object CDGPOptions {
   args += OptionInfo("tournamentDeselectSize", "Int", desc="Size of the tournament in the tournament deselection.")
 
   // swim-specfic options
-  args += OptionInfo("initMaxTreeDepth", "Int", default=Some("5"), desc=".")
-  args += OptionInfo("maxSubtreeDepth", "Int", default=Some("5"), desc=".")
+  args += OptionInfo("initMaxTreeDepth", "Int", default=Some("4"), desc=".")
+  args += OptionInfo("maxSubtreeDepth", "Int", default=Some("4"), desc=".")
   args += OptionInfo("maxTreeDepth", "Int", default=Some("12"), desc=".")
   args += OptionInfo("stoppingDepthRatio", "Double", default=Some("0.8"), desc=".")
 

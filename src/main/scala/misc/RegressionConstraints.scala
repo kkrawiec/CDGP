@@ -41,7 +41,7 @@ abstract class Property(val name: String) {
 
   /**
     * If ranges are defined, then the given encoding of the property will be wrapped in
-    * implication with ranges in it's condition part.
+    * implication with ranges in its condition part.
     */
   def wrapConstrInRanges(constr: String, ranges: Seq[VarRange]): String = {
     if (ranges.isEmpty)

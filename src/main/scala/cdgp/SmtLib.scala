@@ -556,7 +556,7 @@ object SMTLIBFormatter {
   }
 
   /**
-    * Constructs Op given it's string encoding in the form: Op(ARG1, ARG2, ...).
+    * Constructs Op given its string encoding in the form: Op(ARG1, ARG2, ...).
     * As nonterminal symbol assigned will be 'default.
     * For example from "+(-(a, b), c)" will be created Op('+, Op('-, Op('a), Op('b)), Op('c)).
     *

@@ -22,8 +22,8 @@ import fuel.util.{Collector, Options, TRandom}
   * @tparam S Type of solution representation object (e.g. String, Seq[Int]).
   * @tparam E Type of evaluation object (e.g. Int, Seq[Int]).
   */
-class CDGPEvaluation[S, E](val eval: EvalFunction[S, E])
-                          (implicit opt: Options, coll: Collector, rng: TRandom)
+class CDGPFuelEvaluation[S, E](val eval: EvalFunction[S, E])
+                              (implicit opt: Options, coll: Collector, rng: TRandom)
   extends Evaluation[S, E] {
   private val silent = opt('silent, false)
   def state: State = eval.state
@@ -50,7 +50,7 @@ class CDGPEvaluation[S, E](val eval: EvalFunction[S, E])
 
 
 /**
-  * A modified version of CDGPEvaluation which is specialized in accommodating steady state GP.
+  * A modified version of CDGPFuelEvaluation which is specialized in accommodating steady state GP.
   * In steady state evaluated are, beside initial population, only single solutions selected in the
   * given iteration. In CDGP the number of test cases can increase, so updatePopulationEvalsAndTests
   * must be invoked after every creation of a new individual.
@@ -66,18 +66,18 @@ class CDGPEvaluation[S, E](val eval: EvalFunction[S, E])
   * @tparam S Type of solution representation object (e.g. String, Seq[Int]).
   * @tparam E Type of evaluation object (e.g. Int, Seq[Int]).
   */
-class CDGPEvaluationSteadyState[S, E](eval: EvalFunction[S, E],
-                                      updateEval: ((S, E)) => (S, E))
-                                     (implicit opt: Options, coll: Collector, rng: TRandom)
-  extends CDGPEvaluation[S, E](eval) {
+class CDGPFuelEvaluationSteadyState[S, E](eval: EvalFunction[S, E],
+                                          updateEval: ((S, E)) => (S, E))
+                                         (implicit opt: Options, coll: Collector, rng: TRandom)
+  extends CDGPFuelEvaluation[S, E](eval) {
 
   override def cdgpEvaluate: StatePop[S] => StatePop[(S, E)] =
     updateTestsManager andThen evaluatePopulation andThen updatePopulationEvalsAndTests
 
   /**
-    * 1) For every program in the population adds to it's evaluation an evaluation on the
+    * 1) For every program in the population adds to its evaluation an evaluation on the
     * newly generated tests.
-    * 2) Calls updateTestsManager so that set of new tests is reset.
+    * 2) Calls updateTestsManager so that the set of newly collected tests is reset.
     */
   def updatePopulationEvalsAndTests(s: StatePop[(S, E)]): StatePop[(S, E)] = {
     val s2 =

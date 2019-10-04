@@ -6,7 +6,6 @@ import swim.tree.{LongerOrMaxPassedOrdering, Op}
 import sygus.{IntConst, LiteralTerm, StringConst, Term}
 
 
-
 trait Fitness {
   def correct: Boolean
   /**
@@ -194,7 +193,7 @@ abstract class EvalFunction[S, E](val state: State)
 
 
 
-abstract class EvalCDGP[E, EVecEl](state: StateCDGP)
+abstract class EvalCDGP[E, EVecEl](state: StateCDGP, binaryTestPassValue: EVecEl, binaryTestFailValue: EVecEl)
                                   (implicit opt: Options, coll: Collector)
   extends EvalFunction[Op, E](state) {
   val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, Int.MaxValue, (x: Int) => x >= 0)
@@ -204,6 +203,8 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP)
   val globalConstraintInFitness: Boolean = opt('globalConstraintInFitness, false)
   val sizeInFitness: Boolean = opt('sizeInFitness, false)
   val partialConstraintsWeight: Int = opt('partialConstraintsWeight, 1, (x: Int) => x >= 1)
+  val testsTypesForRatio: Set[String] = opt('testsTypesForRatio, "c,i,s").split(",").toSet
+  assert(testsTypesForRatio.subsetOf(Set("c", "i", "s")), "Incorrect type of test for --testsTypesForRatio; supported: c - complete tests, i - incomplete tests, s - special tests.")
 
   /** The number of constraints tests prepended to the evaluation vector.*/
   val numberOfSpecialTests: Int = {
@@ -222,7 +223,7 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP)
     if (globalConstraintInFitness)
       vector = Tools.duplicateElements(Seq(getGlobalConstraintsDecision(s, passValue, nonpassValue)), w) ++: vector
     if (sizeInFitness)
-      vector = Tools.duplicateElements(Seq(getSize(s)), w) ++: vector
+      vector = Tools.duplicateElements(Seq(getProgramSize(s)), w) ++: vector
     vector
   }
 
@@ -232,14 +233,11 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP)
     if (dec == "unsat") passValue else nonpassValue
   }
 
-  /** Size of the Op converted to the correct unit. */
-  def getSize(s: Op): EVecEl
-
   /** Verifies solution on partial constraints in order to add this info to the fitness vector. */
   def getPartialConstraintsVector(s: Op, passValue: EVecEl, nonpassValue: EVecEl): Seq[EVecEl] = {
     state.sygusData.formalConstr.map{ constr =>
       val template = new TemplateVerification(state.sygusData, false, state.timeout, Some(Seq(constr)))
-      val (dec, _) = state.verify(s, template)
+      val (dec, _) = state.verify(s, template)  //TODO: counterexamples can be collected here too
       if (dec == "unsat") passValue else nonpassValue
     }
   }
@@ -254,6 +252,53 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP)
     coll.set("error_evalOnTests", msg)
     println(msg)
   }
+
+  /**
+   * Tests a program on the available tests and returns the vector of 0s (passed test)
+   * and 1s (failed test). Depending on the problem will either optimize by executing
+   * program directly on the tests, or will have to resort to a solver.
+   *
+   * Takes into account partial constraints.
+   */
+  def evalOnTestsAndConstraints(s: Op, tests: Seq[(I, Option[O])]): Seq[EVecEl] = {
+    val testsStandard = evalOnTests(s, tests)
+    if (partialConstraintsInFitness || globalConstraintInFitness || sizeInFitness)
+      getConstraintsVector(s, binaryTestPassValue, binaryTestFailValue) ++: testsStandard
+    else
+      testsStandard
+  }
+
+  /** Evaluates a program on the provided set of tests (complete or incomplete). **/
+  def evalOnTests(s: Op, tests: Seq[(I, Option[O])]): Seq[EVecEl] =
+    for (test <- tests) yield { evaluateTest(s, test) }
+
+  /** Evaluates complete or incomplete test. **/
+  def evaluateTest(s: Op, test: (I, Option[O])): EVecEl = {
+    if (test._2.isDefined) evalTestUsingDomain(s, test)
+    else evalTestUsingSolver(s, test)
+  }
+
+  /**
+   * Checks correctness of the program only for the given test.
+   * Tests here always have None as the answer, because in general there is no
+   * single answer for the problem being solved in 'solver' mode.
+   */
+  def evalTestUsingSolver(s: Op, test: (I, Option[O])): EVecEl = {
+    try {
+      val testInput: Map[String, Any] = test._1
+      val (dec, _) = state.checkIsProgramCorrectForInput(s, testInput)
+      if (dec == "sat") binaryTestPassValue else binaryTestFailValue
+    }
+    catch {
+      case e: Throwable => handleEvalException(test, s, e.getMessage); binaryTestFailValue
+    }
+  }
+
+
+  def evalTestUsingDomain(s: Op, test: (I, Option[O])): EVecEl
+
+  /** Size of the Op converted to the correct unit. */
+  def getProgramSize(s: Op): EVecEl
 }
 
 
@@ -262,54 +307,9 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP)
 
 abstract class EvalCDGPDiscrete[E](state: StateCDGP)
                                   (implicit opt: Options, coll: Collector)
-  extends EvalCDGP[E, Int](state) {
+  extends EvalCDGP[E, Int](state, 0, 1) {
 
-  override def getSize(s: Op): Int = s.size
-
-  /**
-    * Tests a program on the available tests and returns the vector of 0s (passed test)
-    * and 1s (failed test). Depending on the problem will either optimize by executing
-    * program directly on the tests, or will have to resort to a solver.
-    */
-  def evalOnTests(s: Op, tests: Seq[(I, Option[O])]): Seq[Int] = {
-    val testsStandard = for (test <- tests) yield { evaluateTest(s, test) }
-    if (partialConstraintsInFitness || globalConstraintInFitness || sizeInFitness)
-      getConstraintsVector(s, 0, 1) ++: testsStandard
-    else
-      testsStandard
-  }
-
-
-  /**
-    * Computes a fitness data for this test.
-    */
-  def evaluateTest(s: Op, test: (I, Option[O])): Int = {
-    try {
-      if (test._2.isDefined)
-      // User can define test cases for a problem, in which generally single-answer
-      // property does not hold. We will use domain for those tests cases, since it is
-      // more efficient.
-        evalTestUsingDomain(s, test)
-      else evalTestUsingSolver(s, test)
-    }
-    catch {
-      case _: ExceptionIncorrectOperation => 1
-      case e: Throwable => handleEvalException(test, s, e.getMessage); 1
-    }
-  }
-
-
-  /**
-    * Checks correctness of the program only for the given test.
-    * Tests here always have None as the answer, because in general there is no
-    * single answer for the problem being solved in 'solver' mode.
-    */
-  def evalTestUsingSolver(s: Op, test: (I, Option[O])): Int = {
-    val testInput: Map[String, Any] = test._1
-    val (dec, _) = state.checkIsProgramCorrectForInput(s, testInput)
-    if (dec == "sat") 0 else 1
-  }
-
+  override def getProgramSize(s: Op): Int = s.size
 
   /**
     * Checks correctness of the program only for the given test.
@@ -325,16 +325,22 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP)
     */
   def evalTestUsingDomain(s: Op, test: (I, Option[O])): Int = {
     assert(test._2.isDefined, "Trying to evaluate using the domain a test without defined expected output.")
-    val testInput: Map[String, Any] = test._1
-    val testOutput: Option[Any] = test._2
-    val inputVector = state.synthTask.argNames.map(testInput(_))
-    val output = domain(s)(inputVector)
-    if (output.isEmpty)
-      1  // None means that recurrence depth was exceeded
-    else if (output.get == state.convertValue(testOutput.get))
-      0  // output was correct
-    else
-      1  // output was incorrect
+    try {
+      val testInput: Map[String, Any] = test._1
+      val testOutput: Option[Any] = test._2
+      val inputVector = state.synthTask.argNames.map(testInput(_))
+      val output = domain(s)(inputVector)
+      if (output.isEmpty)
+        1 // None means that recurrence depth was exceeded
+      else if (output.get == state.convertValue(testOutput.get))
+        0 // output was correct
+      else
+        1 // output was incorrect
+    }
+    catch {
+      case _: ExceptionIncorrectOperation => 1
+      case e: Throwable => handleEvalException(test, s, e.getMessage); 1
+    }
   }
 
   def fitnessOnlyTestCases: Op => (Boolean, Seq[Int]) =
@@ -550,7 +556,7 @@ class EvalGPRInt(state: StateGPR)
   */
 abstract class EvalCDGPContinuous[E](state: StateCDGP)
                                     (implicit opt: Options, coll: Collector)
-  extends EvalCDGP[E, Double](state) {
+  extends EvalCDGP[E, Double](state, 0.0, 1.0) {
   // Parameters:
   val optThreshold: Double = getOptThreshold
   coll.set("cdgp.optThreshold", optThreshold)
@@ -570,57 +576,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
     }
   }
 
-  override def getSize(s: Op): Double = s.size.toDouble
-
-  /**
-    * Tests a program on the available tests and returns the vector of 0s (passed test)
-    * and 1s (failed test). Depending on the problem will either optimize by executing
-    * program directly on the tests, or will have to resort to a solver.
-    *
-    * Takes into account partial constraints.
-    */
-  def evalOnTestsAndConstraints(s: Op, tests: Seq[(I, Option[O])]): Seq[Double] = {
-    val testsStandard = evalOnTests(s, tests)
-    if (partialConstraintsInFitness || globalConstraintInFitness || sizeInFitness)
-      getConstraintsVector(s, 0.0, 1.0) ++: testsStandard
-    else
-      testsStandard
-  }
-
-  def evalOnTests(s: Op, tests: Seq[(I, Option[O])]): Seq[Double] =
-    for (test <- tests) yield { evaluateTest(s, test) }
-
-  def evaluateTest(s: Op, test: (I, Option[O])): Double = {
-    try {
-      if (test._2.isDefined)
-      // User can define test cases for a problem, in which generally single-answer
-      // property does not hold. We will use domain for those cases, since it is more
-      // efficient.
-        evalTestUsingDomain(s, test)
-      else evalTestUsingSolver(s, test)
-    }
-    catch {
-      // return PositiveInfinity for situations like division by 0
-      case _: ExceptionIncorrectOperation =>
-        Double.PositiveInfinity
-      case e: Throwable =>
-        handleEvalException(test, s, e.getMessage)
-        Double.PositiveInfinity
-    }
-  }
-
-  /**
-    * Checks correctness of the program only for the given test.
-    * Tests here always have None as the answer, because in general there is no
-    * single answer for the problem being solved in 'solver' mode.
-    */
-  def evalTestUsingSolver(s: Op, test: (I, Option[O])): Double = {
-    val testInput: Map[String, Any] = test._1
-    val (dec, _) = state.checkIsProgramCorrectForInput(s, testInput)
-    // 0.0 is returned for a correct answer (sat).
-    // This becomes questionable if aggregated with error.
-    if (dec == "sat") 0.0 else 1.0
-  }
+  override def getProgramSize(s: Op): Double = s.size.toDouble
 
   /**
     * Checks correctness of the program only for the given test.
@@ -634,16 +590,25 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
     * Names of variables in test should be the same as those in the function's invocation.
     * They will be renamed for those in the function's declaration.
     */
-  def evalTestUsingDomain(s: Op, test: (I, Option[O])): Double = {
+  override def evalTestUsingDomain(s: Op, test: (I, Option[O])): Double = {
     assert(test._2.isDefined, "Trying to domain-evaluate using a test without defined expected output.")
-    val testInput: Map[String, Any] = test._1
-    val testOutput: Option[Any] = test._2
-    val inputVector = state.synthTask.argNames.map(testInput(_))
-    val output = domain(s)(inputVector)
-    if (output.isEmpty)
-      Double.MaxValue   // Recurrence depth was exceeded
-    else
-      math.abs(output.get.asInstanceOf[Double] - testOutput.get.asInstanceOf[Double])
+    try {
+      val testInput: Map[String, Any] = test._1
+      val testOutput: Option[Any] = test._2
+      val inputVector = state.synthTask.argNames.map(testInput(_))
+      val output = domain(s)(inputVector)
+      if (output.isEmpty)
+        Double.MaxValue // Recurrence depth was exceeded
+      else
+        math.abs(output.get.asInstanceOf[Double] - testOutput.get.asInstanceOf[Double])
+    }
+    catch {
+      case _: ExceptionIncorrectOperation =>
+        Double.PositiveInfinity
+      case e: Throwable =>
+        handleEvalException(test, s, e.getMessage)
+        Double.PositiveInfinity
+    }
   }
 
   def checkValidity(): Unit = {

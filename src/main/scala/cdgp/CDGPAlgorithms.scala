@@ -93,8 +93,8 @@ trait CDGPAlgorithm[S <: Op, E <: Fitness] {
  * @param ordering Generates order on the fitness values.
  */
 abstract class CDGPGenerationalCore[E <: Fitness](moves: GPMoves,
-                                    cdgpEval: CDGPEvaluation[Op, E],
-                                    correct: (Op, E) => Boolean)
+                                                  cdgpEval: CDGPFuelEvaluation[Op, E],
+                                                  correct: (Op, E) => Boolean)
                                    (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
   extends EACore[Op, E](moves, SequentialEval(cdgpEval.eval), correct) with CDGPAlgorithm[Op, E] {
   override def cdgpState = cdgpEval.state
@@ -117,7 +117,7 @@ abstract class CDGPGenerationalCore[E <: Fitness](moves: GPMoves,
 
 
 class CDGPGenerationalStaticBreeder[E <: Fitness](moves: GPMoves,
-                                                  cdgpEval: CDGPEvaluation[Op, E],
+                                                  cdgpEval: CDGPFuelEvaluation[Op, E],
                                                   correct: (Op, E) => Boolean,
                                                   selection: Selection[Op, E])
                                                  (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
@@ -128,7 +128,7 @@ class CDGPGenerationalStaticBreeder[E <: Fitness](moves: GPMoves,
 
 
 class CDGPGenerationalEpsLexicase[E <: FSeqDouble](moves: GPMoves,
-                                                   cdgpEval: CDGPEvaluation[Op, E],
+                                                   cdgpEval: CDGPFuelEvaluation[Op, E],
                                                    correct: (Op, E) => Boolean)
                                                   (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
   extends CDGPGenerationalCore(moves, cdgpEval, correct) {
@@ -141,7 +141,7 @@ class CDGPGenerationalEpsLexicase[E <: FSeqDouble](moves: GPMoves,
 
 
 object CDGPGenerationalStaticBreeder {
-  def apply[E <: Fitness](cdgpEval: CDGPEvaluation[Op, E], sel: Selection[Op, E])
+  def apply[E <: Fitness](cdgpEval: CDGPFuelEvaluation[Op, E], sel: Selection[Op, E])
                          (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalStaticBreeder[E] = {
     implicit val ordering = cdgpEval.eval.ordering
     val grammar = cdgpEval.eval.state.sygusData.getSwimGrammar(rng)
@@ -155,7 +155,7 @@ object CDGPGenerationalStaticBreeder {
 object CDGPGenerationalTournament {
   def apply[E <: Fitness](eval: EvalFunction[Op, E])
                          (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalStaticBreeder[E] = {
-    val cdgpEval = new CDGPEvaluation[Op, E](eval)
+    val cdgpEval = new CDGPFuelEvaluation[Op, E](eval)
     val sel = new TournamentSelection[Op, E](eval.ordering, opt('tournamentSize, 7))
     CDGPGenerationalStaticBreeder[E](cdgpEval, sel)
   }
@@ -165,7 +165,7 @@ object CDGPGenerationalTournament {
 object CDGPGenerationalLexicase {
   def apply[E <: FSeqInt](eval: EvalFunction[Op, E])
                          (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalStaticBreeder[E] = {
-    val cdgpEval = new CDGPEvaluation[Op, E](eval)
+    val cdgpEval = new CDGPFuelEvaluation[Op, E](eval)
     val sel = new LexicaseSelection01[Op, E]
     CDGPGenerationalStaticBreeder[E](cdgpEval, sel)
   }
@@ -178,7 +178,7 @@ object CDGPGenerationalEpsLexicase {
     implicit val ordering = eval.ordering
     val grammar = eval.state.sygusData.getSwimGrammar(rng)
     val moves = GPMoves(grammar, Common.isFeasible(eval.state.synthTask.fname, opt))
-    val cdgpEval = new CDGPEvaluation[Op, FSeqDouble](eval)
+    val cdgpEval = new CDGPFuelEvaluation[Op, FSeqDouble](eval)
     val correct = Common.correct(cdgpEval.eval)
     new CDGPGenerationalEpsLexicase(moves, cdgpEval, correct)
   }
@@ -207,7 +207,7 @@ object CDGPGenerationalEpsLexicase {
  */
 abstract class CDGPSteadyStateCore[E <: Fitness]
                                   (moves: GPMoves,
-                                   cdgpEval: CDGPEvaluationSteadyState[Op, E],
+                                   cdgpEval: CDGPFuelEvaluationSteadyState[Op, E],
                                    correct: (Op, E) => Boolean)
                                   (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
   extends EACore[Op, E](moves, SequentialEval(cdgpEval.eval), correct) with CDGPAlgorithm[Op, E] {
@@ -242,7 +242,7 @@ abstract class CDGPSteadyStateCore[E <: Fitness]
  */
 class CDGPSteadyStateStaticBreeder[E <: Fitness]
                                   (moves: GPMoves,
-                                   cdgpEval: CDGPEvaluationSteadyState[Op, E],
+                                   cdgpEval: CDGPFuelEvaluationSteadyState[Op, E],
                                    correct: (Op, E) => Boolean,
                                    selection: Selection[Op, E],
                                    deselection: Selection[Op, E])
@@ -259,7 +259,7 @@ class CDGPSteadyStateStaticBreeder[E <: Fitness]
  * created for each new generation.
  */
 class CDGPSteadyStateEpsLexicase[E <: FSeqDouble](moves: GPMoves,
-                                                  cdgpEval: CDGPEvaluationSteadyState[Op, E],
+                                                  cdgpEval: CDGPFuelEvaluationSteadyState[Op, E],
                                                   correct: (Op, E) => Boolean,
                                                   deselection: Selection[Op, E])
                                                  (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
@@ -273,7 +273,7 @@ class CDGPSteadyStateEpsLexicase[E <: FSeqDouble](moves: GPMoves,
 
 
 object CDGPSteadyStateStaticBreeder {
-  def apply[E <: Fitness](cdgpEval: CDGPEvaluationSteadyState[Op, E], sel: Selection[Op, E], desel: Selection[Op, E])
+  def apply[E <: Fitness](cdgpEval: CDGPFuelEvaluationSteadyState[Op, E], sel: Selection[Op, E], desel: Selection[Op, E])
                          (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyStateStaticBreeder[E] = {
     implicit val ordering = cdgpEval.eval.ordering
     val grammar = cdgpEval.eval.state.sygusData.getSwimGrammar(rng)
@@ -293,7 +293,7 @@ object CDGPSteadyStateTournament {
   }
   def apply[E <: Fitness](eval: EvalFunction[Op, E])
                          (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyStateStaticBreeder[E] = {
-    val cdgpEval = new CDGPEvaluationSteadyState(eval, eval.updateEval)
+    val cdgpEval = new CDGPFuelEvaluationSteadyState(eval, eval.updateEval)
     val sel = getSelection(cdgpEval.eval)
     val desel = getDeselection(cdgpEval.eval)
     CDGPSteadyStateStaticBreeder(cdgpEval, sel, desel)
@@ -312,7 +312,7 @@ object CDGPSteadyStateLexicase {
     }
   def apply[E <: FSeqInt](eval: EvalFunction[Op, E])
                          (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyStateStaticBreeder[E] = {
-    val cdgpEval = new CDGPEvaluationSteadyState(eval, eval.updateEval)
+    val cdgpEval = new CDGPFuelEvaluationSteadyState(eval, eval.updateEval)
     val sel = getSelection[E]()
     val desel = getDeselection(cdgpEval.eval)
     CDGPSteadyStateStaticBreeder(cdgpEval, sel, desel)
@@ -331,7 +331,7 @@ object CDGPSteadyStateEpsLexicase {
     implicit val ordering = eval.ordering
     val grammar = eval.state.sygusData.getSwimGrammar(rng)
     val moves = GPMoves(grammar, Common.isFeasible(eval.state.synthTask.fname, opt))
-    val cdgpEval = new CDGPEvaluationSteadyState[Op, E](eval, eval.updateEval)
+    val cdgpEval = new CDGPFuelEvaluationSteadyState[Op, E](eval, eval.updateEval)
     val correct = Common.correct(cdgpEval.eval)
     val desel = getDeselection(eval)
     new CDGPSteadyStateEpsLexicase[E](moves, cdgpEval, correct, desel)
