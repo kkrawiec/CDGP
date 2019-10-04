@@ -106,6 +106,17 @@ object TestCDGPState {
 (constraint (= (f 0) 0))
 (check-synth)
 """
+
+  val scriptIdentity =
+    """
+      |(set-logic NRA)
+      |(synth-fun f ((x Real)) Real)
+      |(declare-var x Real)
+      |(constraint (= (f 1.0) 1.0))
+      |(constraint (forall ((x Real)(cdgp.P1.x Real))
+      |   (=> (> cdgp.P1.x x)  (>= (f cdgp.P1.x) (f x)))))
+      |(check-synth)
+    """.stripMargin
 }
 
 
@@ -114,6 +125,41 @@ final class TestCDGPState {
   implicit val emptyOpt = Options(s"--selection lexicase --evolutionMode generational ${Global.solverConfig}")
   implicit val coll = CollectorStdout(emptyOpt)
   implicit val rng = Rng(emptyOpt)
+
+  @Test
+  def testEvalTestsExtraction(): Unit = {
+    implicit val opt = Options(s"--regression true --testsTypesForRatio c,s,i --partialConstraintsInFitness true ${Global.solverConfig}")
+    val problem = LoadSygusBenchmark.parseText(TestCDGPState.scriptIdentity)
+    val state = StateCDGP(problem)(opt, coll, rng)
+    val eval = new EvalCDGPSeqDouble(state)(opt, coll, rng)
+    state.testsManager.addNewTest((Map("x"->10.0), None))
+    state.testsManager.addNewTest((Map("x"->11.0), None))
+    state.testsManager.addNewTest((Map("x"->2.0), Some(2.0)))
+    state.testsManager.addNewTest((Map("x"->3.0), Some(3.0)))
+    state.testsManager.flushHelpers()
+    val v1 = Seq(0.0, 2.0, 1.0, 1.0, 2.0, 5.0)
+
+    val testsNormal = eval.extractEvalNormal(v1)
+    val testsSpecial = eval.extractEvalSpecial(v1)
+    assertEquals(5, testsNormal.size)
+    assertEquals(2.0, testsNormal(0), 0.0)
+    assertEquals(1.0, testsNormal(1), 0.0)
+    assertEquals(1.0, testsNormal(2), 0.0)
+    assertEquals(2.0, testsNormal(3), 0.0)
+    assertEquals(5.0, testsNormal(4), 0.0)
+    assertEquals(1, testsSpecial.size)
+    assertEquals(0.0, testsSpecial(0), 0.0)
+
+    val testsComplete = eval.extractEvalComplete(v1, state.testsManager.tests)
+    val testsIncomplete = eval.extractEvalIncomplete(v1, state.testsManager.tests)
+    assertEquals(3, testsComplete.size)
+    assertEquals(2.0, testsComplete(0), 0.0)
+    assertEquals(2.0, testsComplete(1), 0.0)
+    assertEquals(5.0, testsComplete(2), 0.0)
+    assertEquals(2, testsIncomplete.size)
+    assertEquals(1.0, testsIncomplete(0), 0.0)
+    assertEquals(1.0, testsIncomplete(1), 0.0)
+  }
 
   @Test
   def test_max2_t(): Unit = {

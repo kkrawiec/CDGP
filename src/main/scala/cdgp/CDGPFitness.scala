@@ -193,7 +193,9 @@ abstract class EvalFunction[S, E](val state: State)
 
 
 
-abstract class EvalCDGP[E, EVecEl](state: StateCDGP, binaryTestPassValue: EVecEl, binaryTestFailValue: EVecEl)
+abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
+                                   binaryTestPassValue: EVecEl,
+                                   binaryTestFailValue: EVecEl)
                                   (implicit opt: Options, coll: Collector)
   extends EvalFunction[Op, E](state) {
   val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, Int.MaxValue, (x: Int) => x >= 0)
@@ -242,10 +244,32 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP, binaryTestPassValue: EVecEl
     }
   }
 
-  def extractTestsNormal(eval: Seq[EVecEl]): Seq[EVecEl] = eval.drop(numberOfSpecialTests)
-  def extractTestsComplete(eval: Seq[EVecEl]): Seq[EVecEl] = extractTestsNormal(eval)
-  def extractTestsIncomplete(eval: Seq[EVecEl]): Seq[EVecEl] = extractTestsNormal(eval)
-  def extractTestsSpecial(eval: Seq[EVecEl]): Seq[EVecEl] = eval.take(numberOfSpecialTests)
+  /**
+    * Returns parts of the evaluation vector that is concerned with testsRatio as a tuple,
+    * in which the first element are evaluations of complete tests, and the second evaluations
+    * of incomplete and special tests.
+    */
+  def getEvalForVerificationRatio(tests: Seq[(Map[String, Any], Option[Any])],
+                                  evalTests: Seq[EVecEl]): (Seq[EVecEl], Seq[EVecEl]) = {
+    val evalComplete = if (testsTypesForRatio.contains("s")) extractEvalComplete(evalTests, tests) else Seq()
+    val evalIncomplete = if (testsTypesForRatio.contains("i")) extractEvalIncomplete(evalTests, tests) else Seq()
+    val evalSpecial = if (testsTypesForRatio.contains("s")) extractEvalSpecial(evalTests) else Seq()
+    (evalComplete, evalIncomplete ++ evalSpecial)
+  }
+
+  def extractEvalNormal(eval: Seq[EVecEl]): Seq[EVecEl] = eval.drop(numberOfSpecialTests)
+  def extractEvalSpecial(eval: Seq[EVecEl]): Seq[EVecEl] = eval.take(numberOfSpecialTests)
+  def extractEvalComplete(eval: Seq[EVecEl], tests: Seq[(Map[String, Any], Option[Any])]): Seq[EVecEl] = {
+    val evalNormal = extractEvalNormal(eval)
+    assert(evalNormal.size == tests.size)
+    for (i <- evalNormal.indices; if tests(i)._2.isDefined) yield evalNormal(i)
+  }
+  def extractEvalIncomplete(eval: Seq[EVecEl], tests: Seq[(Map[String, Any], Option[Any])]): Seq[EVecEl] = {
+    val evalNormal = extractEvalNormal(eval)
+    assert(evalNormal.size == tests.size)
+    for (i <- evalNormal.indices; if tests(i)._2.isEmpty) yield evalNormal(i)
+  }
+
 
   def handleEvalException(test: (I, Option[O]), s: Op, message: String) {
     val msg = s"Error during evalutation of $s and test $test: $message"
@@ -352,8 +376,10 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP)
         (false, evalTests)
     }
 
-  def doVerify(evalTests: Seq[Int]): Boolean = {
-    val numPassed = evalTests.count(_ == 0).asInstanceOf[Double]
+  def doVerify(evalTests: Seq[Int], tests: Seq[(Map[String, Any], Option[Any])]): Boolean = {
+    val (evalCompl, evalIncompl) = getEvalForVerificationRatio(tests, evalTests)
+    val testsForRatio = tests.zip(evalTests)
+    val numPassed = testsForRatio.count(_ == 0).asInstanceOf[Double]
     if (testsDiff.isDefined)
       numPassed >= evalTests.size - testsDiff.get
     else
@@ -364,16 +390,18 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP)
   def fitnessCDGPGeneral: Op => (Boolean, Seq[Int]) =
     if (state.sygusData.formalInvocations.isEmpty) fitnessOnlyTestCases
     else (s: Op) => {
-      val evalTests = evalOnTests(s, state.testsManager.getTests())
+      val tests = state.testsManager.getTests()
+      val evalTests = evalOnTestsAndConstraints(s, tests)
       // If the program passes the specified ratio of test cases, it will be verified
       // and a counterexample will be produced (or program will be deemed correct).
       // NOTE: if the program does not pass all test cases, then the probability is high
       // that the produced counterexample will already be in the set of test cases.
-      if (!doVerify(evalTests))
+      if (!doVerify(evalTests, tests))
         (false, evalTests)
       else {
         val (decision, r) = state.verify(s)
-        if (decision == "unsat" && evalTests.sum == 0 && (!(state.sygusData.logic == "SLIA") || evalTests.nonEmpty))
+        if (decision == "unsat" && evalTests.sum == 0 &&
+           (state.sygusData.logic != "SLIA" || evalTests.nonEmpty))  // a guard against bugs in the solver for Strings
           (true, evalTests) // perfect program found; end of run
         else if (decision == "sat") {
           if (state.testsManager.newTests.size < maxNewTestsPerIter) {
@@ -462,8 +490,9 @@ abstract class EvalGPRDiscrete[E](state: StateGPR)
         }
       }
       def apply(s: Op): (Boolean, Seq[Int]) = {
-        val evalTests = evalOnTests(s, state.testsManager.getTests())
-        if (!doVerify(evalTests))
+        val tests = state.testsManager.getTests()
+        val evalTests = evalOnTests(s, tests)
+        if (!doVerify(evalTests, tests))
           (false, evalTests)
         else if (allTestsPassed(evalTests)) {
           // program passes all tests - verify if it is correct
@@ -580,14 +609,10 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
 
   /**
     * Checks correctness of the program only for the given test.
-    * If test has a defined expected answer, then it is compared with the answer
-    * obtained by executing the program in the domain simulating semantics of SMT
-    * theory.
-    * If test don't have defined expected answer, then the program's output is verified
-    * by the solver for consistency with the specification. The test will be updated if
-    * this output is deemed consistent by the solver.
+    * The expected output is compared with the answer obtained by executing the
+    * program in the domain simulating the semantics of appropriate SMT theory.
     *
-    * Names of variables in test should be the same as those in the function's invocation.
+    * Names of variables in the test should be the same as those in the function's invocation.
     * They will be renamed for those in the function's declaration.
     */
   override def evalTestUsingDomain(s: Op, test: (I, Option[O])): Double = {
@@ -603,8 +628,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
         math.abs(output.get.asInstanceOf[Double] - testOutput.get.asInstanceOf[Double])
     }
     catch {
-      case _: ExceptionIncorrectOperation =>
-        Double.PositiveInfinity
+      case _: ExceptionIncorrectOperation => Double.PositiveInfinity
       case e: Throwable =>
         handleEvalException(test, s, e.getMessage)
         Double.PositiveInfinity
@@ -627,7 +651,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
   }
 
   def isMseCloseToZero(evalTests: Seq[Double]): Boolean = {
-    Tools.mse(extractTestsNormal(evalTests)) <= optThreshold
+    Tools.mse(extractEvalNormal(evalTests)) <= optThreshold
   }
 
 
@@ -638,7 +662,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
   def fitnessOnlyTestCases: Op => (Boolean, Seq[Double]) =
     (s: Op) => {
       val evalTests = evalOnTestsAndConstraints(s, state.testsManager.getTests())
-      (isMseCloseToZero(extractTestsNormal(evalTests)), evalTests)
+      (isMseCloseToZero(extractEvalNormal(evalTests)), evalTests)
     }
 
 
@@ -650,8 +674,8 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
     */
   def doVerify(evalTests: Seq[Double]): Boolean = {
     // Verify only those solutions which pass all incomplete tests
-    lazy val evalConstr = extractTestsSpecial(evalTests)
-    var (eval, _) = extractTestsNormal(evalTests).zip(state.testsManager.tests).
+    lazy val evalConstr = extractEvalSpecial(evalTests)
+    var (eval, _) = extractEvalNormal(evalTests).zip(state.testsManager.tests).
       filter { case (_, t) => t._2.isEmpty }.unzip
     eval = if (partialConstraintsVisibleForTestsRatio) evalConstr ++ eval else eval
     val numPassed = eval.count(_ == 0.0).asInstanceOf[Double]
@@ -688,7 +712,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
       else {
         val (decision, model) = state.verify(s)
         if (decision == "unsat")
-          (isMseCloseToZero(extractTestsNormal(evalTests)), evalTests)
+          (isMseCloseToZero(extractEvalNormal(evalTests)), evalTests)
         else if (decision == "sat") {
           addNewTest(model.get)
           (false, evalTests)
@@ -745,7 +769,7 @@ class EvalGPDoubleMSE(state: StateCDGP)
   extends EvalCDGPContinuous[FDouble](state) {
   override def apply(s: Op, init: Boolean): FDouble = {
     val (isPerfect, eval) = fitnessOnlyTestCases(s)
-    val mse = Tools.mse(extractTestsNormal(eval))
+    val mse = Tools.mse(extractEvalNormal(eval))
     FDouble(isPerfect, mse, s.size, eval.size)
   }
   override def updateEval(s: (Op, FDouble)): (Op, FDouble) = {
@@ -767,12 +791,12 @@ class EvalCDGPDoubleMSE(state: StateCDGP)
   override def apply(s: Op, init: Boolean): FDouble = {
     if (init) {
       val (_, eval) = fitnessOnlyTestCases(s)
-      val mse = Tools.mse(extractTestsNormal(eval))
+      val mse = Tools.mse(extractEvalNormal(eval))
       FDouble(false, mse, s.size, eval.size) // correctness set to false to not trigger correctness based only on the MSE
     }
     else {
       val (isPerfect, eval) = fitnessCDGPRegression(s)
-      val mse = Tools.mse(extractTestsNormal(eval))
+      val mse = Tools.mse(extractEvalNormal(eval))
       FDouble(isPerfect, mse, s.size, eval.size)
     }
   }
