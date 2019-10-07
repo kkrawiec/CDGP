@@ -49,7 +49,7 @@ class SpecialTestsEvaluator[EVecEl](val partialConstraintsInFitness: Boolean,
 
 object SpecialTestsEvaluator {
   def apply[EVecEl](programSizeFun: Op => EVecEl)(implicit opt: Options): SpecialTestsEvaluator[EVecEl] = {
-    val partialConstraintsInFitness: Boolean = opt('partialConstraintsInFitness, if (opt('method) == "CDGPprops") true else false)
+    val partialConstraintsInFitness: Boolean = opt('partialConstraintsInFitness, if (opt('method, "") == "CDGPprops") true else false)
     val globalConstraintInFitness: Boolean = opt('globalConstraintInFitness, false)
     val sizeInFitness: Boolean = opt('sizeInFitness, false)
     val weight: Int = opt('partialConstraintsWeight, 1, (x: Int) => x >= 1)
