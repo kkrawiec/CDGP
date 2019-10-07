@@ -6,9 +6,14 @@ import org.junit.Assert._
 import cdgp.{ConstParser, GetValueParser, ValueParseException}
 
 
-final class TestGetValueParser {
+final class TestParsers {
+
+  // -------------------------------------------------------------
+  // GetValueParser
+  // -------------------------------------------------------------
+
   @Test
-  def testPass(): Unit = {
+  def testGetValueParser_Pass(): Unit = {
     assertEquals( Map( "x" -> 1, "y" -> -2 ), GetValueParser("""((x 1)
                (y (- 2)))""").toMap)
 
@@ -26,7 +31,7 @@ final class TestGetValueParser {
   }
 
   @Test
-  def testGetValueTooBigInt(): Unit = {
+  def testGetValueParser_GetValueTooBigInt(): Unit = {
     try {
       GetValueParser("""((x 12345678901234)(y (- 2)))""").toMap
       fail()
@@ -34,7 +39,7 @@ final class TestGetValueParser {
   }
 
   @Test
-  def testParserString(): Unit = {
+  def testGetValueParser_ParserString(): Unit = {
     val model = """((s "") (a 0) (b 0) (res1__2 "AAAAAAAAAA") (res2__2 "BAAAAAAAAA"))"""
     val parsed = GetValueParser(model).toMap
     assertEquals(Map("s" -> "", "a" -> 0, "b" -> 0, "res1__2" -> "AAAAAAAAAA", "res2__2" -> "BAAAAAAAAA"),
@@ -42,7 +47,7 @@ final class TestGetValueParser {
   }
 
   @Test
-  def testParserReal(): Unit = {
+  def testGetValueParser_ParserReal(): Unit = {
     val model = """((a 0.0) (b 0.00123) (c -5.5) (d (- 3.3)) (e (- 2.2?)) (f 11.00811?))"""
     val parsed = GetValueParser(model).toMap
     assertEquals(Map("a" -> 0.0, "b" -> 0.00123, "c" -> -5.5, "d" -> -3.3, "e" -> -2.2, "f" -> 11.00811),
@@ -50,7 +55,7 @@ final class TestGetValueParser {
   }
 
   @Test
-  def testParserBoolean(): Unit = {
+  def testGetValueParser_Boolean(): Unit = {
     val model = """((a "true") (b true) (c false))"""
     val parsed = GetValueParser(model).toMap
     assertEquals(Map("a" -> "true", "b" -> true, "c" -> false),
@@ -58,23 +63,24 @@ final class TestGetValueParser {
   }
 
   @Test(expected=classOf[ValueParseException])
-  def testFail(): Unit = {
+  def testGetValueParser_Fail(): Unit = {
     GetValueParser(""" ((x (- 7787))
       (y (- ERROR)))""")
   }
 
   @Test
-  def testComplex(): Unit = {
+  def testGetValueParser_Complex(): Unit = {
     val res = GetValueParser("""((a 15) (b 14) (c 3) (d 0) (res1__2a (- 16)) (res2__2a (- 32)))""")
     assertEquals(Map("a"->15, "b"->14, "c"->3, "d"->0, "res1__2a"->(-16), "res2__2a"->(-32)), res.toMap)
   }
-}
 
 
+  // -------------------------------------------------------------
+  // ConstParser
+  // -------------------------------------------------------------
 
-final class TestConstParser {
   @Test
-  def testPass(): Unit = {
+  def testConstParser_Pass(): Unit = {
     assertEquals(true, ConstParser("true"))
     assertEquals(false, ConstParser("false"))
 
@@ -94,15 +100,17 @@ final class TestConstParser {
   }
 
   @Test(expected=classOf[ValueParseException])
-  def testFail(): Unit = {
+  def testConstParser_Fail(): Unit = {
     ConstParser("[1, 2, 3]")
   }
-}
 
 
-final class TestOutputParserDreal3 {
+  // -------------------------------------------------------------
+  // Dreal3 Parser
+  // -------------------------------------------------------------
+
   @Test
-  def test_parse_unsat(): Unit = {
+  def testParserDreal3_parse_unsat(): Unit = {
     val s = "unsat"
     val (dec, model) = OutputParserDreal3(s)
     assertEquals("unsat", dec)
@@ -110,7 +118,7 @@ final class TestOutputParserDreal3 {
   }
 
   @Test
-  def test_parse_satPlain(): Unit = {
+  def testParserDreal3_parse_satPlain(): Unit = {
     val s = "delta-sat with delta = 0.00100000000000000"
     val (dec, model) = OutputParserDreal3(s)
     assertEquals("sat", dec)
@@ -118,7 +126,7 @@ final class TestOutputParserDreal3 {
   }
 
   @Test
-  def test_parse_satModel1(): Unit = {
+  def testParserDreal3_parse_satModel1(): Unit = {
     val s = """Solution:
               |x : [ ENTIRE ] = [-2, -2]
               |delta-sat with delta = 0.00100000000000000""".stripMargin
@@ -128,7 +136,7 @@ final class TestOutputParserDreal3 {
   }
 
   @Test
-  def test_parse_satModel2(): Unit = {
+  def testParserDreal3_parse_satModel2(): Unit = {
     val s = """Solution:
               |x : [ ENTIRE ] = [-1.25, 1.25]
               |delta-sat with delta = 0.00100000000000000""".stripMargin
@@ -138,7 +146,7 @@ final class TestOutputParserDreal3 {
   }
 
   @Test
-  def test_parse_satModel3(): Unit = {
+  def testParserDreal3_parse_satModel3(): Unit = {
     val s = """Solution:
               |x : [ ENTIRE ] = [-INFTY, -INFTY]
               |y : [ ENTIRE ] = [+INFTY, +INFTY]
