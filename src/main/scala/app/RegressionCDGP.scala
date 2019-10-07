@@ -11,13 +11,40 @@ import swim.tree.Op
 
 object RegressionCDGP {
 
+  def getEvalForMSE(state: StateCDGP, method: String)
+                   (implicit coll: Collector, opt: Options, rng: TRandom):
+  EvalFunction[Op, FDouble] = {
+
+    if (method == "CDGPprops") {
+      val testsTypesForRatio = opt('testsTypesForRatio, "i,s").split(",").toSet
+      new EvalCDGPDoubleMSE(state, testsTypesForRatio)
+    }
+    else if (method == "CDGP") {
+      val testsTypesForRatio = opt('testsTypesForRatio, "i").split(",").toSet
+      opt.retrievedOptions
+      new EvalCDGPDoubleMSE(state, testsTypesForRatio)
+    }
+    else {
+      val testsTypesForRatio = opt('testsTypesForRatio, "i").split(",").toSet
+      new EvalGPDoubleMSE(state, testsTypesForRatio)
+    }
+  }
+
   def getEvalForSeqDouble(state: StateCDGP, method: String)
                          (implicit coll: Collector, opt: Options, rng: TRandom):
   EvalFunction[Op, FSeqDouble] = {
-    if (method == "CDGP")
-      new EvalCDGPSeqDouble(state)
-    else
-      new EvalGPSeqDouble(state)
+    if (method == "CDGPprops") {
+      val testsTypesForRatio = opt('testsTypesForRatio, "i,s").split(",").toSet
+      new EvalCDGPSeqDouble(state, testsTypesForRatio)
+    }
+    else if (method == "CDGP") {
+      val testsTypesForRatio = opt('testsTypesForRatio, "i").split(",").toSet
+      new EvalCDGPSeqDouble(state, testsTypesForRatio)
+    }
+    else {
+      val testsTypesForRatio = opt('testsTypesForRatio, "i").split(",").toSet
+      new EvalGPSeqDouble(state, testsTypesForRatio)
+    }
   }
 
   def runConfigRegressionCDGP(state: StateCDGP, method: String, selection: String, evoMode: String)
@@ -25,13 +52,13 @@ object RegressionCDGP {
   (Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]) = {
     (selection, evoMode) match {
       case ("tournament", "generational") =>
-        val eval = new EvalCDGPDoubleMSE(state)
+        val eval = getEvalForMSE(state, method)
         val alg = CDGPGenerationalTournament(eval)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (finalPop, alg.bsf.bestSoFar)
 
       case ("tournament", "steadyState") =>
-        val eval = new EvalCDGPDoubleMSE(state)
+        val eval = getEvalForMSE(state, method)
         val alg = CDGPSteadyStateTournament(eval)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (finalPop, alg.bsf.bestSoFar)
@@ -64,7 +91,7 @@ object RegressionCDGP {
       val method = opt('method)
       val selection = opt('selection, "lexicase")
       val evoMode = opt('evolutionMode, "steadyState")
-      assert(method == "CDGP" || method == "GP", s"Invalid method '$method'! Possible values: 'CDGP', 'GP'.")
+      assert(method == "CDGP" || method == "GP" || method == "CDGPprops", s"Invalid method '$method'! Possible values: 'CDGP', 'CDGPprops', 'GP'.")
       assert(selection == "tournament" || selection == "lexicase",
         s"Invalid selection: '$selection'! Possible values: 'tournament', 'lexicase'.")
       assert(evoMode == "generational" || evoMode == "steadyState",

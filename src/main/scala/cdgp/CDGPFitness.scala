@@ -194,67 +194,40 @@ abstract class EvalFunction[S, E](val state: State)
 
 
 abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
-                                   binaryTestPassValue: EVecEl,
-                                   binaryTestFailValue: EVecEl)
+                                   val binaryTestPassValue: EVecEl,
+                                   val binaryTestFailValue: EVecEl,
+                                   val testsTypesForRatio: Set[String],
+                                   val specialTestsEvaluator: SpecialTestsEvaluator[EVecEl])
                                   (implicit opt: Options, coll: Collector)
   extends EvalFunction[Op, E](state) {
   val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, Int.MaxValue, (x: Int) => x >= 0)
   val testsRatio: Double = opt('testsRatio, 1.0, (x: Double) => x >= 0.0 && x <= 1.0)
   val testsDiff: Option[Int] = opt.getOptionInt("testsDiff")
-  val partialConstraintsInFitness: Boolean = opt('partialConstraintsInFitness, false)
-  val globalConstraintInFitness: Boolean = opt('globalConstraintInFitness, false)
-  val sizeInFitness: Boolean = opt('sizeInFitness, false)
-  val partialConstraintsWeight: Int = opt('partialConstraintsWeight, 1, (x: Int) => x >= 1)
-  val testsTypesForRatio: Set[String] = opt('testsTypesForRatio, "c,i,s").split(",").toSet
+  val partialConstraintsInFitness: Boolean = specialTestsEvaluator.partialConstraintsInFitness
+  val globalConstraintInFitness: Boolean = specialTestsEvaluator.globalConstraintInFitness
+  val sizeInFitness: Boolean = specialTestsEvaluator.sizeInFitness
+  val partialConstraintsWeight: Int = specialTestsEvaluator.weight
   assert(testsTypesForRatio.subsetOf(Set("c", "i", "s")), "Incorrect type of test for --testsTypesForRatio; supported: c - complete tests, i - incomplete tests, s - special tests.")
 
+
   /** The number of constraints tests prepended to the evaluation vector.*/
-  val numberOfSpecialTests: Int = {
-    partialConstraintsWeight *
-    ((if (!partialConstraintsInFitness) 0 else state.sygusData.formalConstr.size) +
-      (if (sizeInFitness) 1 else 0) +
-      (if (globalConstraintInFitness) 1 else 0))
-  }
-
-  /** Constructs a vector for fitness elements constructed with the use of the formal verification. */
-  def getConstraintsVector(s: Op, passValue: EVecEl, nonpassValue: EVecEl): Seq[EVecEl] = {
-    var vector = Seq[EVecEl]()
-    val w = partialConstraintsWeight
-    if (partialConstraintsInFitness)
-      vector = Tools.duplicateElements(getPartialConstraintsVector(s, passValue, nonpassValue), w) ++: vector
-    if (globalConstraintInFitness)
-      vector = Tools.duplicateElements(Seq(getGlobalConstraintsDecision(s, passValue, nonpassValue)), w) ++: vector
-    if (sizeInFitness)
-      vector = Tools.duplicateElements(Seq(getProgramSize(s)), w) ++: vector
-    vector
-  }
-
-  /** Verifies solution on all formal constraints in order to add this info to the fitness vector. */
-  def getGlobalConstraintsDecision(s: Op, passValue: EVecEl, nonpassValue: EVecEl): EVecEl = {
-    val (dec, _) = state.verify(s)
-    if (dec == "unsat") passValue else nonpassValue
-  }
+  val numberOfSpecialTests: Int = specialTestsEvaluator.numberOfSpecialTests(state)
 
   /** Verifies solution on partial constraints in order to add this info to the fitness vector. */
-  def getPartialConstraintsVector(s: Op, passValue: EVecEl, nonpassValue: EVecEl): Seq[EVecEl] = {
-    state.sygusData.formalConstr.map{ constr =>
-      val template = new TemplateVerification(state.sygusData, false, state.timeout, Some(Seq(constr)))
-      val (dec, _) = state.verify(s, template)  //TODO: counterexamples can be collected here too
-      if (dec == "unsat") passValue else nonpassValue
-    }
-  }
+  def getPartialConstraintsEvalVector(s: Op, passValue: EVecEl, nonpassValue: EVecEl): Seq[EVecEl] =
+    specialTestsEvaluator.getPartialConstraintsEvalVector(state)(s, passValue, nonpassValue)
 
   /**
     * Returns parts of the evaluation vector that is concerned with testsRatio as a tuple,
     * in which the first element are evaluations of complete tests, and the second evaluations
     * of incomplete and special tests.
     */
-  def getEvalForVerificationRatio(tests: Seq[(Map[String, Any], Option[Any])],
-                                  evalTests: Seq[EVecEl]): (Seq[EVecEl], Seq[EVecEl]) = {
-    val evalComplete = if (testsTypesForRatio.contains("s")) extractEvalComplete(evalTests, tests) else Seq()
+  def getEvalForVerificationRatio(evalTests: Seq[EVecEl],
+                                  tests: Seq[(Map[String, Any], Option[Any])]): (Seq[EVecEl], Seq[EVecEl], Seq[EVecEl]) = {
+    val evalComplete = if (testsTypesForRatio.contains("c")) extractEvalComplete(evalTests, tests) else Seq()
     val evalIncomplete = if (testsTypesForRatio.contains("i")) extractEvalIncomplete(evalTests, tests) else Seq()
     val evalSpecial = if (testsTypesForRatio.contains("s")) extractEvalSpecial(evalTests) else Seq()
-    (evalComplete, evalIncomplete ++ evalSpecial)
+    (evalComplete, evalIncomplete, evalSpecial)
   }
 
   def extractEvalNormal(eval: Seq[EVecEl]): Seq[EVecEl] = eval.drop(numberOfSpecialTests)
@@ -287,7 +260,7 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
   def evalOnTestsAndConstraints(s: Op, tests: Seq[(I, Option[O])]): Seq[EVecEl] = {
     val testsStandard = evalOnTests(s, tests)
     if (partialConstraintsInFitness || globalConstraintInFitness || sizeInFitness)
-      getConstraintsVector(s, binaryTestPassValue, binaryTestFailValue) ++: testsStandard
+      specialTestsEvaluator.getEvalVector(state)(s, binaryTestPassValue, binaryTestFailValue) ++: testsStandard
     else
       testsStandard
   }
@@ -329,9 +302,10 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
 
 
 
-abstract class EvalCDGPDiscrete[E](state: StateCDGP)
+abstract class EvalCDGPDiscrete[E](state: StateCDGP,
+                                   testsTypesForRatio: Set[String])
                                   (implicit opt: Options, coll: Collector)
-  extends EvalCDGP[E, Int](state, 0, 1) {
+  extends EvalCDGP[E, Int](state, 0, 1, testsTypesForRatio, SpecialTestsEvaluator[Int]((s: Op) => s.size)) {
 
   override def getProgramSize(s: Op): Int = s.size
 
@@ -369,7 +343,7 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP)
 
   def fitnessOnlyTestCases: Op => (Boolean, Seq[Int]) =
     (s: Op) => {
-      val evalTests = evalOnTests(s, state.testsManager.getTests())
+      val evalTests = evalOnTestsAndConstraints(s, state.testsManager.getTests())
       if (evalTests.sum == 0)
         (true, evalTests)
       else
@@ -377,9 +351,10 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP)
     }
 
   def doVerify(evalTests: Seq[Int], tests: Seq[(Map[String, Any], Option[Any])]): Boolean = {
-    val (evalCompl, evalIncompl) = getEvalForVerificationRatio(tests, evalTests)
-    val testsForRatio = tests.zip(evalTests)
-    val numPassed = testsForRatio.count(_ == 0).asInstanceOf[Double]
+    val (evalCompl, evalIncompl, evalSpecial) = getEvalForVerificationRatio(evalTests, tests)
+    // CDGP in a discrete variant treats all tests as binary (passed or not), so all types of tests are treated equally.
+    val evalForRatio = evalCompl ++ evalIncompl ++ evalSpecial
+    val numPassed = evalForRatio.count(_ == 0).asInstanceOf[Double]
     if (testsDiff.isDefined)
       numPassed >= evalTests.size - testsDiff.get
     else
@@ -423,12 +398,12 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP)
 
 
 
-class EvalCDGPSeqInt(state: StateCDGP)
+class EvalCDGPSeqInt(state: StateCDGP, testsTypesForRatio: Set[String])
                     (implicit opt: Options, coll: Collector)
-  extends EvalCDGPDiscrete[FSeqInt](state) {
+  extends EvalCDGPDiscrete[FSeqInt](state, testsTypesForRatio) {
   override def apply(s: Op, init: Boolean): FSeqInt = {
     if (init) {
-      val e = evalOnTests(s, state.testsManager.getTests())
+      val e = evalOnTestsAndConstraints(s, state.testsManager.getTests())
       FSeqInt(false, e, s.size)
     }
     else {
@@ -446,12 +421,15 @@ class EvalCDGPSeqInt(state: StateCDGP)
 }
 
 
-class EvalCDGPInt(state: StateCDGP)
+
+
+
+class EvalCDGPInt(state: StateCDGP, testsTypesForRatio: Set[String])
                  (implicit opt: Options, coll: Collector)
-  extends EvalCDGPDiscrete[FInt](state) {
+  extends EvalCDGPDiscrete[FInt](state, testsTypesForRatio) {
   override def apply(s: Op, init: Boolean): FInt = {
     if (init) {
-      val e = evalOnTests(s, state.testsManager.getTests())
+      val e = evalOnTestsAndConstraints(s, state.testsManager.getTests())
       FInt(false, e, s.size)
     }
     else {
@@ -473,9 +451,10 @@ class EvalCDGPInt(state: StateCDGP)
 
 
 
-abstract class EvalGPRDiscrete[E](state: StateGPR)
+abstract class EvalGPRDiscrete[E](state: StateGPR,
+                                  testsTypesForRatio: Set[String])
                                  (implicit opt: Options, coll: Collector)
-  extends EvalCDGPDiscrete[E](state) {
+  extends EvalCDGPDiscrete[E](state, testsTypesForRatio) {
 
   def fitnessGPR: Op => (Boolean, Seq[Int]) = {
     if (state.sygusData.formalInvocations.isEmpty) fitnessOnlyTestCases
@@ -491,7 +470,7 @@ abstract class EvalGPRDiscrete[E](state: StateGPR)
       }
       def apply(s: Op): (Boolean, Seq[Int]) = {
         val tests = state.testsManager.getTests()
-        val evalTests = evalOnTests(s, tests)
+        val evalTests = evalOnTestsAndConstraints(s, tests)
         if (!doVerify(evalTests, tests))
           (false, evalTests)
         else if (allTestsPassed(evalTests)) {
@@ -513,19 +492,19 @@ abstract class EvalGPRDiscrete[E](state: StateGPR)
   }
 
   def fitnessNoVerification(s: Op): (Boolean, Seq[Int]) = {
-    (false, evalOnTests(s, state.testsManager.getTests()))
+    (false, evalOnTestsAndConstraints(s, state.testsManager.getTests()))
   }
 }
 
 
 
 
-class EvalGPRSeqInt(state: StateGPR)
+class EvalGPRSeqInt(state: StateGPR, testsTypesForRatio: Set[String])
                    (implicit opt: Options, coll: Collector)
-  extends EvalGPRDiscrete[FSeqInt](state) {
+  extends EvalGPRDiscrete[FSeqInt](state, testsTypesForRatio) {
   override def apply(s: Op, init: Boolean): FSeqInt = {
     if (init) {
-      val e = evalOnTests(s, state.testsManager.getTests())
+      val e = evalOnTestsAndConstraints(s, state.testsManager.getTests())
       FSeqInt(false, e, s.size)
     }
     else {
@@ -543,12 +522,12 @@ class EvalGPRSeqInt(state: StateGPR)
 }
 
 
-class EvalGPRInt(state: StateGPR)
+class EvalGPRInt(state: StateGPR, testsTypesForRatio: Set[String])
                 (implicit opt: Options, coll: Collector)
-  extends EvalGPRDiscrete[FInt](state) {
+  extends EvalGPRDiscrete[FInt](state, testsTypesForRatio) {
   override def apply(s: Op, init: Boolean): FInt = {
     if (init) {
-      val e = evalOnTests(s, state.testsManager.getTests())
+      val e = evalOnTestsAndConstraints(s, state.testsManager.getTests())
       FInt(false, e, s.size)
     }
     else {
@@ -583,14 +562,12 @@ class EvalGPRInt(state: StateGPR)
   * Fitness, in which for each program returned is a sequence of absolute differences
   * on the set of test cases.
   */
-abstract class EvalCDGPContinuous[E](state: StateCDGP)
+abstract class EvalCDGPContinuous[E](state: StateCDGP, testsTypesForRatio: Set[String])
                                     (implicit opt: Options, coll: Collector)
-  extends EvalCDGP[E, Double](state, 0.0, 1.0) {
+  extends EvalCDGP[E, Double](state, 0.0, 1.0, testsTypesForRatio, SpecialTestsEvaluator((op: Op) => op.size.toDouble)) {
   // Parameters:
   val optThreshold: Double = getOptThreshold
   coll.set("cdgp.optThreshold", optThreshold)
-  val partialConstraintsVisibleForTestsRatio: Boolean = opt('partialConstraintsVisibleForTestsRatio, false)
-
   checkValidity()
 
 
@@ -672,17 +649,15 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
     * verification is conducted.
     * @param evalTests Evaluations on all tests.
     */
-  def doVerify(evalTests: Seq[Double]): Boolean = {
-    // Verify only those solutions which pass all incomplete tests
-    lazy val evalConstr = extractEvalSpecial(evalTests)
-    var (eval, _) = extractEvalNormal(evalTests).zip(state.testsManager.tests).
-      filter { case (_, t) => t._2.isEmpty }.unzip
-    eval = if (partialConstraintsVisibleForTestsRatio) evalConstr ++ eval else eval
-    val numPassed = eval.count(_ == 0.0).asInstanceOf[Double]
+  def doVerify(evalTests: Seq[Double], tests: Seq[(Map[String, Any], Option[Any])]): Boolean = {
+    val (evalCompl, evalIncompl, evalSpecial) = getEvalForVerificationRatio(evalTests, tests)
+    // Verify only those solutions which pass all incomplete and special tests
+    val evalForRatio = evalIncompl ++ evalSpecial
+    val numPassed = evalForRatio.count(_ == 0.0).asInstanceOf[Double]
     if (testsDiff.isDefined)
-      numPassed >= eval.size - testsDiff.get
+      numPassed >= evalForRatio.size - testsDiff.get
     else
-      eval.isEmpty || (numPassed / eval.size) >= testsRatio
+      evalForRatio.isEmpty || (numPassed / evalForRatio.size) >= testsRatio
   }
 
   /**
@@ -702,12 +677,13 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
   def fitnessCDGPRegression: Op => (Boolean, Seq[Double]) =
     if (state.sygusData.formalInvocations.isEmpty) fitnessOnlyTestCases
     else (s: Op) => {
-      val evalTests = evalOnTestsAndConstraints(s, state.testsManager.getTests())
+      val tests = state.testsManager.getTests()
+      val evalTests = evalOnTestsAndConstraints(s, tests)
       // If the program passes the specified ratio of incomplete test cases, it will be
       // verified and a counterexample will be produced (or program will be deemed correct).
       // NOTE: if the program does not pass all test cases, then the probability is high
       // that the produced counterexample will already be in the set of test cases.
-      if (!doVerify(evalTests))
+      if (!doVerify(evalTests, tests))
         (false, evalTests)
       else {
         val (decision, model) = state.verify(s)
@@ -731,9 +707,9 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP)
 
 
 
-class EvalGPSeqDouble(state: StateCDGP)
+class EvalGPSeqDouble(state: StateCDGP, testsTypesForRatio: Set[String])
                      (implicit opt: Options, coll: Collector, rng: TRandom)
-  extends EvalCDGPContinuous[FSeqDouble](state) {
+  extends EvalCDGPContinuous[FSeqDouble](state, testsTypesForRatio) {
   override def apply(s: Op, init: Boolean): FSeqDouble = {
     val (isPerfect, eval) = fitnessOnlyTestCases(s)
     FSeqDouble(isPerfect, eval, s.size, numPCtests=numberOfSpecialTests)
@@ -748,9 +724,9 @@ class EvalGPSeqDouble(state: StateCDGP)
 }
 
 
-class EvalCDGPSeqDouble(state: StateCDGP)
+class EvalCDGPSeqDouble(state: StateCDGP, testsTypesForRatio: Set[String])
                        (implicit opt: Options, coll: Collector, rng: TRandom)
-  extends EvalGPSeqDouble(state) {
+  extends EvalGPSeqDouble(state, testsTypesForRatio) {
   override def apply(s: Op, init: Boolean): FSeqDouble = {
     if (init) {
       val (_, eval) = fitnessOnlyTestCases(s)
@@ -764,9 +740,9 @@ class EvalCDGPSeqDouble(state: StateCDGP)
 }
 
 
-class EvalGPDoubleMSE(state: StateCDGP)
+class EvalGPDoubleMSE(state: StateCDGP, testsTypesForRatio: Set[String])
                      (implicit opt: Options, coll: Collector, rng: TRandom)
-  extends EvalCDGPContinuous[FDouble](state) {
+  extends EvalCDGPContinuous[FDouble](state, testsTypesForRatio) {
   override def apply(s: Op, init: Boolean): FDouble = {
     val (isPerfect, eval) = fitnessOnlyTestCases(s)
     val mse = Tools.mse(extractEvalNormal(eval))
@@ -785,9 +761,9 @@ class EvalGPDoubleMSE(state: StateCDGP)
 }
 
 
-class EvalCDGPDoubleMSE(state: StateCDGP)
+class EvalCDGPDoubleMSE(state: StateCDGP, testsTypesForRatio: Set[String])
                        (implicit opt: Options, coll: Collector, rng: TRandom)
-  extends EvalGPDoubleMSE(state) {
+  extends EvalGPDoubleMSE(state, testsTypesForRatio) {
   override def apply(s: Op, init: Boolean): FDouble = {
     if (init) {
       val (_, eval) = fitnessOnlyTestCases(s)

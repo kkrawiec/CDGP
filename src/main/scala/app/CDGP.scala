@@ -15,27 +15,28 @@ object CDGP {
                   (implicit coll: Collector, opt: Options, rng: TRandom):
   (StateCDGP, Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]) = {
     val state = StateGPR(benchmark)
+    val testsTypesForRatio = opt('testsTypesForRatio, "c,i").split(",").toSet
     (selection, evoMode) match {
       case ("tournament", "generational") =>
-        val eval = new EvalGPRInt(state)
+        val eval = new EvalGPRInt(state, testsTypesForRatio)
         val alg = CDGPGenerationalTournament(eval)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (state, finalPop, alg.bsf.bestSoFar)
 
       case ("tournament", "steadyState") =>
-        val eval = new EvalGPRInt(state)
+        val eval = new EvalGPRInt(state, testsTypesForRatio)
         val alg = CDGPSteadyStateTournament(eval)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (state, finalPop, alg.bsf.bestSoFar)
 
       case ("lexicase", "generational") =>
-        val eval = new EvalGPRSeqInt(state)
+        val eval = new EvalGPRSeqInt(state, testsTypesForRatio)
         val alg = CDGPGenerationalLexicase(eval)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (state, finalPop, alg.bsf.bestSoFar)
 
       case ("lexicase", "steadyState") =>
-        val eval = new EvalGPRSeqInt(state)
+        val eval = new EvalGPRSeqInt(state, testsTypesForRatio)
         val alg = CDGPSteadyStateLexicase(eval)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (state, finalPop, alg.bsf.bestSoFar)
@@ -49,10 +50,11 @@ object CDGP {
   (StateCDGP, Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]) = {
     val problemData = SygusProblemData(LoadSygusBenchmark(benchmark), opt('mixedSpecAllowed, true))
     val state = StateCDGP(problemData)
+    val testsTypesForRatio = opt('testsTypesForRatio, "c,i,s").split(",").toSet
     (selection, evoMode) match {
       case ("tournament", "generational") =>
         implicit val ordering = FIntOrdering
-        val eval = new EvalCDGPInt(state)
+        val eval = new EvalCDGPInt(state, testsTypesForRatio)
         def cdgpCreator() = {
           CDGPGenerationalTournament(eval)
         }
@@ -64,7 +66,7 @@ object CDGP {
 
       case ("tournament", "steadyState") =>
         implicit val ordering = FIntOrdering
-        val eval = new EvalCDGPInt(state)
+        val eval = new EvalCDGPInt(state, testsTypesForRatio)
         def cdgpCreator() = {
           CDGPSteadyStateTournament(eval)
         }
@@ -76,7 +78,7 @@ object CDGP {
 
       case ("lexicase", "generational") =>
         implicit val ordering = FSeqIntOrdering
-        val eval = new EvalCDGPSeqInt(state)
+        val eval = new EvalCDGPSeqInt(state, testsTypesForRatio)
         def cdgpCreator() = {
           CDGPGenerationalLexicase(eval)
         }
@@ -88,7 +90,7 @@ object CDGP {
 
       case ("lexicase", "steadyState") =>
         implicit val ordering = FSeqIntOrdering
-        val eval = new EvalCDGPSeqInt(state)
+        val eval = new EvalCDGPSeqInt(state, testsTypesForRatio)
         def cdgpCreator() = {
           CDGPSteadyStateLexicase(eval)
         }
@@ -106,27 +108,28 @@ object CDGP {
                    (implicit coll: Collector, opt: Options, rng: TRandom):
   (StateCDGP, Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]) = {
     val state = StateCDGP(benchmark)
+    val testsTypesForRatio = opt('testsTypesForRatio, "c,i,s").split(",").toSet
     (selection, evoMode) match {
       case ("tournament", "generational") =>
-        val eval = new EvalCDGPInt(state)
+        val eval = new EvalCDGPInt(state, testsTypesForRatio)
         val alg = CDGPGenerationalTournament(eval)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (state, finalPop, alg.bsf.bestSoFar)
 
       case ("tournament", "steadyState") =>
-        val eval = new EvalCDGPInt(state)
+        val eval = new EvalCDGPInt(state, testsTypesForRatio)
         val alg = CDGPSteadyStateTournament(eval)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (state, finalPop, alg.bsf.bestSoFar)
 
       case ("lexicase", "generational") =>
-        val eval = new EvalCDGPSeqInt(state)
+        val eval = new EvalCDGPSeqInt(state, testsTypesForRatio)
         val alg = CDGPGenerationalLexicase(eval)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (state, finalPop, alg.bsf.bestSoFar)
 
       case ("lexicase", "steadyState") =>
-        val eval = new EvalCDGPSeqInt(state)
+        val eval = new EvalCDGPSeqInt(state, testsTypesForRatio)
         val alg = CDGPSteadyStateLexicase(eval)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
         (state, finalPop, alg.bsf.bestSoFar)

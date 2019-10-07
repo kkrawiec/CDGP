@@ -125,7 +125,7 @@ object CDGPOptions {
   args += OptionsValidator.optHelp
   // required args
   args += OptionInfo("benchmark", "String", required=true, desc="Path to a file in the SYGUS format describing the synthesis problem.")
-  args += OptionInfo("method", "String", choice=Set("CDGP", "GP", "GPR"), required=true, desc="Search algorithm to be used.")
+  args += OptionInfo("method", "String", choice=Set("CDGP", "CDGPprops", "GP", "GPR"), required=true, desc="Search algorithm to be used.")
   args += OptionInfo("solverPath", "String", required=true, desc="Path to the SMT solver.")
 
   // selected most important args
@@ -163,8 +163,7 @@ object CDGPOptions {
   args += OptionInfo("optionsFile", "String", desc="Path to property file from which options will be read.")
   args += OptionInfo("optThreshold", "Double", default=None, desc="Optimality threshold. If the solution's error is below this number, then it is assumed to be optimal and the run is terminated. If not specified, it is computed automatically as 0.001 times standard deviation of tests outputs.")
   args += OptionInfo("optThresholdC", "Double", default=Some("0.01"), desc="Factor C for automatic scaling of the optimality threshold ((C*stddev)^2).")
-  args += OptionInfo("partialConstraintsInFitness", "Bool", default=Some("false"), desc="If true, then the correctness of solution will be checked separately on individual constraints, and this information will be prepended to the evaluation vector.")
-  args += OptionInfo("partialConstraintsVisibleForTestsRatio", "Bool", default=Some("false"), desc="If true, then the testsRatio will take into account parts of the evaluation vector corresponding to formal partial constraints.")
+  args += OptionInfo("partialConstraintsInFitness", "Bool", desc="If true, then the correctness of solution will be checked separately on individual constraints, and this information will be prepended to the evaluation vector. By default true for CDGPprops, otherwise false.")
   args += OptionInfo("partialConstraintsWeight", "Int", default=Some("1"), desc="The weight of the partial constraints for lexicase selection. For example the weight of 2 means that each partial constraint will occur twice in the fitness vector.")
   args += OptionInfo("printTests", "Bool", default=Some("false"), desc="Prints every added test and after the evolution ends prints all collected tests.")
   args += OptionInfo("printQueries", "Bool", default=Some("false"), desc="Print all queries to SMT solver.")
@@ -181,7 +180,7 @@ object CDGPOptions {
   args += OptionInfo("solverType", "String", choice=Set("z3", "cvc4", "other"), default=Some("z3"), desc="Type of the solver. Must be specified, because some solvers require different options to work effectively.")
   args += OptionInfo("testsDiff", "Int", desc="If specified, solution will be verified if they do not pass at most testsDiff tests. TestsRatio parameter would be ignored.")
   args += OptionInfo("testsRatio", "Double", default=Some("1.0"), desc="Ratio of tests which must be passed in order to apply verification in search for a counterexample.")
-  args += OptionInfo("testsTypesForRatio", "[String]+", default=Some("c,i,s"), desc="Types of tests based on which ratio of passed tests will be computed. c - complete tests, i - incomplete tests, s - special tests (e.g., partial constraints). Example usage: --testsTypesForRatio i,c")
+  args += OptionInfo("testsTypesForRatio", "[String]+", desc="Types of tests based on which ratio of passed tests will be computed. c - complete tests, i - incomplete tests, s - special tests (e.g., partial constraints). Example usage: '--testsTypesForRatio i,c'.")
   args += OptionInfo("verbose", "Bool", default=Some("false"), desc="More printing.")
 
   // fuel and swim options

@@ -40,15 +40,15 @@ final class TestPartialConstraints {
     val problem = LoadSygusBenchmark.parseText(sygusMonotonicityOld)
     val sygusData = SygusProblemData(problem)
     val state = StateCDGP(sygusData)
-    val eval = new EvalCDGPSeqDouble(state)
+    val eval = new EvalCDGPSeqDouble(state, Set("c", "i", "s"))
 
     var op = Op('x)
-    var v = eval.getPartialConstraintsVector(op, passValue = 0, nonpassValue = 1)
+    var v = eval.getPartialConstraintsEvalVector(op, passValue = 0, nonpassValue = 1)
     println(s"PC Vector for $op: $v")
     assert(0.0 == v.head)
 
     op = Op('*, Op('x), Op('x))
-    v = eval.getPartialConstraintsVector(op, passValue = 0, nonpassValue = 1)
+    v = eval.getPartialConstraintsEvalVector(op, passValue = 0, nonpassValue = 1)
     println(s"PC Vector for $op: $v")
     assert(1.0 == v.head)
   }
@@ -58,15 +58,15 @@ final class TestPartialConstraints {
     val problem = LoadSygusBenchmark.parseText(sygusMonotonicityNew)
     val sygusData = SygusProblemData(problem)
     val state = StateCDGP(sygusData)
-    val eval = new EvalCDGPSeqDouble(state)
+    val eval = new EvalCDGPSeqDouble(state, Set("c", "i", "s"))
 
     var op = Op('x)
-    var v = eval.getPartialConstraintsVector(op, passValue = 0, nonpassValue = 1)
+    var v = eval.getPartialConstraintsEvalVector(op, passValue = 0, nonpassValue = 1)
     println(s"PC Vector for $op: $v")
     assert(0.0 == v.head)
 
     op = Op('*, Op('x), Op('x))
-    v = eval.getPartialConstraintsVector(op, passValue = 0, nonpassValue = 1)
+    v = eval.getPartialConstraintsEvalVector(op, passValue = 0, nonpassValue = 1)
     println(s"PC Vector for $op: $v")
     assert(1.0 == v.head)
   }
