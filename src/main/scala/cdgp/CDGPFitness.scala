@@ -208,6 +208,7 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
   val sizeInFitness: Boolean = specialTestsEvaluator.sizeInFitness
   val partialConstraintsWeight: Int = specialTestsEvaluator.weight
   assert(testsTypesForRatio.subsetOf(Set("c", "i", "s")), "Incorrect type of test for --testsTypesForRatio; supported: c - complete tests, i - incomplete tests, s - special tests.")
+  assert( if (testsTypesForRatio.contains("s")) partialConstraintsInFitness || sizeInFitness || globalConstraintInFitness else true, "Special tests were declared to be used for computing tests ratio, but none are part of the fitness vector. Please use at least one of: '--partialConstraintsInFitness true', '--globalConstraintsInFitness true', '--sizeInFitness true'.")
 
 
   /** The number of constraints tests prepended to the evaluation vector.*/

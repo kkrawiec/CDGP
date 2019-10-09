@@ -7,7 +7,7 @@ import fuel.util.{CollectorStdout, Options, Rng}
 import swim.tree.Op
 
 final class TestPartialConstraints {
-  implicit val emptyOpt = Options(s"--printQueries true --selection lexicase --evolutionMode generational ${Global.solverConfig}")
+  implicit val emptyOpt = Options(s"--partialConstraintsInFitness true --printQueries true --selection lexicase --evolutionMode generational ${Global.solverConfig}")
   implicit val coll = CollectorStdout(emptyOpt)
   implicit val rng = Rng(emptyOpt)
 

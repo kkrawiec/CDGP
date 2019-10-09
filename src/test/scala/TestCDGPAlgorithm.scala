@@ -155,7 +155,7 @@ final class TestCDGPAlgorithm {
     implicit val rng = Rng(emptyOpt)
     val problem = LoadSygusBenchmark.parseText(TestCDGPAlgorithm.scriptTestsWithTheSameInputs)
     val state = StateCDGP(problem)
-    val eval = new EvalCDGPSeqDouble(state, Set("c", "i", "s"))
+    val eval = new EvalCDGPSeqDouble(state, Set("c", "i"))
     val alg = CDGPSteadyStateEpsLexicase(eval)
 
     assertEquals(4, state.sygusData.testCasesConstrToTests.size)

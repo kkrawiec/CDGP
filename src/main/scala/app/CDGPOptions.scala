@@ -200,7 +200,7 @@ object CDGPOptions {
   args += OptionInfo("tournamentSize", "Int", default=Some("7"), desc="Size of the tournament in the tournament selection.")
   args += OptionInfo("tournamentDeselectSize", "Int", desc="Size of the tournament in the tournament deselection.")
 
-  // swim-specfic options
+  // swim-specific options
   args += OptionInfo("initMaxTreeDepth", "Int", default=Some("4"), desc=".")
   args += OptionInfo("maxSubtreeDepth", "Int", default=Some("4"), desc=".")
   args += OptionInfo("maxTreeDepth", "Int", default=Some("12"), desc=".")
