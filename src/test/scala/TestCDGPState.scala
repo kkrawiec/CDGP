@@ -129,15 +129,26 @@ final class TestCDGPState {
   @Test
   def testEvalTestsExtraction(): Unit = {
     implicit val opt = Options(s"--regression true --testsTypesForRatio c,s,i --partialConstraintsInFitness true ${Global.solverConfig}")
+    implicit val optEvalValue = Options(s"--testErrorVerValue 1.0 --regression true --testsTypesForRatio c,s,i --partialConstraintsInFitness true ${Global.solverConfig}")
+    implicit val optEvalValueDiff5 = Options(s"--testErrorVerValue 1.0 --testsMaxDiff 5 --regression true --testsTypesForRatio c,s,i --partialConstraintsInFitness true ${Global.solverConfig}")
+    implicit val optEvalPercent100 = Options(s"--testErrorVerPercent 1.0 --regression true --testsTypesForRatio c,s,i --partialConstraintsInFitness true ${Global.solverConfig}")
+    implicit val optEvalPercent300 = Options(s"--testErrorVerPercent 3.0 --regression true --testsTypesForRatio c,s,i --partialConstraintsInFitness true ${Global.solverConfig}")
     val problem = LoadSygusBenchmark.parseText(TestCDGPState.scriptIdentity)
     val state = StateCDGP(problem)(opt, coll, rng)
     val eval = new EvalCDGPSeqDouble(state, Set("c", "i", "s"))(opt, coll, rng)
+    val evalValueCIS = new EvalCDGPSeqDouble(state, Set("c", "i", "s"))(optEvalValue, coll, rng)
+    val evalValueDiff5CIS = new EvalCDGPSeqDouble(state, Set("c", "i", "s"))(optEvalValueDiff5, coll, rng)
+    val evalRatio100CIS = new EvalCDGPSeqDouble(state, Set("c", "i", "s"))(optEvalPercent100, coll, rng)
+    val evalRatio300C = new EvalCDGPSeqDouble(state, Set("c"))(optEvalPercent300, coll, rng)
+    // (constraint (= (f 1.0) 1.0))  // the first normal test
     state.testsManager.addNewTest((Map("x"->10.0), None))
     state.testsManager.addNewTest((Map("x"->11.0), None))
     state.testsManager.addNewTest((Map("x"->2.0), Some(2.0)))
     state.testsManager.addNewTest((Map("x"->3.0), Some(3.0)))
     state.testsManager.flushHelpers()
-    val v1 = Seq(0.0, 2.0, 1.0, 1.0, 2.0, 5.0)
+
+    val v1 = Seq(0.0, 2.0, 1.0, 1.0, 2.0, 5.0) // ERRORS
+    // VALUES:  (SSS, 1.0, ---, ---, 2.0, 3.0)
 
     val testsNormal = eval.extractEvalNormal(v1)
     val testsSpecial = eval.extractEvalSpecial(v1)
@@ -159,6 +170,15 @@ final class TestCDGPState {
     assertEquals(2, testsIncomplete.size)
     assertEquals(1.0, testsIncomplete(0), 0.0)
     assertEquals(1.0, testsIncomplete(1), 0.0)
+
+    assertEquals((1, 6), evalValueCIS.getNumPassedAndTotal(v1, state.testsManager.tests))
+    assertEquals(false, evalValueCIS.doVerify(v1, state.testsManager.tests))
+    assertEquals((1, 6), evalValueDiff5CIS.getNumPassedAndTotal(v1, state.testsManager.tests))
+    assertEquals(true, evalValueDiff5CIS.doVerify(v1, state.testsManager.tests))
+    assertEquals((2, 6), evalRatio100CIS.getNumPassedAndTotal(v1, state.testsManager.tests))
+    assertEquals(false, evalRatio100CIS.doVerify(v1, state.testsManager.tests))
+    assertEquals((3, 3), evalRatio300C.getNumPassedAndTotal(v1, state.testsManager.tests))
+    assertEquals(true, evalRatio300C.doVerify(v1, state.testsManager.tests))
   }
 
   @Test

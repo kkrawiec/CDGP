@@ -248,7 +248,7 @@ class StateCDGP(sygusData: SygusProblemData,
   }
 
   def isSingleAnswer(sygusData: SygusProblemData): Boolean = {
-    sygusData.singleInvocFormal && hasSingleAnswerForEveryInput(sygusData.problem).getOrElse(false)
+    sygusData.singleInvocFormal && !regression && hasSingleAnswerForEveryInput(sygusData.problem).getOrElse(false)
   }
 
   /**

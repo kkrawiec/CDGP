@@ -202,7 +202,7 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
   extends EvalFunction[Op, E](state) {
   val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, Int.MaxValue, (x: Int) => x >= 0)
   val testsRatio: Double = opt('testsRatio, 1.0, (x: Double) => x >= 0.0 && x <= 1.0)
-  val testsDiff: Option[Int] = opt.getOptionInt("testsDiff")
+  val testsMaxDiff: Option[Int] = opt.getOptionInt("testsMaxDiff")
   val partialConstraintsInFitness: Boolean = specialTestsEvaluator.partialConstraintsInFitness
   val globalConstraintInFitness: Boolean = specialTestsEvaluator.globalConstraintInFitness
   val sizeInFitness: Boolean = specialTestsEvaluator.sizeInFitness
@@ -294,9 +294,6 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
 
 
   def evalTestUsingDomain(s: Op, test: (I, Option[O])): EVecEl
-
-  /** Size of the Op converted to the correct unit. */
-  def getProgramSize(s: Op): EVecEl
 }
 
 
@@ -307,8 +304,6 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP,
                                    testsTypesForRatio: Set[String])
                                   (implicit opt: Options, coll: Collector)
   extends EvalCDGP[E, Int](state, 0, 1, testsTypesForRatio, SpecialTestsEvaluator[Int]((s: Op) => s.size)) {
-
-  override def getProgramSize(s: Op): Int = s.size
 
   /**
     * Checks correctness of the program only for the given test.
@@ -356,8 +351,8 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP,
     // CDGP in a discrete variant treats all tests as binary (passed or not), so all types of tests are treated equally.
     val evalForRatio = evalCompl ++ evalIncompl ++ evalSpecial
     val numPassed = evalForRatio.count(_ == 0).asInstanceOf[Double]
-    if (testsDiff.isDefined)
-      numPassed >= evalTests.size - testsDiff.get
+    if (testsMaxDiff.isDefined)
+      evalTests.size - numPassed <= testsMaxDiff.get
     else
       evalTests.isEmpty || (numPassed / evalTests.size) >= testsRatio
   }
@@ -567,12 +562,21 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP, testsTypesForRatio: Set[S
                                     (implicit opt: Options, coll: Collector)
   extends EvalCDGP[E, Double](state, 0.0, 1.0, testsTypesForRatio, SpecialTestsEvaluator((op: Op) => op.size.toDouble)) {
   // Parameters:
-  val optThreshold: Double = getOptThreshold
+  val optThreshold: Double = getOptThreshold()
+  val testErrorUseOptThreshold: Boolean = opt("testErrorUseOptThreshold", false)
+  val testErrorVerValue: Option[Double] = getTestErrorValue("testErrorVerValue")
+  val testErrorVerPercent: Double = opt("testErrorVerPercent", 0.05)
+  val testErrorOptValue: Option[Double] = getTestErrorValue("testErrorOptValue")
+  val testErrorOptPercent: Double = opt("testErrorOptPercent", 0.05)
   coll.set("cdgp.optThreshold", optThreshold)
   checkValidity()
 
+  def getTestErrorValue(pname: String): Option[Double] = {
+    val s = opt.getOption(pname)
+    if (s.isDefined) Some(s.get.toDouble) else None
+  }
 
-  def getOptThreshold: Double = {
+  def getOptThreshold(): Double = {
     if (opt.allOptions.contains("optThreshold"))
       opt.paramDouble("optThreshold")
     else {
@@ -582,8 +586,6 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP, testsTypesForRatio: Set[S
       (s * c) * (s * c)  // squared because of square in mse
     }
   }
-
-  override def getProgramSize(s: Op): Double = s.size.toDouble
 
   /**
     * Checks correctness of the program only for the given test.
@@ -628,44 +630,20 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP, testsTypesForRatio: Set[S
       throw new Exception(s"CDGP for regression requires all number constants in constraints to be of type Real. Problematic constant: $c")
   }
 
-  def isMseCloseToZero(evalTests: Seq[Double]): Boolean = {
-    Tools.mse(extractEvalNormal(evalTests)) <= optThreshold
-  }
-
-
   /**
-    * Fitness is computed on the test cases. No verification is performed.
-    * A solution passing all test cases is considered optimal.
-    */
-  def fitnessOnlyTestCases: Op => (Boolean, Seq[Double]) =
-    (s: Op) => {
-      val evalTests = evalOnTestsAndConstraints(s, state.testsManager.getTests())
-      (isMseCloseToZero(extractEvalNormal(evalTests)), evalTests)
-    }
-
-
-  /**
-    * Checks, if verification should be conducted. The ration of passed incomplete tests
-    * is computed and then compared to testsRatio parameter. If it is higher, then a
-    * verification is conducted.
-    * @param evalTests Evaluations on all tests.
-    */
-  def doVerify(evalTests: Seq[Double], tests: Seq[(Map[String, Any], Option[Any])]): Boolean = {
-    val (evalCompl, evalIncompl, evalSpecial) = getEvalForVerificationRatio(evalTests, tests)
-    // Verify only those solutions which pass all incomplete and special tests
-    val evalForRatio = evalIncompl ++ evalSpecial
-    val numPassed = evalForRatio.count(_ == 0.0).asInstanceOf[Double]
-    if (testsDiff.isDefined)
-      numPassed >= evalForRatio.size - testsDiff.get
-    else
-      evalForRatio.isEmpty || (numPassed / evalForRatio.size) >= testsRatio
+   * Zips tests and evals. This is not a straightforward process, because special tests are
+   * appended at the beginning.
+   **/
+  def zipTestsAndEval(tests: Seq[(Map[String, Any], Option[Any])], evalTests: Seq[Double]):
+    Seq[((Map[String, Any], Option[Any]), Double)] = {
+    tests.zip(extractEvalNormal(evalTests))
   }
 
   /**
-    * Creates and adds a new test based on the counterexample returned by solver.
-    *
-    * @param model Output from the solver for the verification query and sat decision.
-    */
+   * Creates and adds a new test based on the counterexample returned by solver.
+   *
+   * @param model Output from the solver for the verification query and sat decision.
+   */
   def addNewTest(model: String): Unit = {
     if (state.testsManager.newTests.size < maxNewTestsPerIter) {
       val newTest = state.createTestFromFailedVerification(model)
@@ -673,6 +651,74 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP, testsTypesForRatio: Set[S
         state.testsManager.addNewTest(newTest.get, allowInputDuplicates=false, allowTestDuplicates=false)
     }
   }
+
+
+  /**
+    * Checks, if verification should be conducted. The ration of passed incomplete tests
+    * is computed and then compared to testsRatio parameter. If it is higher, then a
+    * verification is conducted.
+    * @param evalTests Evaluations on all tests (complete, incomplete, special).
+    */
+  def doVerify(evalTests: Seq[Double], tests: Seq[(Map[String, Any], Option[Any])]): Boolean = {
+    val (passed, total) = getNumPassedAndTotal(evalTests, tests)
+    if (testsMaxDiff.isDefined)
+      total - passed <= testsMaxDiff.get
+    else
+      total == 0 || (passed.toDouble / total) >= testsRatio
+  }
+
+  /** Returns a number of passed tests and the total number of tests. **/
+  def getNumPassedAndTotal(evalTests: Seq[Double], tests: Seq[(Map[String, Any], Option[Any])]): (Int, Int) = {
+    val (evalCompl, evalIncompl, evalSpecial) = getEvalForVerificationRatio(evalTests, tests)
+    val evalBinary = evalIncompl ++ evalSpecial
+    if (testsTypesForRatio.contains("c"))
+      (getNumPassedCompleteTests(evalCompl, evalTests, tests)(testErrorVerValue, testErrorVerPercent) + getNumPassedBinaryTests(evalBinary), evalCompl.size + evalBinary.size)
+    else
+      (getNumPassedBinaryTests(evalBinary), evalBinary.size)
+  }
+
+  /** Computes a number of passed complete tests. **/
+  def getNumPassedCompleteTests(evalCompl: Seq[Double], evalTests: Seq[Double], tests: Seq[(Map[String, Any], Option[Any])])
+                               (testErrorValue: Option[Double] = testErrorVerValue, testErrorPercent: Double = testErrorVerPercent): Int = {
+    if (evalCompl.isEmpty)
+      0
+    else if (testErrorValue.isDefined)  // use absolute value error threshold. evalCompl contains absolute errors
+      evalCompl.count(_ <= testErrorValue.get)
+    else {
+      val z = zipTestsAndEval(tests, evalTests).filter(_._1._2.isDefined)
+      z.count { case ((input, output), d) =>
+        Math.abs(d / output.get.asInstanceOf[Double]) <= testErrorPercent
+      }
+    }
+  }
+
+  /** Computes a number of passed binary (incomplete or special) tests. **/
+  def getNumPassedBinaryTests(evalBinary: Seq[Double]): Int =
+    evalBinary.count(_ == 0.0)
+
+  def isMseCloseToZero(evalTests: Seq[Double]): Boolean = {
+    Tools.mse(extractEvalNormal(evalTests)) <= optThreshold
+  }
+
+  def isOptimalOnCompleteTests(evalTests: Seq[Double], tests: Seq[(Map[String, Any], Option[Any])]): Boolean = {
+    if (testErrorUseOptThreshold) {
+      val complEval = extractEvalComplete(evalTests, tests)
+      getNumPassedCompleteTests(complEval, evalTests, tests)(testErrorOptValue, testErrorOptPercent) == complEval.size
+    }
+    else
+      isMseCloseToZero(extractEvalNormal(evalTests))
+  }
+
+  /**
+   * Fitness is computed on the test cases. No verification is performed.
+   * A solution passing all test cases is considered optimal.
+   */
+  def fitnessOnlyTestCases: Op => (Boolean, Seq[Double]) =
+    (s: Op) => {
+      val tests = state.testsManager.getTests()
+      val evalTests = evalOnTestsAndConstraints(s, tests)
+      (isOptimalOnCompleteTests(evalTests, tests), evalTests)
+    }
 
   /** Fitness is always computed on the tests that were flushed. */
   def fitnessCDGPRegression: Op => (Boolean, Seq[Double]) =
@@ -689,7 +735,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP, testsTypesForRatio: Set[S
       else {
         val (decision, model) = state.verify(s)
         if (decision == "unsat")
-          (isMseCloseToZero(extractEvalNormal(evalTests)), evalTests)
+          (isOptimalOnCompleteTests(evalTests, tests), evalTests)
         else if (decision == "sat") {
           addNewTest(model.get)
           (false, evalTests)
