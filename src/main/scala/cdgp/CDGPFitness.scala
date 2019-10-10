@@ -212,11 +212,12 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
 
 
   /** The number of constraints tests prepended to the evaluation vector.*/
-  val numberOfSpecialTests: Int = specialTestsEvaluator.numberOfSpecialTests(state)
+  val numberOfSpecialTests: Int = specialTestsEvaluator.getNumberOfSpecialTests(state)
 
   /** Verifies solution on partial constraints in order to add this info to the fitness vector. */
   def getPartialConstraintsEvalVector(s: Op, passValue: EVecEl, nonpassValue: EVecEl): Seq[EVecEl] =
-    specialTestsEvaluator.getPartialConstraintsEvalVector(state)(s, passValue, nonpassValue)
+    specialTestsEvaluator.getPartialConstrEvalVector(state)(s, passValue, nonpassValue)
+
 
   /**
     * Returns parts of the evaluation vector that is concerned with testsRatio as a tuple,
@@ -294,6 +295,18 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
 
 
   def evalTestUsingDomain(s: Op, test: (I, Option[O])): EVecEl
+
+  /**
+    * Verifies a solution if it is necessary.
+    */
+  def verifySolution(s: Op, evalTests: Seq[EVecEl]): (String, Option[String]) = {
+    if (specialTestsEvaluator.partialConstraintsInFitness &&
+       !specialTestsEvaluator.getPartialConstrSubvector(state)(extractEvalSpecial(evalTests)).contains(binaryTestFailValue))
+      // Optimization: if all partial constraints are correct, then the global correctness will also be correct and no counterexample will be found
+     ("unsat", None)
+    else
+      state.verify(s)
+  }
 }
 
 
@@ -357,6 +370,7 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP,
       evalTests.isEmpty || (numPassed / evalTests.size) >= testsRatio
   }
 
+
   /** Fitness is always computed on the tests that were flushed. */
   def fitnessCDGPGeneral: Op => (Boolean, Seq[Int]) =
     if (state.sygusData.formalInvocations.isEmpty) fitnessOnlyTestCases
@@ -370,7 +384,7 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP,
       if (!doVerify(evalTests, tests))
         (false, evalTests)
       else {
-        val (decision, r) = state.verify(s)
+        val (decision, r) = verifySolution(s, evalTests)  //state.verify(s)
         if (decision == "unsat" && evalTests.sum == 0 &&
            (state.sygusData.logic != "SLIA" || evalTests.nonEmpty))  // a guard against bugs in the solver for Strings
           (true, evalTests) // perfect program found; end of run
@@ -733,7 +747,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP, testsTypesForRatio: Set[S
       if (!doVerify(evalTests, tests))
         (false, evalTests)
       else {
-        val (decision, model) = state.verify(s)
+        val (decision, model) = verifySolution(s, evalTests)  //state.verify(s)
         if (decision == "unsat")
           (isOptimalOnCompleteTests(evalTests, tests), evalTests)
         else if (decision == "sat") {
