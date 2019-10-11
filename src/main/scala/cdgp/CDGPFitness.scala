@@ -582,7 +582,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP, testsTypesForRatio: Set[S
   val testErrorVerPercent: Double = opt("testErrorVerPercent", 0.05)
   val testErrorOptValue: Option[Double] = getTestErrorValue("testErrorOptValue")
   val testErrorOptPercent: Double = opt("testErrorOptPercent", 0.05)
-  coll.set("cdgp.optThreshold", optThreshold)
+  coll.set("cdgp.optThresholdMSE", optThreshold)
   checkValidity()
 
   def getTestErrorValue(pname: String): Option[Double] = {
@@ -714,13 +714,19 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP, testsTypesForRatio: Set[S
     Tools.mse(extractEvalNormal(evalTests)) <= optThreshold
   }
 
-  def isOptimalOnCompleteTests(evalTests: Seq[Double], tests: Seq[(Map[String, Any], Option[Any])]): Boolean = {
+  /** Checks, if the eval of a solution meets criteria for optimality on the complete tests. **/
+  def isOptimalOnCompleteTests(eval: Seq[Double], tests: Seq[(Map[String, Any], Option[Any])]): Boolean = {
     if (testErrorUseOptThreshold) {
-      val complEval = extractEvalComplete(evalTests, tests)
-      getNumPassedCompleteTests(complEval, evalTests, tests)(testErrorOptValue, testErrorOptPercent) == complEval.size
+      val complEval = extractEvalComplete(eval, tests)
+      getNumPassedCompleteTests(complEval, eval, tests)(testErrorOptValue, testErrorOptPercent) == complEval.size
     }
     else
-      isMseCloseToZero(extractEvalNormal(evalTests))
+      isMseCloseToZero(extractEvalNormal(eval))
+  }
+
+  /** Checks, if the eval of a solution meets criteria for optimality on the complete tests. **/
+  def isOptimalOnCompleteTests(eval: Seq[Double]): Boolean = {
+    isOptimalOnCompleteTests(eval, state.testsManager.tests)
   }
 
   /**

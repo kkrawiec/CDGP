@@ -13,7 +13,7 @@ object RegressionCDGP {
 
   def getEvalForMSE(state: StateCDGP, method: String)
                    (implicit coll: Collector, opt: Options, rng: TRandom):
-  EvalFunction[Op, FDouble] = {
+  EvalCDGPContinuous[FDouble] = {
 
     if (method == "CDGPprops") {
       val testsTypesForRatio = opt('testsTypesForRatio, "i,s").split(",").toSet
@@ -32,7 +32,7 @@ object RegressionCDGP {
 
   def getEvalForSeqDouble(state: StateCDGP, method: String)
                          (implicit coll: Collector, opt: Options, rng: TRandom):
-  EvalFunction[Op, FSeqDouble] = {
+  EvalCDGPContinuous[FSeqDouble] = {
     if (method == "CDGPprops") {
       val testsTypesForRatio = opt('testsTypesForRatio, "i,s").split(",").toSet
       new EvalCDGPSeqDouble(state, testsTypesForRatio)
@@ -49,31 +49,31 @@ object RegressionCDGP {
 
   def runConfigRegressionCDGP(state: StateCDGP, method: String, selection: String, evoMode: String)
                              (implicit coll: Collector, opt: Options, rng: TRandom):
-  (Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]) = {
+  ((Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]), EvalCDGPContinuous[Fitness]) = {
     (selection, evoMode) match {
       case ("tournament", "generational") =>
         val eval = getEvalForMSE(state, method)
         val alg = CDGPGenerationalTournament(eval)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
-        (finalPop, alg.bsf.bestSoFar)
+        ((finalPop, alg.bsf.bestSoFar), eval.asInstanceOf[EvalCDGPContinuous[Fitness]])
 
       case ("tournament", "steadyState") =>
         val eval = getEvalForMSE(state, method)
         val alg = CDGPSteadyStateTournament(eval)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
-        (finalPop, alg.bsf.bestSoFar)
+        ((finalPop, alg.bsf.bestSoFar), eval.asInstanceOf[EvalCDGPContinuous[Fitness]])
 
       case ("lexicase", "generational") =>
         val eval = getEvalForSeqDouble(state, method)
         val alg = CDGPGenerationalEpsLexicase(eval)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
-        (finalPop, alg.bsf.bestSoFar)
+        ((finalPop, alg.bsf.bestSoFar), eval.asInstanceOf[EvalCDGPContinuous[Fitness]])
 
       case ("lexicase", "steadyState") =>
         val eval = getEvalForSeqDouble(state, method)
         val alg = CDGPSteadyStateEpsLexicase(eval)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
-        (finalPop, alg.bsf.bestSoFar)
+        ((finalPop, alg.bsf.bestSoFar), eval.asInstanceOf[EvalCDGPContinuous[Fitness]])
     }
   }
 
@@ -101,8 +101,8 @@ object RegressionCDGP {
       val cdgpState = StateCDGP(benchmark)
 
       // Run algorithm
-      val res = runConfigRegressionCDGP(cdgpState, method, selection, evoMode)
-      analyzeAndPrintResults(cdgpState, res)
+      val (res, eval) = runConfigRegressionCDGP(cdgpState, method, selection, evoMode)
+      analyzeAndPrintResults(cdgpState, eval, res)
     }
     catch {
       case e: NoSolutionException =>
@@ -129,6 +129,7 @@ object RegressionCDGP {
 
 
   def analyzeAndPrintResults(cdgpState: StateCDGP,
+                             eval: EvalCDGPContinuous[Fitness],
                              res: (Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]))
                             (implicit opt: Options, coll: Collector): Unit = {
     val bestOfRun = res._2
@@ -140,6 +141,11 @@ object RegressionCDGP {
       coll.setResult("best.verificationDecision", dec)
       coll.setResult("best.verificationModel", model)
     }
+
+    val dec = coll.getResult("best.verificationDecision").getOrElse("n/a")
+    val e = eval.evalOnTestsAndConstraints(bestOfRun.get._1, cdgpState.testsManager.tests)
+    coll.set("result.best.correctTests", eval.isOptimalOnCompleteTests(e))
+    coll.set("result.best.correctVerification", if (dec == "unsat") true else false)
 
     // Save information about which constraints were passed
     if (opt('logPassedConstraints, false)) {
@@ -162,7 +168,7 @@ object RegressionCDGP {
   def printResults(cdgpState: State, bestOfRun: Option[(Op, Fitness)])
                   (implicit coll: Collector, opt: Options) {
     assume(bestOfRun.isDefined, "No solution (optimal or approximate) to the problem was found.")
-    def isOptimal(bestOfRun: (Op, Fitness)): Boolean = bestOfRun._2.correct  //TODO: is this really a correct usage?
+    def isOptimal(bestOfRun: (Op, Fitness)): Boolean = bestOfRun._2.correct
 
     val pn = 26
     println("\n")
@@ -171,6 +177,8 @@ object RegressionCDGP {
     println("Evaluation:".padTo(pn, ' ') + coll.getResult("best.eval").getOrElse("n/a"))
     val dec = coll.getResult("best.verificationDecision").getOrElse("n/a")
     val model = coll.getResult("best.verificationModel").getOrElse("n/a")
+    println("Correct on tests:".padTo(pn, ' ') + coll.get("result.best.correctTests").getOrElse("n/a"))
+    println("Correct on verification:".padTo(pn, ' ') + coll.get("result.best.correctVerification").getOrElse("n/a"))
     println("Final verification:".padTo(pn, ' ') + s"$dec, model: $model")
     println("Program size:".padTo(pn, ' ') + coll.getResult("best.size").getOrElse("n/a"))
     println("MSE:".padTo(pn, ' ') + coll.getResult("best.mse").getOrElse("n/a"))
