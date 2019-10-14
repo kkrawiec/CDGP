@@ -411,7 +411,7 @@ final class TestCDGPState {
       """.stripMargin
     val problem = LoadSygusBenchmark.parseText(code)
     val data = SygusProblemData(problem, mixedSpecAllowed = true)
-    val tests = data.testCasesConstrToTests
+    val tests = data.testCasesConstrToTests()
     assertEquals(2, tests.size)
     assertEquals(Map("s"->"asd", "a"->0, "b"->1), tests(0)._1)
     assertEquals(Some("sad"), tests(0)._2)
@@ -433,7 +433,7 @@ final class TestCDGPState {
       """.stripMargin
     val problem = LoadSygusBenchmark.parseText(code)
     val data = SygusProblemData(problem, mixedSpecAllowed = true)
-    val tests = data.testCasesConstrToTests
+    val tests = data.testCasesConstrToTests()
     assertEquals(1, tests.size)
     assertEquals(Map("s"->"asd", "a"->0, "b"->2), tests(0)._1)
     assertEquals(Some("das"), tests(0)._2)

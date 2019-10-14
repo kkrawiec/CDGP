@@ -46,7 +46,7 @@ object VerificationExperiments extends App {
     val sygusProblem = LoadSygusBenchmark(file)
     val sygusData = SygusProblemData(sygusProblem)
     def synthTask = sygusData.synthTask
-    val tests = sygusData.testCasesConstrToTests
+    val tests = sygusData.testCasesConstrToTests()
     val testsSeq = tests.map{ test => test._1.toList.map(_._2)}
     val domainLIA = DomainSLIA(synthTask.argNames, Symbol(synthTask.fname))
 

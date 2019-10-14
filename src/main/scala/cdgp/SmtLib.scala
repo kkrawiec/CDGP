@@ -390,7 +390,8 @@ object SMTLIBFormatter {
   def synthSolutionToString(sst: SygusSynthTask, solutionSmtlib: String): String = {
     val args = synthFunArgsToString(sst)
     val tpe = sortToString(sst.outputType)
-    s"(define-fun ${sst.fname} ($args) $tpe\n\t$solutionSmtlib)"
+    val solutionFinal = solutionSmtlib.replace("?", "")
+    s"(define-fun ${sst.fname} ($args) $tpe\n\t$solutionFinal)"
   }
 
   def produceVarDecls(sygusData: SygusProblemData): String = {

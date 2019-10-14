@@ -50,20 +50,20 @@ trait CDGPAlgorithm[S <: Op, E <: Fitness] {
     if (bsf.bestSoFar.isDefined) {
       val (bestOfRun, e) = bsf.bestSoFar.get
       e.saveInColl(coll)
-      val solutionOriginal = SMTLIBFormatter.opToString(bestOfRun)
-      val solutionSimplified = cdgpState.simplifySolution(solutionOriginal)
-      val solution = solutionSimplified.getOrElse(solutionOriginal)
-      val solutionOp = SMTLIBFormatter.smtlibToOp(solution)
+      val solutionOrigSmtlib = SMTLIBFormatter.opToString(bestOfRun)
+      val solutionSimpSmtlib = cdgpState.simplifySolution(solutionOrigSmtlib).getOrElse(solutionOrigSmtlib).
+        replace("?)", ")").replace("? ", " ") // clean trailing '?' in double outputs from SMT solver
+      val solutionSimpOp = SMTLIBFormatter.smtlibToOp(solutionSimpSmtlib)
 
       coll.set("result.bestOrig", bestOfRun)
-      coll.set("result.bestOrig.smtlib", solutionOriginal)
+      coll.set("result.bestOrig.smtlib", solutionOrigSmtlib)
       coll.set("result.bestOrig.size", bestOfRun.size)
       coll.set("result.bestOrig.height", bestOfRun.height)
 
-      coll.set("result.best", solutionOp)
-      coll.set("result.best.smtlib", solution)
-      coll.set("result.best.size", solutionOp.size)
-      coll.set("result.best.height", solutionOp.height)
+      coll.set("result.best", solutionSimpOp)
+      coll.set("result.best.smtlib", solutionSimpSmtlib)
+      coll.set("result.best.size", solutionSimpOp.size)
+      coll.set("result.best.height", solutionSimpOp.height)
 
       coll.set("result.totalGenerations", numGenerations)
     }

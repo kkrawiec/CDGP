@@ -189,6 +189,8 @@ object CDGPOptions {
   args += OptionInfo("testErrorOptValue", "Int", desc="An absolute deviation from the expected value while still treated as a passed test. If this option is specified, then it overrides the --testErrorOptPercent option. Is used only for checking the optimality of some solution.")
   args += OptionInfo("testErrorVerPercent", "Int", default=Some("0.05"), desc="The percent threshold, for example, a 5% deviation from the original value treated as acceptable. It is the default option when the correctness of a single regression test is concerned. Assumed notation: 1% = 0.01.")
   args += OptionInfo("testErrorVerValue", "Int", desc="An absolute deviation from the expected value while still treated as a passed test. If this option is specified, then it overrides the --testErrorVerPercent option.")
+  args += OptionInfo("sizeTrainingSet", "Int", desc="Size of the training set. If not specified, then all observations constitute a training set. If specified, then the given number of tests is selected randomly, and the rest will constitute a test set.")
+  args += OptionInfo("shuffleData", "Bool", default=Some("true"), desc="If true, then the test cases will be shuffled before dividing them on training and test sets. By setting this to false one can be certain, that the first sizeTrainingSet examples will land in the training set.")
 
   // fuel and swim options
   args += OptionInfo("deleteOutputFile", "Bool", default=Some("true"), desc="Deletes output file upon successful completion of experiment.")

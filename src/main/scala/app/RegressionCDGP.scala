@@ -159,6 +159,13 @@ object RegressionCDGP {
       coll.setResult("best.passedConstraints", passed)
     }
 
+    val eTrain = eval.evalOnTests(bestOfRun.get._1, cdgpState.trainingSet)
+    val eTest = eval.evalOnTests(bestOfRun.get._1, cdgpState.testSet)
+    coll.setResult("best.trainEval", eTrain)
+    coll.setResult("best.trainMSE", Tools.mse(eTrain))
+    coll.setResult("best.testEval", if (eTest.nonEmpty) eTest else "n/a")
+    coll.setResult("best.testMSE", if (eTest.nonEmpty) Tools.mse(eTest) else "n/a")
+
     // Print and save results
     coll.saveSnapshot("cdgp")
     printResults(cdgpState, bestOfRun)
@@ -181,7 +188,8 @@ object RegressionCDGP {
     println("Correct on verification:".padTo(pn, ' ') + coll.get("result.best.correctVerification").getOrElse("n/a"))
     println("Final verification:".padTo(pn, ' ') + s"$dec, model: $model")
     println("Program size:".padTo(pn, ' ') + coll.getResult("best.size").getOrElse("n/a"))
-    println("MSE:".padTo(pn, ' ') + coll.getResult("best.mse").getOrElse("n/a"))
+    println("MSE (train):".padTo(pn, ' ') + coll.getResult("best.trainMSE").getOrElse("n/a"))
+    println("MSE (test):".padTo(pn, ' ') + coll.getResult("best.testMSE").getOrElse("n/a"))
     println("Tests total:".padTo(pn, ' ') + coll.get("tests.total").getOrElse("n/a"))
     println("Tests known outputs:".padTo(pn, ' ') + coll.get("tests.totalKnownOutputs").getOrElse("n/a"))
     println("Total solver calls:".padTo(pn, ' ') + coll.get("solver.totalCalls").getOrElse("n/a"))

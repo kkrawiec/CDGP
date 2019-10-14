@@ -7,6 +7,8 @@ import misc._
 
 object BenchmarksGPEM extends App {
   def fGravity(vars: Seq[Double]): Double = (6.674e-11 * vars(0) * vars(1)) / (vars(2) * vars(2))
+  def fResistancePar2(vars: Seq[Double]): Double = (vars(0) * vars(1)) / (vars(0) + vars(1))
+  def fResistancePar3(vars: Seq[Double]): Double = (vars(0) * vars(1) * vars(2)) / (vars(0)*vars(1) + vars(0)*vars(2) + vars(1)*vars(2))
   // The nguyen benchmarks specified below are the only ones supported by SMT solvers
   def fNguyen1(vars: Seq[Double]): Double = Math.pow(vars(0), 3) + Math.pow(vars(0), 2) + vars(0)
   def fNguyen3(vars: Seq[Double]): Double = Math.pow(vars(0), 5) + Math.pow(vars(0), 4) + Math.pow(vars(0), 3) + Math.pow(vars(0), 2) + vars(0)
@@ -88,7 +90,12 @@ object BenchmarksGPEM extends App {
   val ns = Seq(5, 100)
 
   val benchmarks = Seq(
-    ns.map{ n => Benchmark(b_gravity, generateTestsU(3, n, fGravity, 0.0001, 20.0)) }
+    ns.map{ n => Benchmark(b_gravity, generateTestsU(3, n, fGravity, 0.0001, 20.0)) },
+    ns.map{ n => Benchmark(b_resistance_par2, generateTestsU(2, n, fResistancePar2, 0.0001, 20.0)) },
+    ns.map{ n => Benchmark(b_resistance_par3, generateTestsU(3, n, fResistancePar3, 0.0001, 20.0)) },
+    ns.map{ n => Benchmark(b_nguyen1, generateTestsU(1, n, fNguyen1, 0.0001, 20.0)) },
+    ns.map{ n => Benchmark(b_nguyen3, generateTestsU(1, n, fNguyen3, 0.0001, 20.0)) },
+    ns.map{ n => Benchmark(b_nguyen4, generateTestsU(1, n, fNguyen4, 0.0001, 20.0)) }
   ).flatten
 
 

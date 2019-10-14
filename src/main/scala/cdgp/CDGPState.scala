@@ -1,5 +1,6 @@
 package cdgp
 
+import scala.util.Random
 import fuel.util.{Collector, Options, TRandom}
 import swim.tree.Op
 import sygus.{BoolSortExpr, IntSortExpr, RealSortExpr, SortExpr}
@@ -19,14 +20,32 @@ abstract class State(val sygusData: SygusProblemData,
   // The types for input and output
   type I = Map[String, Any]
   type O = Any
-  val silent = opt('silent, false)
+  protected val silent: Boolean = opt('silent, false)
   val allowTestDuplicates: Boolean = opt('allowTestDuplicates, false)
+  val sizeTrainingSet: Option[Int] = opt.getOptionInt("sizeTrainingSet")
 
   // Initializing population of test cases
-  testsManager.addNewTests(sygusData.testCasesConstrToTests, allowInputDuplicates=true, allowTestDuplicates=allowTestDuplicates)
+  val (trainingSet, testSet) = divideOnTrainingAndTestSet()
+  testsManager.addNewTests(trainingSet, allowInputDuplicates=true, allowTestDuplicates=allowTestDuplicates)
   if (opt('regression, false))
-    NoiseAdderStdDev(testsManager)  // try to add noise if this is a regression problem.
+    NoiseAdderStdDev(testsManager) // try to add noise if this is a regression problem. Noise will be added only to the training examples.
   // testsManager.flushHelpers() // This is done elsewhere (at the beginning of evolution)
+
+  /** Initializes the training set using the tests found in the sygus specification file. **/
+  def divideOnTrainingAndTestSet(): (Seq[(Map[String, Any], Option[Any])], Seq[(Map[String, Any], Option[Any])]) = {
+    val allTests = sygusData.testCasesConstrToTests()
+    if (sizeTrainingSet.isEmpty)
+      (allTests, Seq())
+    else {
+      val n = sizeTrainingSet.get
+      assert(n > 0, "Number of training examples must be positive.")
+      val shuffledTests = if (opt('shuffleData, true)) {
+        Random.setSeed(opt('seed, 0))
+        Random.shuffle(allTests)
+      } else allTests
+      (shuffledTests.take(n), shuffledTests.drop(n))
+    }
+  }
 
   /**
     * Saves state-related info and statistics in the collector.

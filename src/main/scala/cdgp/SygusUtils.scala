@@ -61,7 +61,7 @@ case class SygusProblemData(problem: SyGuS16,
   /**
     * Creates test cases for the found testCasesConstr.
     */
-  def testCasesConstrToTests: Seq[(Map[String, Any], Option[Any])] = {
+  def testCasesConstrToTests(): Seq[(Map[String, Any], Option[Any])] = {
     testCasesConstr.map { c =>
       val ct = c.t.asInstanceOf[CompositeTerm]
       // Test cases constraints are of the form: (= (f input) out).
