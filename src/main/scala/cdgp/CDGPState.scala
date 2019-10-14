@@ -22,7 +22,8 @@ abstract class State(val sygusData: SygusProblemData,
   type O = Any
   protected val silent: Boolean = opt('silent, false)
   val allowTestDuplicates: Boolean = opt('allowTestDuplicates, false)
-  val sizeTrainingSet: Option[Int] = opt.getOptionInt("sizeTrainingSet")
+  val sizeTrainSet: Option[Int] = opt.getOptionInt("sizeTrainSet")
+  val sizeTestSet: Option[Int] = opt.getOptionInt("sizeTestSet")
 
   // Initializing population of test cases
   val (trainingSet, testSet) = divideOnTrainingAndTestSet()
@@ -34,16 +35,18 @@ abstract class State(val sygusData: SygusProblemData,
   /** Initializes the training set using the tests found in the sygus specification file. **/
   def divideOnTrainingAndTestSet(): (Seq[(Map[String, Any], Option[Any])], Seq[(Map[String, Any], Option[Any])]) = {
     val allTests = sygusData.testCasesConstrToTests()
-    if (sizeTrainingSet.isEmpty)
+    if (sizeTrainSet.isEmpty && sizeTestSet.isEmpty)
       (allTests, Seq())
     else {
-      val n = sizeTrainingSet.get
+      val n = sizeTrainSet.getOrElse(allTests.size - sizeTestSet.get)
+      val m = sizeTestSet.getOrElse(allTests.size - n)
       assert(n > 0, "Number of training examples must be positive.")
+      assert(m >= 0, "Number of test examples must be nonnegative.")
       val shuffledTests = if (opt('shuffleData, true)) {
         Random.setSeed(opt('seed, 0))
         Random.shuffle(allTests)
       } else allTests
-      (shuffledTests.take(n), shuffledTests.drop(n))
+      (shuffledTests.take(n), shuffledTests.slice(n, n + m))
     }
   }
 

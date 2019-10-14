@@ -184,13 +184,15 @@ object CDGPOptions {
   args += OptionInfo("noiseDeltaY", "Double", default=Some("0.0"), desc="In regression mode, this will be the modifier for the standard deviation of the dependent variable. Higher value means higher noise.")
   args += OptionInfo("optThreshold", "Double", default=None, desc="Optimality threshold. If the solution's error is below this number, then it is assumed to be optimal and the run is terminated. If not specified, it is computed automatically as 0.001 times standard deviation of tests outputs.")
   args += OptionInfo("optThresholdC", "Double", default=Some("0.01"), desc="Factor C for automatic scaling of the optimality threshold ((C*stddev)^2).")
+  args += OptionInfo("shuffleData", "Bool", default=Some("true"), desc="If true, then the test cases will be shuffled before dividing them on training and test sets. By setting this to false one can be certain, that the first sizeTrainSet examples will land in the training set.")
+  args += OptionInfo("sizeTestSet", "Int", desc="Size of the test set.")
+  args += OptionInfo("sizeTrainSet", "Int", desc="Size of the training set.")
   args += OptionInfo("testErrorUseOptThreshold", "Bool", default=Some("false"), desc="If true, then the optimality criterion for tests will be the error on individual tests rather than the cumulative MSE. This option is limited to the termination criterion of the CDGP.")
   args += OptionInfo("testErrorOptPercent", "Int", default=Some("0.05"), desc="The percent threshold, for example, a 5% deviation from the original value treated as acceptable. It is the default option when the correctness of a single regression test is concerned. Assumed notation: 1% = 0.01. Is used only for checking the optimality of some solution.")
   args += OptionInfo("testErrorOptValue", "Int", desc="An absolute deviation from the expected value while still treated as a passed test. If this option is specified, then it overrides the --testErrorOptPercent option. Is used only for checking the optimality of some solution.")
   args += OptionInfo("testErrorVerPercent", "Int", default=Some("0.05"), desc="The percent threshold, for example, a 5% deviation from the original value treated as acceptable. It is the default option when the correctness of a single regression test is concerned. Assumed notation: 1% = 0.01.")
   args += OptionInfo("testErrorVerValue", "Int", desc="An absolute deviation from the expected value while still treated as a passed test. If this option is specified, then it overrides the --testErrorVerPercent option.")
-  args += OptionInfo("sizeTrainingSet", "Int", desc="Size of the training set. If not specified, then all observations constitute a training set. If specified, then the given number of tests is selected randomly, and the rest will constitute a test set.")
-  args += OptionInfo("shuffleData", "Bool", default=Some("true"), desc="If true, then the test cases will be shuffled before dividing them on training and test sets. By setting this to false one can be certain, that the first sizeTrainingSet examples will land in the training set.")
+
 
   // fuel and swim options
   args += OptionInfo("deleteOutputFile", "Bool", default=Some("true"), desc="Deletes output file upon successful completion of experiment.")

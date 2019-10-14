@@ -87,15 +87,15 @@ object BenchmarksGPEM extends App {
 
 
 
-  val ns = Seq(5, 100)
+  val ns = Seq(500)  // the number of data; will be later divided in CDGP on training and test set
 
   val benchmarks = Seq(
     ns.map{ n => Benchmark(b_gravity, generateTestsU(3, n, fGravity, 0.0001, 20.0)) },
     ns.map{ n => Benchmark(b_resistance_par2, generateTestsU(2, n, fResistancePar2, 0.0001, 20.0)) },
     ns.map{ n => Benchmark(b_resistance_par3, generateTestsU(3, n, fResistancePar3, 0.0001, 20.0)) },
-    ns.map{ n => Benchmark(b_nguyen1, generateTestsU(1, n, fNguyen1, 0.0001, 20.0)) },
-    ns.map{ n => Benchmark(b_nguyen3, generateTestsU(1, n, fNguyen3, 0.0001, 20.0)) },
-    ns.map{ n => Benchmark(b_nguyen4, generateTestsU(1, n, fNguyen4, 0.0001, 20.0)) }
+    ns.map{ n => Benchmark(b_nguyen1, generateTestsU(1, n, fNguyen1, -10.0, 10.0)) },
+    ns.map{ n => Benchmark(b_nguyen3, generateTestsU(1, n, fNguyen3, -10.0, 10.0)) },
+    ns.map{ n => Benchmark(b_nguyen4, generateTestsU(1, n, fNguyen4, -10.0, 10.0)) }
   ).flatten
 
 
