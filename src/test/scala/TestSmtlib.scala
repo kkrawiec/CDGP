@@ -444,5 +444,4 @@ final class TestSmtlib {
     assertEquals(Op("  "), SMTLIBFormatter.smtlibToOp("\"  \""))
     assertEquals(Op("a  b"), SMTLIBFormatter.smtlibToOp("\"a  b\""))
   }
-
 }

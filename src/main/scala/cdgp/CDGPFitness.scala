@@ -33,7 +33,7 @@ case class FSeqInt(correct: Boolean, value: Seq[Int], progSize: Int)
     val roundedRatio = BigDecimal(ratio).setScale(3, BigDecimal.RoundingMode.HALF_UP).toDouble
     coll.setResult("best.passedTests", passedTests)
     coll.setResult("best.numTests", this.size)
-    coll.setResult("best.passedTestsRatio", roundedRatio)
+    coll.setResult("best.passedTestsRatio", Tools.double2str(roundedRatio))
     coll.setResult("best.isOptimal", correct)
   }
   override def toString: String = s"Fit($correct, $value, progSize=$progSize)"
@@ -51,7 +51,7 @@ case class FSeqDouble(correct: Boolean, value: Seq[Double], progSize: Int, numPC
 
   override def saveInColl(coll: Collector): Unit = {
     //val mseRound = BigDecimal(mse).setScale(5, BigDecimal.RoundingMode.HALF_UP).toDouble
-    coll.setResult("best.mse", mse)
+    coll.setResult("best.mse", Tools.double2str(mse))
     coll.setResult("best.isOptimal", correct)
   }
   override def toString: String = s"Fit($correct, $value, progSize=$progSize)"
@@ -65,7 +65,7 @@ case class FInt(correct: Boolean, value: Int, progSize: Int, override val totalT
     val roundedRatio = BigDecimal(ratio).setScale(3, BigDecimal.RoundingMode.HALF_UP).toDouble
     coll.setResult("best.passedTests", passedTests)
     coll.setResult("best.numTests", totalTests)
-    coll.setResult("best.passedTestsRatio", roundedRatio)
+    coll.setResult("best.passedTestsRatio", Tools.double2str(roundedRatio))
     coll.setResult("best.isOptimal", correct)
   }
   override def toString: String = s"Fit($correct, $value, progSize=$progSize)"
@@ -79,7 +79,7 @@ object FInt {
 case class FDouble(correct: Boolean, value: Double, progSize: Int, override val totalTests: Int) extends Fitness {
   override def saveInColl(coll: Collector): Unit = {
     val rounded = BigDecimal(value).setScale(5, BigDecimal.RoundingMode.HALF_UP).toDouble
-    coll.setResult("best.mse", rounded)
+    coll.setResult("best.mse", Tools.double2str(rounded))
     coll.setResult("best.isOptimal", correct)
   }
   override def toString: String = s"Fit($correct, $value, progSize=$progSize)"
@@ -247,7 +247,7 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
 
 
   def handleEvalException(test: (I, Option[O]), s: Op, message: String) {
-    val msg = s"Error during evalutation of $s and test $test: $message"
+    val msg = s"Error during evaluation of $s and test $test: $message"
     coll.set("error_evalOnTests", msg)
     println(msg)
   }
@@ -582,7 +582,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP, testsTypesForRatio: Set[S
   val testErrorVerPercent: Double = opt("testErrorVerPercent", 0.05)
   val testErrorOptValue: Option[Double] = getTestErrorValue("testErrorOptValue")
   val testErrorOptPercent: Double = opt("testErrorOptPercent", 0.05)
-  coll.set("cdgp.optThresholdMSE", optThreshold)
+  coll.set("cdgp.optThresholdMSE", Tools.double2str(optThreshold))
   checkValidity()
 
   def getTestErrorValue(pname: String): Option[Double] = {

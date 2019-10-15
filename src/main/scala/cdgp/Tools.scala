@@ -53,7 +53,17 @@ object Tools {
   }
 
   /** Computes MSE of the list of errors. */
-  def mse(xs: Seq[Double]): Double = if (xs.isEmpty) 0.0 else xs.map(x => x*x).sum / xs.size
+  def mse(xs: Seq[Double]): Double =
+    if (xs.isEmpty) 0.0 else {
+      try {
+        val mse = xs.map(x => x * x).sum / xs.size
+        if (mse >= 0.0) mse
+        else Double.MaxValue  // MSE cannot be negative, return max double
+      }
+      catch {
+        case _: Throwable => Double.MaxValue  // in case there is some error with overflow
+      }
+    }
 
   def allOccurences(s: String, x: String): List[Int] = {
     var list = List[Int]()

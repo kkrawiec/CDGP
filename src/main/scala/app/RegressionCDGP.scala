@@ -162,9 +162,9 @@ object RegressionCDGP {
     val eTrain = eval.evalOnTests(bestOfRun.get._1, cdgpState.trainingSet)
     val eTest = eval.evalOnTests(bestOfRun.get._1, cdgpState.testSet)
     coll.setResult("best.trainEval", eTrain)
-    coll.setResult("best.trainMSE", Tools.mse(eTrain))
+    coll.setResult("best.trainMSE", Tools.double2str(Tools.mse(eTrain)))
     coll.setResult("best.testEval", if (eTest.nonEmpty) eTest else "n/a")
-    coll.setResult("best.testMSE", if (eTest.nonEmpty) Tools.mse(eTest) else "n/a")
+    coll.setResult("best.testMSE", if (eTest.nonEmpty) Tools.double2str(Tools.mse(eTest)) else "n/a")
 
     // Print and save results
     coll.saveSnapshot("cdgp")
