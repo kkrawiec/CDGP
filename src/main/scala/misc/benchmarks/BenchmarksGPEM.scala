@@ -58,7 +58,8 @@ object BenchmarksGPEM extends App {
     Seq( //TODO: properties
     ))
   val b_keijzer12 = Benchmark("keijzer12", Seq("x", "y"),
-    Seq( //TODO: properties
+    Seq(
+      CustomConstraint("(=> (> y 1.0)  (<= (keijzer12 x y) (keijzer12 (- x) y))  )", range=rangesGtZero("x"))
     ))
   val b_keijzer14 = Benchmark("keijzer14", Seq("x", "y"),
     Seq( //TODO: properties
