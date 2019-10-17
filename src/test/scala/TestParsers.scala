@@ -52,6 +52,7 @@ final class TestParsers {
     val parsed = GetValueParser(model).toMap
     assertEquals(Map("a" -> 0.0, "b" -> 0.00123, "c" -> -5.5, "d" -> -3.3, "e" -> -2.2, "f" -> 11.00811),
       parsed)
+    assertEquals(Map("x" -> -0.125), GetValueParser("""((x (- (/ 1.0 8.0))))""").toMap)
   }
 
   @Test

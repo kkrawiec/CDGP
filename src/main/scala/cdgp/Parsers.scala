@@ -19,7 +19,7 @@ object GetValueParser extends RegexParsers {
   def boolConst: Parser[Boolean] = boolean ^^ { b => b }
   def realConst: Parser[Double] =
     floatingPointRegex <~ opt("?") ^^ { x => x.toDouble } |
-    ("(" ~ "-" ~> floatingPointRegex <~ opt("?") <~ ")" ^^ { x => -x.toDouble }) |
+    ("(" ~ "-" ~> realConst <~ ")" ^^ { x => -x }) |
     ("(" ~ "/" ~> realConst ~ realConst <~ ")" ^^ { case x ~ y => x / y }) |
     ("(" ~ "/" ~> intConst ~ intConst <~ ")" ^^ { case x ~ y => x.toDouble / y })
 
