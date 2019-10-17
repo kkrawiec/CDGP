@@ -157,7 +157,7 @@ object CDGPOptions {
   args += OptionInfo("multipop.scheme", "String", choice=Set("none", "convectionEqualNumber"), default=Some("none"),
                      desc="Maximum time for a multipop scenario.")
   args += OptionInfo("notes", "String", desc="Any additional notes to be saved in logs.")
-  args += OptionInfo("numRestarts", "Int", desc="Number of times the algorithm will be restarted.")
+  args += OptionInfo("maxRestarts", "Int", desc="Number of times the algorithm will be restarted. If a correct solution is found in any run, then the whole algorithm terminates.")
   args += OptionInfo("optionsFile", "String", desc="Path to property file from which options will be read.")
   args += OptionInfo("partialConstraintsInFitness", "Bool", desc="If true, then the correctness of solution will be checked separately on individual constraints, and this information will be prepended to the evaluation vector. By default true for CDGPprops, otherwise false.")
   args += OptionInfo("partialConstraintsWeight", "Int", default=Some("1"), desc="The weight of the partial constraints for lexicase selection. For example the weight of 2 means that each partial constraint will occur twice in the fitness vector.")

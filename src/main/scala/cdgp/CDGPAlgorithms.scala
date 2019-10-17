@@ -381,7 +381,7 @@ object Common {
                     )(s: StatePop[(S,E)]): StatePop[(S,E)] = {
     @scala.annotation.tailrec
     def helper(startPop: StatePop[(S,E)], m: Int): StatePop[(S,E)] = {
-      // println(s"\n----- Algorithm run #${opt('numRestarts, 1)-m} -----")
+      // println(s"\n----- Algorithm run #${opt('maxRestarts, 1)-m} -----")
       if (m == 1) algorithm(startPop)
       else {
         val res = algorithm(startPop)
@@ -393,6 +393,6 @@ object Common {
         }
       }
     }
-    helper(s, opt('numRestarts, 1, (x: Int) => x >= 1))
+    helper(s, opt('maxRestarts, 1, (x: Int) => x >= 1))
   }
 }
