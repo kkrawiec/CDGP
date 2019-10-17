@@ -109,7 +109,7 @@ abstract class CDGPGenerationalCore[E <: Fitness](moves: GPMoves,
   override def evaluate = cdgpEval
   override def report = bsf
   override def algorithm =
-    (s: StatePop[(Op, E)]) =>  Common.restartLoop(initialize, super.algorithm, correct, it, bsf, opt)(s)
+    (s: StatePop[(Op, E)]) =>  Common.restartLoop(initialize, super.algorithm, correct, it, bsf, opt, coll)(s)
   val bsf = BestSoFar[Op, E](ordering, it)
   // This breeder returns StatePop[Op], because it is generational
   def createBreeder(s: StatePop[(Op, E)]): StatePop[(Op, E)] => StatePop[Op]  // to be implemented by children
@@ -229,7 +229,7 @@ abstract class CDGPSteadyStateCore[E <: Fitness]
         StatePop(s.map{ op => (op, cdgpEval.eval(op, true)) })
     }
   override def algorithm =
-    (s: StatePop[(Op, E)]) =>  Common.restartLoop(initialize, super.algorithm andThen bsf, correct, it, bsf, opt)(s)
+    (s: StatePop[(Op, E)]) =>  Common.restartLoop(initialize, super.algorithm andThen bsf, correct, it, bsf, opt, coll)(s)
   val bsf = BestSoFar[Op, E](ordering, it)
   // This breeder returns StatePop[(Op, E)], because it is generational
   def createBreeder(s: StatePop[(Op, E)]): StatePop[(Op, E)] => StatePop[(Op, E)]  // to be implemented by children
@@ -377,22 +377,24 @@ object Common {
                      correct: (S, E) => Boolean,
                      callCounter: CallCounter[StatePop[(S,E)], StatePop[(S,E)]],
                      bsf: BestSoFar[S, E],
-                     opt: Options
+                     opt: Options, coll: Collector
                     )(s: StatePop[(S,E)]): StatePop[(S,E)] = {
     @scala.annotation.tailrec
     def helper(startPop: StatePop[(S,E)], m: Int): StatePop[(S,E)] = {
       // println(s"\n----- Algorithm run #${opt('maxRestarts, 1)-m} -----")
-      if (m == 1) algorithm(startPop)
+      if (m == 0) algorithm(startPop)
       else {
         val res = algorithm(startPop)
         val b = bsf.bestSoFar.get
         if (bsf.bestSoFar.isDefined && correct(b._1, b._2)) res
         else {
           callCounter.reset()
+          coll.set("cdgp.doneAlgRestarts", 1 + coll.get("cdgp.doneAlgRestarts").get.asInstanceOf[Int])
           helper(initialize(), m-1)
         }
       }
     }
-    helper(s, opt('maxRestarts, 1, (x: Int) => x >= 1))
+    coll.set("cdgp.doneAlgRestarts", 0)
+    helper(s, opt('maxRestarts, 0, (x: Int) => x >= 0))
   }
 }
