@@ -97,6 +97,7 @@ abstract class CDGPGenerationalCore[E <: Fitness](moves: GPMoves,
                                                   correct: (Op, E) => Boolean)
                                    (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
   extends EACore[Op, E](moves, SequentialEval(cdgpEval.eval), correct) with CDGPAlgorithm[Op, E] {
+  // TODO: this can inherit from IterativeSearch instead of EACore
   override def cdgpState = cdgpEval.state
   override def iter = (s: StatePop[(Op, E)]) => (
     createBreeder(s) andThen
@@ -222,11 +223,8 @@ abstract class CDGPSteadyStateCore[E <: Fitness]
   override def report = bsf
   override def evaluate = // used only for the initial population
     (s: StatePop[Op]) => {
-      cdgpEval.state.testsManager.flushHelpers()
-      if (cdgpEval.state.testsManager.tests.isEmpty)
-        Common.evalPopToDefault(cdgpEval.eval)(s)
-      else
-        StatePop(s.map{ op => (op, cdgpEval.eval(op, true)) })
+      cdgpEval.state.testsManager.flushHelpers()  // necessary for steady state, because not done earlier
+      StatePop(s.map{ op => (op, cdgpEval.eval(op, init=true)) })
     }
   override def algorithm =
     (s: StatePop[(Op, E)]) =>  Common.restartLoop(initialize, super.algorithm andThen bsf, correct, it, bsf, opt, coll)(s)

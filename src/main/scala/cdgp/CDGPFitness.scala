@@ -78,8 +78,7 @@ object FInt {
 
 case class FDouble(correct: Boolean, value: Double, progSize: Int, override val totalTests: Int) extends Fitness {
   override def saveInColl(coll: Collector): Unit = {
-    val rounded = BigDecimal(value).setScale(5, BigDecimal.RoundingMode.HALF_UP).toDouble
-    coll.setResult("best.mse", Tools.double2str(rounded))
+    coll.setResult("best.mse", Tools.double2str(value))
     coll.setResult("best.isOptimal", correct)
   }
   override def toString: String = s"Fit($correct, $value, progSize=$progSize)"
@@ -260,11 +259,11 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
    * Takes into account partial constraints.
    */
   def evalOnTestsAndConstraints(s: Op, tests: Seq[(I, Option[O])]): Seq[EVecEl] = {
-    val testsStandard = evalOnTests(s, tests)
+    val evalStandard = evalOnTests(s, tests)
     if (partialConstraintsInFitness || globalConstraintInFitness || sizeInFitness)
-      specialTestsEvaluator.getEvalVector(state)(s, binaryTestPassValue, binaryTestFailValue) ++: testsStandard
+      specialTestsEvaluator.getEvalVector(state)(s, binaryTestPassValue, binaryTestFailValue) ++: evalStandard
     else
-      testsStandard
+      evalStandard
   }
 
   /** Evaluates a program on the provided set of tests (complete or incomplete). **/
@@ -363,16 +362,16 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP,
     val (evalCompl, evalIncompl, evalSpecial) = getEvalForVerificationRatio(evalTests, tests)
     // CDGP in a discrete variant treats all tests as binary (passed or not), so all types of tests are treated equally.
     val evalForRatio = evalCompl ++ evalIncompl ++ evalSpecial
-    val numPassed = evalForRatio.count(_ == 0).asInstanceOf[Double]
+    val numPassed = evalForRatio.count(_ == 0)
     if (testsMaxDiff.isDefined)
-      evalTests.size - numPassed <= testsMaxDiff.get
+      evalForRatio.size - numPassed <= testsMaxDiff.get
     else
-      evalTests.isEmpty || (numPassed / evalTests.size) >= testsRatio
+      evalForRatio.isEmpty || (numPassed.toDouble / evalForRatio.size) >= testsRatio
   }
 
 
   /** Fitness is always computed on the tests that were flushed. */
-  def fitnessCDGPGeneral: Op => (Boolean, Seq[Int]) =
+  def fitnessCDGPGeneral(ignoreVerification: Boolean = false): Op => (Boolean, Seq[Int]) =
     if (state.sygusData.formalInvocations.isEmpty) fitnessOnlyTestCases
     else (s: Op) => {
       val tests = state.testsManager.getTests()
@@ -381,7 +380,7 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP,
       // and a counterexample will be produced (or program will be deemed correct).
       // NOTE: if the program does not pass all test cases, then the probability is high
       // that the produced counterexample will already be in the set of test cases.
-      if (!doVerify(evalTests, tests))
+      if (ignoreVerification || !doVerify(evalTests, tests))
         (false, evalTests)
       else {
         val (decision, r) = verifySolution(s, evalTests)  //state.verify(s)
@@ -412,14 +411,8 @@ class EvalCDGPSeqInt(state: StateCDGP, testsTypesForRatio: Set[String])
                     (implicit opt: Options, coll: Collector)
   extends EvalCDGPDiscrete[FSeqInt](state, testsTypesForRatio) {
   override def apply(s: Op, init: Boolean): FSeqInt = {
-    if (init) {
-      val e = evalOnTestsAndConstraints(s, state.testsManager.getTests())
-      FSeqInt(false, e, s.size)
-    }
-    else {
-      val (isPerfect, eval) = fitnessCDGPGeneral(s)
+      val (isPerfect, eval) = fitnessCDGPGeneral(init)(s)
       FSeqInt(isPerfect, eval, s.size)
-    }
   }
   override def updateEval(s: (Op, FSeqInt)): (Op, FSeqInt) = {
     val missingTests = state.testsManager.dropFromTests(s._2.totalTests) ++ state.testsManager.newTests.toList
@@ -438,14 +431,8 @@ class EvalCDGPInt(state: StateCDGP, testsTypesForRatio: Set[String])
                  (implicit opt: Options, coll: Collector)
   extends EvalCDGPDiscrete[FInt](state, testsTypesForRatio) {
   override def apply(s: Op, init: Boolean): FInt = {
-    if (init) {
-      val e = evalOnTestsAndConstraints(s, state.testsManager.getTests())
-      FInt(false, e, s.size)
-    }
-    else {
-      val (isPerfect, eval) = fitnessCDGPGeneral(s)
+      val (isPerfect, eval) = fitnessCDGPGeneral(init)(s)
       FInt(isPerfect, eval, s.size)
-    }
   }
   override def updateEval(s: (Op, FInt)): (Op, FInt) = {
     val missingTests = state.testsManager.dropFromTests(s._2.totalTests) ++ state.testsManager.newTests.toList
@@ -741,7 +728,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP, testsTypesForRatio: Set[S
     }
 
   /** Fitness is always computed on the tests that were flushed. */
-  def fitnessCDGPRegression: Op => (Boolean, Seq[Double]) =
+  def fitnessCDGPRegression(ignoreVerification: Boolean = false): Op => (Boolean, Seq[Double]) =
     if (state.sygusData.formalInvocations.isEmpty) fitnessOnlyTestCases
     else (s: Op) => {
       val tests = state.testsManager.getTests()
@@ -750,7 +737,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP, testsTypesForRatio: Set[S
       // verified and a counterexample will be produced (or program will be deemed correct).
       // NOTE: if the program does not pass all test cases, then the probability is high
       // that the produced counterexample will already be in the set of test cases.
-      if (!doVerify(evalTests, tests))
+      if (ignoreVerification || !doVerify(evalTests, tests))
         (false, evalTests)
       else {
         val (decision, model) = verifySolution(s, evalTests)  //state.verify(s)
@@ -795,14 +782,10 @@ class EvalCDGPSeqDouble(state: StateCDGP, testsTypesForRatio: Set[String])
                        (implicit opt: Options, coll: Collector, rng: TRandom)
   extends EvalGPSeqDouble(state, testsTypesForRatio) {
   override def apply(s: Op, init: Boolean): FSeqDouble = {
-    if (init) {
-      val (_, eval) = fitnessOnlyTestCases(s)
-      FSeqDouble(false, eval, s.size, numPCtests=numberOfSpecialTests) // correctness set to false to not trigger correctness based only on the MSE
-    }
-    else {
-      val (isPerfect, eval) = fitnessCDGPRegression(s)
-      FSeqDouble(isPerfect, eval, s.size, numPCtests=numberOfSpecialTests)
-    }
+    // init=true ensures that correctness is false in order to not trigger verification on example;
+    // useful especially for steady state
+    val (isPerfect, eval) = fitnessCDGPRegression(init)(s)
+    FSeqDouble(isPerfect, eval, s.size, numPCtests=numberOfSpecialTests)
   }
 }
 
@@ -832,15 +815,10 @@ class EvalCDGPDoubleMSE(state: StateCDGP, testsTypesForRatio: Set[String])
                        (implicit opt: Options, coll: Collector, rng: TRandom)
   extends EvalGPDoubleMSE(state, testsTypesForRatio) {
   override def apply(s: Op, init: Boolean): FDouble = {
-    if (init) {
-      val (_, eval) = fitnessOnlyTestCases(s)
-      val mse = Tools.mse(extractEvalNormal(eval))
-      FDouble(false, mse, s.size, eval.size) // correctness set to false to not trigger correctness based only on the MSE
-    }
-    else {
-      val (isPerfect, eval) = fitnessCDGPRegression(s)
-      val mse = Tools.mse(extractEvalNormal(eval))
-      FDouble(isPerfect, mse, s.size, eval.size)
-    }
+    // init=true ensures that correctness is false in order to not trigger verification on example;
+    // useful especially for steady state
+    val (isPerfect, eval) = fitnessCDGPRegression(init)(s)
+    val mse = Tools.mse(extractEvalNormal(eval))
+    FDouble(isPerfect, mse, s.size, eval.size)
   }
 }

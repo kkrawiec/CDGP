@@ -50,7 +50,7 @@ object CDGP {
   (StateCDGP, Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]) = {
     val problemData = SygusProblemData(LoadSygusBenchmark(benchmark), opt('mixedSpecAllowed, true))
     val state = StateCDGP(problemData)
-    val testsTypesForRatio = opt('testsTypesForRatio, "c,i,s").split(",").toSet
+    val testsTypesForRatio = opt('testsTypesForRatio, "c,i").split(",").toSet
     (selection, evoMode) match {
       case ("tournament", "generational") =>
         implicit val ordering = FIntOrdering
@@ -108,7 +108,7 @@ object CDGP {
                    (implicit coll: Collector, opt: Options, rng: TRandom):
   (StateCDGP, Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]) = {
     val state = StateCDGP(benchmark)
-    val testsTypesForRatio = opt('testsTypesForRatio, "c,i,s").split(",").toSet
+    val testsTypesForRatio = opt('testsTypesForRatio, "c,i").split(",").toSet
     (selection, evoMode) match {
       case ("tournament", "generational") =>
         val eval = new EvalCDGPInt(state, testsTypesForRatio)
