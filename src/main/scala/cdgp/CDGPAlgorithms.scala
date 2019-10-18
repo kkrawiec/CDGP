@@ -358,10 +358,6 @@ object Common {
     else false
   }
 
-  def evalPopToDefault[S, E](eval: EvalFunction[S, E])(s: StatePop[S]): StatePop[(S, E)] = {
-    StatePop(s.map{ op => (op, eval.defaultValue(op))})
-  }
-
   def printPop[S, E](s: StatePop[(S, E)]): StatePop[(S, E)] = {
     println(s"\nPopulation (size=${s.size}):")
     for (x <- s)

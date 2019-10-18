@@ -173,12 +173,6 @@ abstract class EvalFunction[S, E](val state: State)
   def apply(s: S, init: Boolean): E
 
   /**
-    * Assigns a default ("zero") evaluation to the given solution. This function is used for example
-    * during initialization of the population in steady state algorithm.
-    */
-  def defaultValue(s: S): E
-
-  /**
     * A function for checking, if the given solution is optimal.
     */
   val correct: E => Boolean
@@ -418,7 +412,6 @@ class EvalCDGPSeqInt(state: StateCDGP, testsTypesForRatio: Set[String])
     val missingTests = state.testsManager.dropFromTests(s._2.totalTests) ++ state.testsManager.newTests.toList
     (s._1, FSeqInt(s._2.correct, s._2.value ++ evalOnTests(s._1, missingTests), s._1.size))
   }
-  override def defaultValue(s: Op) = FSeqInt(false, Seq(), s.size)
   override val correct = (e: FSeqInt) => e.correct && e.value.sum == 0
   override val ordering = FSeqIntOrdering
 }
@@ -439,7 +432,6 @@ class EvalCDGPInt(state: StateCDGP, testsTypesForRatio: Set[String])
     val newFit = FInt(s._2.correct, s._2.value + evalOnTests(s._1, missingTests).sum, s._1.size, state.testsManager.getNumberOfTests)
     (s._1, newFit)
   }
-  override def defaultValue(s: Op) = FInt(false, Seq(), s.size)
   override val correct = (e: FInt) => e.correct && e.value == 0
   override val ordering = FIntOrdering
 }
@@ -513,7 +505,6 @@ class EvalGPRSeqInt(state: StateGPR, testsTypesForRatio: Set[String])
     val missingTests = state.testsManager.dropFromTests(s._2.totalTests) ++ state.testsManager.newTests.toList
     (s._1, FSeqInt(s._2.correct, s._2.value ++ evalOnTests(s._1, missingTests), s._1.size))
   }
-  override def defaultValue(s: Op) = FSeqInt(false, Seq(), s.size)
   override val correct = (e: FSeqInt) => e.correct && e.value.sum == 0
   override val ordering = FSeqIntOrdering
 }
@@ -537,7 +528,6 @@ class EvalGPRInt(state: StateGPR, testsTypesForRatio: Set[String])
     val newFit = FInt(s._2.correct, s._2.value + evalOnTests(s._1, missingTests).sum, s._1.size, state.testsManager.getNumberOfTests)
     (s._1, newFit)
   }
-  override def defaultValue(s: Op) = FInt(false, Seq(), s.size)
   override val correct = (e: FInt) => e.correct && e.value == 0
   override val ordering = FIntOrdering
 }
@@ -772,7 +762,6 @@ class EvalGPSeqDouble(state: StateCDGP, testsTypesForRatio: Set[String])
     val missingTests = state.testsManager.dropFromTests(s._2.totalTests) ++ state.testsManager.newTests.toList
     (s._1, FSeqDouble(s._2.correct, s._2.value ++ evalOnTests(s._1, missingTests), s._2.progSize, s._2.numPCtests))
   }
-  override def defaultValue(s: Op) = FSeqDouble(false, Seq(), s.size, 0)
   override val correct = (e: FSeqDouble) => e.correct
   override val ordering = FSeqDoubleOrderingMSE
 }
@@ -805,7 +794,6 @@ class EvalGPDoubleMSE(state: StateCDGP, testsTypesForRatio: Set[String])
     val newFit = FDouble(s._2.correct, newValue, s._2.progSize, s._2.totalTests + missingTests.size)
     (s._1, newFit)
   }
-  override def defaultValue(s: Op) = FDouble(false, 0.0, s.size, 0)
   override val correct = (e: FDouble) => e.correct
   override val ordering = FDoubleOrdering
 }
