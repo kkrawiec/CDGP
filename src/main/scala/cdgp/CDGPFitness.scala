@@ -51,7 +51,7 @@ case class FSeqDouble(correct: Boolean, value: Seq[Double], progSize: Int, numPC
 
   override def saveInColl(coll: Collector): Unit = {
     //val mseRound = BigDecimal(mse).setScale(5, BigDecimal.RoundingMode.HALF_UP).toDouble
-    coll.setResult("best.mse", Tools.double2str(mse))
+    coll.setResult("best.mseAllTests", Tools.double2str(mse))
     coll.setResult("best.isOptimal", correct)
   }
   override def toString: String = s"Fit($correct, $value, progSize=$progSize)"
