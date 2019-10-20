@@ -58,10 +58,10 @@ abstract class Property(val name: String) {
 abstract class PropertyMonotonicity(name: String) extends Property(name) {
   /** Every cdgp.Pi.var1 variable should be bounded by the same range as var1 variable. */
   def updateRange(range: Seq[VarRange], var1: String, id: Int): Seq[VarRange] = {
-    val rv = range.find{ case Range(v, _, _, _, _) => v == var1 }
+    val rv = range.find{ case Range(v, _, _, _, _, _) => v == var1 }
     if (rv.isDefined) {
       val rv2 = rv.get match {
-        case Range(v, lb, ub, lbS, ubS) => Range(prefixedName(id, var1), lb, ub, lbS, ubS)
+        case Range(v, lb, ub, lbS, ubS, oper) => Range(prefixedName(id, var1), lb, ub, lbS, ubS, oper)
         case _ => throw new Exception("Invalid occurrence of an empty range!")
       }
       range.+:(rv2)
@@ -393,7 +393,7 @@ case class PropInjective(range: Seq[VarRange] = Seq())
   /** Every cdgp.Pi.x variable should be bounded by the same range as x variable. */
   def updateRange(range: Seq[VarRange], prefixedVars: Seq[String], id: Int): Seq[VarRange] = {
     range.zip(prefixedVars).flatMap{
-      case (r @ Range(v, lb, ub, lbS, ubS), newV) => List(r, Range(newV, lb, ub, lbS, ubS))
+      case (r @ Range(v, lb, ub, lbS, ubS, oper), newV) => List(r, Range(newV, lb, ub, lbS, ubS, oper))
     }
   }
 }
@@ -430,7 +430,7 @@ case class PropNot(prop: Property, range: Seq[VarRange] = Seq())
   * @param ubSign >= (default) or >.
   */
 abstract class VarRange(val varName: String, val lb: Option[Double] = None, val ub: Option[Double] = None,
-                        val lbSign: String = ">=", val ubSign: String = "<=") {
+                        val lbSign: String = ">=", val ubSign: String = "<=", val operand: String = "and") {
   assert(lbSign == ">=" || lbSign == ">")
   assert(ubSign == "<=" || ubSign == "<")
   def getCondition: String = {
@@ -442,7 +442,7 @@ abstract class VarRange(val varName: String, val lb: Option[Double] = None, val 
     }
     else {
       val implCondParts = List((lb, lbSign), (ub, ubSign)).collect { case (Some(d), sign) => s"($sign $varName $d)" }
-      val implCond = if (implCondParts.size > 1) implCondParts.mkString("(and ", " ", ")") else implCondParts.head
+      val implCond = if (implCondParts.size > 1) implCondParts.mkString(s"($operand ", " ", ")") else implCondParts.head
       implCond
     }
   }
@@ -452,11 +452,13 @@ case class Range(override val varName: String,
                  override val lb: Option[Double] = None,
                  override val ub: Option[Double] = None,
                  override val lbSign: String = ">=",
-                 override val ubSign: String = "<=") extends VarRange(varName, lb, ub, lbSign, ubSign)
+                 override val ubSign: String = "<=",
+                 override val operand: String = "and") extends VarRange(varName, lb, ub, lbSign, ubSign, operand)
 object Range {
   def apply(varName: String, lb: Double, ub: Double): Range = {
-    Range(varName, Some(lb), Some(ub), lbSign=">=", ubSign="<=")
+    Range(varName, Some(lb), Some(ub), lbSign=">=", ubSign="<=", operand="and")
   }
+  def diffThan(varName: String, d: Double): Range = Range(varName, Some(d), Some(d), lbSign=">", ubSign="<", operand="or")
 }
 
 

@@ -54,18 +54,34 @@ object BenchmarksGPEM extends App {
 
   // --------------------------------------------------------------------------------------
 
-  val b_keijzer5 = Benchmark("keijzer5", Seq("x", "y"),
-    Seq( //TODO: properties
+  val b_keijzer5 = Benchmark("keijzer5", Seq("x", "y", "z"),
+    Seq(
+      CustomConstraint("(=> (or (= x 0.0) (= z 0.0)) (= (keijzer5 x y z) 0.0) )", range=Seq(Range.diffThan("y", 0.0), Range.diffThan("x", 10.0))),
+      CustomConstraint("(=> (and (= x y) (= y z) (> x 0.0)) (> (keijzer5 x y z) 10.0) )", range=Seq(Range.diffThan("y", 0.0), Range.diffThan("x", 10.0))),
+      CustomConstraint("(=> (and (= x y) (= y z) (< x 0.0)) (< (keijzer5 x y z) 10.0) )", range=Seq(Range.diffThan("y", 0.0), Range.diffThan("x", 10.0)))
     ))
   val b_keijzer12 = Benchmark("keijzer12", Seq("x", "y"),
     Seq(
-      CustomConstraint("(=> (> y 1.0)  (<= (keijzer12 x y) (keijzer12 (- x) y))  )", range=rangesGtZero("x"))
+      CustomConstraint("(=> (>= x 0.0)  (<= (keijzer12 x y) (keijzer12 (- x) y))  )"),
+      CustomConstraint("(=> (>= y 0.0)  (<= (keijzer12 x y) (keijzer12 x (- y)))  )"),
+      CustomConstraint("(=> (and (= x 0.0) (= y 0.0)) (= (keijzer12 x y) 0.0) )"),
+      //PropAscending("x", range=Seq(Range("x", Some(0.0), lbSign=">=")), strict=true), // After testing in the solver I determined that it is false
+      PropDescending("x", range=Seq(Range("x", None, Some(0.0), ubSign="<=")), strict=true),
+      PropAscending("y", range=Seq(Range("y", Some(1.0), lbSign=">=")), strict=true),
+      PropDescending("y", range=Seq(Range("y", None, Some(1.0), ubSign="<=")), strict=true)
     ))
   val b_keijzer14 = Benchmark("keijzer14", Seq("x", "y"),
-    Seq( //TODO: properties
+    Seq(
+      PropOutputBound(Some(0.0), None, lbSign=">="),
+      PropOutputBound(None, Some(4.0), ubSign="<="),
+      CustomConstraint("(<= (keijzer14 x y) (keijzer14 0.0 0.0))"),
+      PropVarSymmetry2("x", "y")
     ))
   val b_keijzer15 = Benchmark("keijzer15", Seq("x", "y"),
-    Seq( //TODO: properties
+    Seq(
+      CustomConstraint("(=> (and (= x 0.0) (= y 0.0)) (= (keijzer15 x y) 0.0) )"),
+      CustomConstraint("(=> (and (<= x 0.0) (= x (- y))) (>= (keijzer15 x y) 0.0) )"),
+      CustomConstraint("(=> (and (>= x 0.0) (= x (- y))) (<= (keijzer15 x y) 0.0) )")
     ))
   val b_nguyen1 = Benchmark("nguyen1", Seq("x"),
     Seq(
@@ -96,7 +112,11 @@ object BenchmarksGPEM extends App {
     ns.map{ n => Benchmark(b_resistance_par3, generateTestsU(3, n, fResistancePar3, 0.0001, 20.0)) },
     ns.map{ n => Benchmark(b_nguyen1, generateTestsU(1, n, fNguyen1, -10.0, 10.0)) },
     ns.map{ n => Benchmark(b_nguyen3, generateTestsU(1, n, fNguyen3, -10.0, 10.0)) },
-    ns.map{ n => Benchmark(b_nguyen4, generateTestsU(1, n, fNguyen4, -10.0, 10.0)) }
+    ns.map{ n => Benchmark(b_nguyen4, generateTestsU(1, n, fNguyen4, -10.0, 10.0)) },
+    ns.map{ n => Benchmark(b_keijzer5, generateTestsU(3, n, fKeijzer5, -10.0, 10.0)) },
+    ns.map{ n => Benchmark(b_keijzer12, generateTestsU(2, n, fKeijzer12, -10.0, 10.0)) },
+    ns.map{ n => Benchmark(b_keijzer14, generateTestsU(2, n, fKeijzer14, -10.0, 10.0)) },
+    ns.map{ n => Benchmark(b_keijzer15, generateTestsU(2, n, fKeijzer15, -10.0, 10.0)) }
   ).flatten
 
 
