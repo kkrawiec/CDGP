@@ -101,6 +101,12 @@ object BenchmarksGPEM extends App {
       PropOutputBound(None, Some(-0.75), range=rangesLtZero("x")),
       CustomConstraint("(>= (nguyen4 x) (nguyen4 (- x)))", range=rangesGtZero("x"))
     ))
+  val b_pagie1 = Benchmark("pagie1", Seq("x", "y"),
+    Seq(
+      PropOutputBound(Some(0.0), None),
+      PropOutputBound(None, Some(2.0)),
+      PropVarSymmetry2("x", "y")
+    ))
 
 
 
@@ -116,7 +122,8 @@ object BenchmarksGPEM extends App {
     ns.map{ n => Benchmark(b_keijzer5, generateTestsU(3, n, fKeijzer5, -10.0, 10.0)) },
     ns.map{ n => Benchmark(b_keijzer12, generateTestsU(2, n, fKeijzer12, -10.0, 10.0)) },
     ns.map{ n => Benchmark(b_keijzer14, generateTestsU(2, n, fKeijzer14, -10.0, 10.0)) },
-    ns.map{ n => Benchmark(b_keijzer15, generateTestsU(2, n, fKeijzer15, -10.0, 10.0)) }
+    ns.map{ n => Benchmark(b_keijzer15, generateTestsU(2, n, fKeijzer15, -10.0, 10.0)) },
+    ns.map{ n => Benchmark(b_pagie1, generateTestsU(2, n, fPagie1, -10.0, 10.0)) }
   ).flatten
 
 
