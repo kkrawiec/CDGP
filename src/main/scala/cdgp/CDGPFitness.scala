@@ -687,8 +687,9 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP, testsTypesForRatio: Set[S
   def getNumPassedBinaryTests(evalBinary: Seq[Double]): Int =
     evalBinary.count(_ == 0.0)
 
+  /** Checks, if MSE is below a threshold for the provided evaluation, which is assumed to come from the complete tests.**/
   def isMseCloseToZero(evalTests: Seq[Double]): Boolean = {
-    Tools.mse(extractEvalNormal(evalTests)) <= optThreshold
+    Tools.mse(evalTests) <= optThreshold
   }
 
   /** Checks, if the eval of a solution meets criteria for optimality on the complete tests. **/
@@ -698,7 +699,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP, testsTypesForRatio: Set[S
       getNumPassedCompleteTests(complEval, eval, tests)(testErrorOptValue, testErrorOptPercent) == complEval.size
     }
     else
-      isMseCloseToZero(extractEvalNormal(eval))
+      isMseCloseToZero(extractEvalComplete(eval, tests))
   }
 
   /** Checks, if the eval of a solution meets criteria for optimality on the complete tests. **/

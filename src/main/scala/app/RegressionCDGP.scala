@@ -142,6 +142,14 @@ object RegressionCDGP {
       coll.setResult("best.verificationModel", model)
     }
 
+    val eTrain = eval.evalOnTests(bestOfRun.get._1, cdgpState.trainingSet)
+    val mseTrain = Tools.mse(eTrain)
+    val eTest = eval.evalOnTests(bestOfRun.get._1, cdgpState.testSet)
+    coll.setResult("best.trainEval", eTrain)
+    coll.setResult("best.trainMSE", Tools.double2str(mseTrain))
+    coll.setResult("best.testEval", if (eTest.nonEmpty) eTest else "n/a")
+    coll.setResult("best.testMSE", if (eTest.nonEmpty) Tools.double2str(Tools.mse(eTest)) else "n/a")
+
     val dec = coll.getResult("best.verificationDecision").getOrElse("n/a")
     val e = eval.evalOnTestsAndConstraints(bestOfRun.get._1, cdgpState.testsManager.tests)
     coll.set("result.best.correctTests", eval.isOptimalOnCompleteTests(e))
@@ -158,13 +166,6 @@ object RegressionCDGP {
       }
       coll.setResult("best.passedConstraints", passed)
     }
-
-    val eTrain = eval.evalOnTests(bestOfRun.get._1, cdgpState.trainingSet)
-    val eTest = eval.evalOnTests(bestOfRun.get._1, cdgpState.testSet)
-    coll.setResult("best.trainEval", eTrain)
-    coll.setResult("best.trainMSE", Tools.double2str(Tools.mse(eTrain)))
-    coll.setResult("best.testEval", if (eTest.nonEmpty) eTest else "n/a")
-    coll.setResult("best.testMSE", if (eTest.nonEmpty) Tools.double2str(Tools.mse(eTest)) else "n/a")
 
     // Print and save results
     coll.saveSnapshot("cdgp")
@@ -188,6 +189,7 @@ object RegressionCDGP {
     println("Correct on verification:".padTo(pn, ' ') + coll.get("result.best.correctVerification").getOrElse("n/a"))
     println("Final verification:".padTo(pn, ' ') + s"$dec, model: $model")
     println("Program size:".padTo(pn, ' ') + coll.getResult("best.size").getOrElse("n/a"))
+    println("MSE thresh:".padTo(pn, ' ') + coll.get("cdgp.optThresholdMSE").get)
     println("MSE (train):".padTo(pn, ' ') + coll.getResult("best.trainMSE").getOrElse("n/a"))
     println("MSE (test):".padTo(pn, ' ') + coll.getResult("best.testMSE").getOrElse("n/a"))
     println("Tests total:".padTo(pn, ' ') + coll.get("tests.total").getOrElse("n/a"))
