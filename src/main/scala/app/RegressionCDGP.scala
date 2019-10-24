@@ -152,7 +152,7 @@ object RegressionCDGP {
 
     val dec = coll.getResult("best.verificationDecision").getOrElse("n/a")
     val e = eval.evalOnTestsAndConstraints(bestOfRun.get._1, cdgpState.testsManager.tests)
-    coll.set("result.best.correctTests", eval.isOptimalOnCompleteTests(e))
+    coll.set("result.best.correctTests", eval.isOptimalOnCompleteTests(e, cdgpState.testsManager.tests))
     coll.set("result.best.correctVerification", if (dec == "unsat") true else false)
 
     // Save information about which constraints were passed

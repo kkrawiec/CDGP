@@ -692,7 +692,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP, testsTypesForRatio: Set[S
     Tools.mse(evalTests) <= optThreshold
   }
 
-  /** Checks, if the eval of a solution meets criteria for optimality on the complete tests. **/
+  /** Checks, if the eval of a solution meets criteria for optimality on the complete tests. Eval contains evaluations for all tests. **/
   def isOptimalOnCompleteTests(eval: Seq[Double], tests: Seq[(Map[String, Any], Option[Any])]): Boolean = {
     if (testErrorUseOptThreshold) {
       val complEval = extractEvalComplete(eval, tests)
@@ -702,7 +702,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP, testsTypesForRatio: Set[S
       isMseCloseToZero(extractEvalComplete(eval, tests))
   }
 
-  /** Checks, if the eval of a solution meets criteria for optimality on the complete tests. **/
+  /** Checks, if the eval of a solution meets criteria for optimality on the complete tests. Eval contains evaluations for all tests. **/
   def isOptimalOnCompleteTests(eval: Seq[Double]): Boolean = {
     isOptimalOnCompleteTests(eval, state.testsManager.tests)
   }
