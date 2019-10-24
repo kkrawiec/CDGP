@@ -574,7 +574,8 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP, testsTypesForRatio: Set[S
       val c = opt.paramDouble("optThresholdC", 0.01)
       val allTestsY = state.testsManager.getAllCollectedTests.filter(_._2.isDefined).map(_._2.get.asInstanceOf[Double])
       val s = Tools.stddev(allTestsY)
-      (s * c) * (s * c)  // squared because of square in mse
+      // (s * c) * (s * c)  // squared because of square in mse
+      s * c  // square leads to too hard/too easy thresholds; no square
     }
   }
 
