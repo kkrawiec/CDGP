@@ -145,10 +145,11 @@ object RegressionCDGP {
     val eTrain = eval.evalOnTests(bestOfRun.get._1, cdgpState.trainingSet)
     val mseTrain = Tools.mse(eTrain)
     val eTest = eval.evalOnTests(bestOfRun.get._1, cdgpState.testSet)
+    val mseTest = Tools.mse(eTest)
     coll.setResult("best.trainEval", eTrain)
     coll.setResult("best.trainMSE", Tools.double2str(mseTrain))
     coll.setResult("best.testEval", if (eTest.nonEmpty) eTest else "n/a")
-    coll.setResult("best.testMSE", if (eTest.nonEmpty) Tools.double2str(Tools.mse(eTest)) else "n/a")
+    coll.setResult("best.testMSE", if (eTest.nonEmpty) Tools.double2str(mseTest) else "n/a")
 
     val dec = coll.getResult("best.verificationDecision").getOrElse("n/a")
     val e = eval.evalOnTestsAndConstraints(bestOfRun.get._1, cdgpState.testsManager.tests)
