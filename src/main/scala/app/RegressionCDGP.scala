@@ -111,10 +111,6 @@ object RegressionCDGP {
         coll.set("cdgp.noCorrectSolution", true)
         coll.set("terminatingException", e.toString)
         coll.saveSnapshot("cdgp")
-      case e: java.util.concurrent.TimeoutException =>
-        println("Timeout!!!!!!!!!!!!!!!!!!!")
-        coll.set("cdgp.wasTimeout", true)
-        coll.saveSnapshot("cdgp")
       case e: Throwable =>
         println(s"Terminating exception occurred! Message: ${e.getMessage}")
         coll.set("terminatingException", e.toString)
@@ -211,16 +207,20 @@ object RegressionCDGP {
       println(coll.get("result.best.passedConstraints").getOrElse("n/a"))
     }
 
-    val sol = coll.getResult("best.smtlib").get.toString
-    val solutionFull = SMTLIBFormatter.synthSolutionToString(cdgpState.synthTask, sol)
+    if (coll.getResult("best.smtlib").isEmpty)
+      println("\nThe best of run solution is unavailable! This usually happens when the initial population is not completely evaluated because of the set time limit.")
+    else {
+      val sol = coll.getResult("best.smtlib").get.toString
+      val solutionFull = SMTLIBFormatter.synthSolutionToString(cdgpState.synthTask, sol)
 
-    println("\nOPTIMAL SOLUTION:")
-    if (isOptimal(bestOfRun.get))
-      println(solutionFull) else println("unknown")
+      println("\nOPTIMAL SOLUTION:")
+      if (isOptimal(bestOfRun.get))
+        println(solutionFull) else println("unknown")
 
-    if (!isOptimal(bestOfRun.get)) {
-      println(s"\nAPPROXIMATED SOLUTION:")
-      println(solutionFull)
+      if (!isOptimal(bestOfRun.get)) {
+        println(s"\nAPPROXIMATED SOLUTION:")
+        println(solutionFull)
+      }
     }
   }
 

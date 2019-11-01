@@ -238,10 +238,6 @@ object CDGP {
         coll.set("cdgp.noCorrectSolution", true)
         coll.set("terminatingException", e.toString)
         coll.saveSnapshot("cdgp")
-      case e: java.util.concurrent.TimeoutException =>
-        println("Timeout!!!!!!!!!!!!!!!!!!!")
-        coll.set("cdgp.wasTimeout", true)
-        coll.saveSnapshot("cdgp")
       case e: Throwable =>
         println(s"Terminating exception occurred! Message: ${e.getMessage}")
         coll.set("terminatingException", e.toString)

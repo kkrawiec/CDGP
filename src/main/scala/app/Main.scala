@@ -39,7 +39,6 @@ object Main {
           alg.bsf(alg.pop.get) // update bsf
           alg.reportStats(alg.pop.get)
         }
-        coll.saveSnapshot("cdgp")
         alg.pop
     }
   }

@@ -277,6 +277,8 @@ object TestSolverOpenConnection extends FApp {
 
 
 
+case class ExceededMaxRestartsException(msg: String) extends RuntimeException(msg) {}
+
 
 class SolverManager(val path: String, val args: Option[String] = None, val moreArgs: String = "",
                     verbose: Boolean = false)
@@ -415,13 +417,9 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
   protected def throwExceededMaxRestartsException(query: String, error: Throwable): Nothing = {
     error.printStackTrace()
     val msg = s"Exceeded the maximum number of $maxSolverRestarts solver restarts. " +
-              s"Original message: ${error.getMessage}\nQuery:\n$query"
-    coll.set("solverError", error.getMessage)
-    coll.set("solverError2", msg)
-    coll.saveSnapshot("error_solver")
-    throw new ExceededMaxRestartsException(msg)
+              s"Original message: ${error.getMessage}\n"
+    throw ExceededMaxRestartsException(msg)
   }
-  class ExceededMaxRestartsException(msg: String) extends RuntimeException(msg) {}
 
 
   /**
