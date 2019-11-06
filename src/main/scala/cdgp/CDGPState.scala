@@ -11,7 +11,9 @@ class NoSolutionException(val badInput: String) extends Exception {
   override def toString: String = s"NoSolutionException($badInput)"
 }
 
-
+case class InitializationFailedException() extends Exception("Initialization of the population have not finished properly. Often the reason is a very strict time limit.") {
+  override def toString: String = s"InitializationFailedException()"
+}
 
 
 abstract class State(val sygusData: SygusProblemData,
@@ -69,6 +71,8 @@ abstract class State(val sygusData: SygusProblemData,
 
   def simplifySolution(smtlib: String): Option[String] = None
 
+  def solver: SolverManager
+
   // Convenience methods
   def synthTask: SygusSynthTask = sygusData.synthTask
   def invocations: Seq[Seq[String]] = sygusData.formalInvocations
@@ -90,7 +94,7 @@ class StateSMTSolver(sygusData: SygusProblemData,
   private val moreSolverArgs = opt.getOption("moreSolverArgs", "")
 
   // Creating solver manager
-  lazy val solver = new SolverManager(solverPath, solverArgs, moreSolverArgs, verbose=false)
+  override lazy val solver = new SolverManager(solverPath, solverArgs, moreSolverArgs, verbose=false)
 
 
   // Templates for solver queries

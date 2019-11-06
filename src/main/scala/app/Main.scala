@@ -56,13 +56,20 @@ object Main {
     }
     catch {
       case e: java.util.concurrent.TimeoutException =>
-        println("Timeout!!!!!!!!!!!!!!!!!!!")
-        coll.set("cdgp.wasTimeout", true)
+        coll.set("cdgp.wasTimeout", "true")
         coll.set("result.totalTimeSystem", maxTime)  // save in ms
         if (alg.pop.isDefined) {
           alg.bsf(alg.pop.get) // update bsf
           alg.reportStats(alg.pop.get)
         }
+        else
+          throw InitializationFailedException()
+
+        // If there was a timeout, the solver might be in state in which something was already sent to
+        // through the pipe, and in order to avoid problems we need to clear the pipe.
+        alg.cdgpState.solver.close()
+        alg.cdgpState.solver.open()
+
         coll.saveSnapshot("cdgp")
         alg.pop
     }

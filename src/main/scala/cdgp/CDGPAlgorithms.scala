@@ -101,9 +101,9 @@ abstract class CDGPGenerationalCore[E <: Fitness](moves: GPMoves,
   override def iter = (s: StatePop[(Op, E)]) => (
     createBreeder(s) andThen
     evaluate andThen
-    report andThen
-    updateAfterIteration)(s)
-  override def initialize  = RandomStatePop(moves.newSolution _) andThen evaluate andThen bsf andThen it
+    updateAfterIteration andThen
+    bsf)(s)
+  override def initialize  = RandomStatePop(moves.newSolution _) andThen evaluate andThen updateAfterIteration andThen bsf andThen it
   override def epilogue = super.epilogue andThen reportStats
   override def terminate = Termination(correct).+:(Termination.MaxIter(it))
   override def evaluate = cdgpEval
@@ -214,14 +214,14 @@ abstract class CDGPSteadyStateCore[E <: Fitness]
   override def cdgpState = cdgpEval.state
   override def iter = (s: StatePop[(Op, E)]) => (
     createBreeder(s) andThen
-    CallEvery(opt('reportFreq, opt('populationSize, 1000)), report) andThen
     cdgpEval.updatePopulationEvalsAndTests andThen
-    updateAfterIteration)(s)
-  override def initialize  = super.initialize andThen bsf
+    updateAfterIteration andThen
+    bsfCaller)(s)
+  override def initialize  = RandomStatePop(moves.newSolution _) andThen evaluate andThen updateAfterIteration andThen bsf andThen it
   override def epilogue = super.epilogue andThen reportStats
   override def terminate = Termination(correct).+:(Termination.MaxIter(it))
   override def report = bsf
-  override def evaluate = // used only for the initial population
+  override def evaluate: StatePop[Op] => StatePop[(Op,E)] = // used only for the initial population
     (s: StatePop[Op]) => {
       cdgpEval.state.testsManager.flushHelpers()  // necessary for steady state, because not done earlier
       StatePop(s.map{ op => (op, cdgpEval.eval(op, init=true)) })
@@ -229,6 +229,7 @@ abstract class CDGPSteadyStateCore[E <: Fitness]
   override def algorithm =
     (s: StatePop[(Op, E)]) =>  Common.restartLoop(initialize, super.algorithm andThen bsf, correct, it, bsf, opt, coll)(s)
   val bsf = BestSoFar[Op, E](ordering, it)
+  val bsfCaller =  CallEvery(opt('reportFreq, opt('populationSize, 1000)), bsf)
   // This breeder returns StatePop[(Op, E)], because it is generational
   def createBreeder(s: StatePop[(Op, E)]): StatePop[(Op, E)] => StatePop[(Op, E)]  // to be implemented by children
 }

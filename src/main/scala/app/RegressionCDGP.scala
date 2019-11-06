@@ -111,13 +111,18 @@ object RegressionCDGP {
         coll.set("cdgp.noCorrectSolution", true)
         coll.set("terminatingException", e.toString)
         coll.saveSnapshot("cdgp")
+      case e: InitializationFailedException =>
+        println(s"Initialization of the population have not finished properly. Often the reason is a very strict time limit.")
+        coll.set("terminatingException", e.toString)
+        coll.deleteSnapshot("cdgp") // Remove the .cdgp file if it was created
+        coll.saveSnapshot("cdgp.error")
       case e: Throwable =>
         println(s"Terminating exception occurred! Message: ${e.getMessage}")
         coll.set("terminatingException", e.toString)
         val sw = new StringWriter
         e.printStackTrace(new PrintWriter(sw))
         coll.set("terminatingExceptionStacktrace", sw.toString)
-        coll.deleteSnapshot("cdgp") // Remove any .cdgp file if it was created
+        coll.deleteSnapshot("cdgp") // Remove the .cdgp file if it was created
         coll.saveSnapshot("cdgp.error")
         e.printStackTrace()
     }

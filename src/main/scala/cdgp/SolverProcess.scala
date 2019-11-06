@@ -52,7 +52,7 @@ trait SolverSMT extends Closeable {
     logFilePrinter.print(s)
   }
 
-  def close(): Unit = {}
+  def close(): Unit
 }
 
 
@@ -117,6 +117,8 @@ case class SolverFromScript(path: String, args: String = SolverFromScript.ARGS_Z
     pw.print(s)
     pw.close()
   }
+
+  def close(): Unit = {}
 }
 
 object SolverFromScript {
@@ -170,9 +172,9 @@ case class SolverInteractive(path: String, args: String = SolverInteractive.ARGS
       sb ++= s
       // We must be careful here. One of the models for String problem was:
       // ((s "&(A\x02\x02 \x00")). This '(' in String made the previous version
-      // of this code wait infinitely long for new input.
+      // of this code wait infinitely long for a new input.
       // NOTE: the code below is still not prepared for the case when '"' char is
-      // in the string.
+      // in the string (e.g., "as\"df").
       for (c <- s) c match {
         case '\"' if !qMarkOpened => qMarkOpened = true
         case '\"' if  qMarkOpened => qMarkOpened = false
@@ -292,8 +294,6 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
   private var doneRestarts: Int = 0
   private val solveTimes: mutable.Map[Double, Int] = mutable.Map[Double, Int]()
   private var numCalls: Int = 0
-  private var minSolveTime: Double = 0.0
-  private var maxSolveTime: Double = 0.0
   private var sumSolveTime: Double = 0.0
   def getNumRestarts: Int = doneRestarts
   def getNumCalls: Int = numCalls
@@ -313,7 +313,8 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
     sumSolveTime += timeDiffInSecs
   }
 
-  private var _solver: SolverSMT = createWithRetries()
+  private var _solver: SolverSMT = _
+  open()  // opens a connection by assigning a created solver object to the _solver
   def solver: SolverSMT = _solver
 
   protected def getSolverArgs: String = {
@@ -372,7 +373,7 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
       case e: Throwable => { // Restarting solver, because most likely it crashed.
         if (doneRestarts < maxSolverRestarts) {
           doneRestarts += 1
-          _solver = createWithRetries()
+          open()
           runSolver(query)
         }
         else throwExceededMaxRestartsException(query.toString, e)
@@ -398,12 +399,20 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
       case e: Throwable => { // Restarting solver, because most likely it crashed.
         if (doneRestarts < maxSolverRestarts) {
           doneRestarts += 1
-          _solver = createWithRetries()
+          open()
           executeQuery(query)
         }
         else throwExceededMaxRestartsException(query.toString, e)
       }
     }
+  }
+
+
+  /**
+   * Opens the connection to the solver.
+   */
+  def open(): Unit = {
+    _solver = createWithRetries()
   }
 
 
