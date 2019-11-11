@@ -4,7 +4,9 @@ import java.io.File
 import java.text.{DecimalFormat, DecimalFormatSymbols}
 import java.util.Locale
 
-import fuel.util.{Options, OptionsMap}
+import fuel.util.Options
+
+import scala.util.Random
 
 
 
@@ -151,5 +153,48 @@ object Tools {
   /** Duplicates each element in the sequence n times. **/
   def duplicateElements[T](seq: Seq[T], n: Int): Seq[T] = {
     if (n == 1) seq else seq.flatMap(Seq.fill(n)(_))
+  }
+
+
+  /**
+   * Given a command line parameter, it checks if it ends with '%' or not. If yes,
+   * then the number of tests is computed as a ratio of the totalTests. Otherwise,
+   * the specified fixed number of tests is returned.
+   */
+  def getNumTests(optText: Option[String], totalTests: Int): Option[Int] = {
+    if (optText.isEmpty) None
+    else {
+      val text = optText.get
+      if (text.last.equals('%')) {
+        val prefix = text.take(text.size - 1)
+        Some((prefix.toDouble * totalTests / 100.0).toInt)
+      }
+      else Some(text.toInt)
+    }
+  }
+
+  /**
+   * Divides a set of test cases on a train set, validation set, and test set (in this order in
+   * the returned tuple).
+   */
+  def splitTrainValidationTest[A](tests: Seq[A])(implicit opt: Options): (Seq[A], Seq[A], Seq[A]) = {
+    val optTrain: Option[Int] = getNumTests(opt.getOptionString("sizeTrainSet"), tests.size)
+    val nValid: Int = getNumTests(Some(opt.getOption("sizeValidationSet", "0")), tests.size).get
+    val nTest: Int = getNumTests(Some(opt.getOption("sizeTestSet", "0")), tests.size).get
+    val nTrain = optTrain.getOrElse(tests.size - nValid - nTest)
+    val (tTrain, tValid, tTest) = splitTrainValidationTest(tests, nTrain, nValid, nTest, opt('shuffleData, true))
+    (tTrain, tValid, tTest)
+  }
+
+  /**
+   * Divides a set of test cases on a train set and test set.
+   */
+  def splitTrainValidationTest[A](tests: Seq[A], nTrain: Int, nValid: Int, nTest: Int, shuffle: Boolean = true): (Seq[A], Seq[A], Seq[A]) = {
+    assert(nTrain >= 0, "Number of training examples must be nonnegative.")
+    assert(nValid >= 0, "Number of validation examples must be nonnegative.")
+    assert(nTest >= 0, "Number of test examples must be nonnegative.")
+    assert(nTrain+nValid+nTest <= tests.size, "There are not enough tests to create the specified training, validation, and test sets.")
+    val shuffled = if (shuffle) Random.shuffle(tests) else tests
+    (shuffled.take(nTrain), shuffled.slice(nTrain, nTrain + nValid), shuffled.slice(nTrain + nValid, nTrain + nValid + nTest))
   }
 }

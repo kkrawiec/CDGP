@@ -1,13 +1,16 @@
 package app
 
 import java.io.File
+
 import fuel.core.StatePop
 import fuel.util._
 import swim.tree.Op
 import cdgp._
+
 import scala.concurrent._
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.Random
 
 
 /**
@@ -65,8 +68,8 @@ object Main {
         else
           throw InitializationFailedException()
 
-        // If there was a timeout, the solver might be in state in which something was already sent to
-        // through the pipe, and in order to avoid problems we need to clear the pipe.
+        // If there was a timeout, something could be already sent to the solver through the pipe,
+        // and in order to avoid problems we need to clear the pipe.
         alg.cdgpState.solver.close()
         alg.cdgpState.solver.open()
 
@@ -103,6 +106,7 @@ object Main {
     if (systemOptions(args))
       sys.exit()
     val opt = getOptions(args ++ Array("--parEval", "false"))  // ensure that "--parEval false" is used
+    Random.setSeed(opt('seed, 0))
     val useRegression = opt.paramBool("regression", false)
     if (useRegression)
       RegressionCDGP.run(opt)
