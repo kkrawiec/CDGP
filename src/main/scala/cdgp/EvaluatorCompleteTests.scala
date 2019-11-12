@@ -1,11 +1,16 @@
 package cdgp
 
-import fuel.util.Collector
+import fuel.util.{Collector, Options}
 import swim.RecursiveDomain
 import swim.tree.Op
 
 
-abstract class CompleteTestsEvaluator[EVecEl](val domain: RecursiveDomain[Any, Any],
+/**
+  * Evaluator of complete tests. Complete tests are evaluated by running in a
+  * given so called "domain", which is understood as a semantics for the operators
+  * present in the program.
+  */
+abstract class EvaluatorCompleteTests[EVecEl](val domain: RecursiveDomain[Any, Any],
                                               val state: State)
                                              (implicit coll: Collector) {
   // The types for input and output
@@ -36,21 +41,29 @@ object EvaluatorCompleteTests {
   /**
     * Creates a domain, which is used for the execution of programs.
     */
-  def getDomain(logic: String, state: State, recDepthLimit: Int = 1000): RecursiveDomain[Any, Any] = logic match {
-    case "SLIA" | "NIA" | "LIA" | "QF_NIA" | "QF_LIA" | "S" | "QF_S" | "ALL" =>
-      DomainSLIA(state.synthTask.argNames, Symbol(state.synthTask.fname), recDepthLimit)
-    case "NRA" | "LRA" | "QF_NRA" | "QF_LRA"=>
-      DomainReals(state.synthTask.argNames, Symbol(state.synthTask.fname), recDepthLimit)
-    case _ =>
-      throw new Exception(s"Trying to create domain for the unsupported logic: $logic")
+  def getDomain(state: State, recDepthLimit: Int = 1000): RecursiveDomain[Any, Any] = {
+    val logic = state.sygusData.logic
+    logic match {
+      case "SLIA" | "NIA" | "LIA" | "QF_NIA" | "QF_LIA" | "S" | "QF_S" | "ALL" =>
+        DomainSLIA(state.synthTask.argNames, Symbol(state.synthTask.fname), recDepthLimit)
+      case "NRA" | "LRA" | "QF_NRA" | "QF_LRA"=>
+        DomainReals(state.synthTask.argNames, Symbol(state.synthTask.fname), recDepthLimit)
+      case _ =>
+        throw new Exception(s"Trying to create domain for the unsupported logic: $logic")
+    }
+  }
+
+  def getDomain(state: State)(implicit opt: Options): RecursiveDomain[Any, Any] = {
+    getDomain(state, opt("recDepthLimit", 1000))
   }
 }
 
 
-class CompleteTestsEvaluatorDiscrete(domain: RecursiveDomain[Any, Any],
+
+class EvaluatorCompleteTestsDiscrete(domain: RecursiveDomain[Any, Any],
                                      state: State)
                                     (implicit coll: Collector)
-  extends CompleteTestsEvaluator[Int](domain, state) {
+  extends EvaluatorCompleteTests[Int](domain, state) {
   /**
     * Checks correctness of the program only for the given test.
     *
@@ -79,11 +92,19 @@ class CompleteTestsEvaluatorDiscrete(domain: RecursiveDomain[Any, Any],
 }
 
 
+object EvaluatorCompleteTestsDiscrete {
+  def apply(state: State)
+           (implicit opt: Options, coll: Collector): EvaluatorCompleteTestsDiscrete = {
+    val domain = EvaluatorCompleteTests.getDomain(state)
+    new EvaluatorCompleteTestsDiscrete(domain, state)
+  }
+}
 
-class CompleteTestsEvaluatorContinuous(domain: RecursiveDomain[Any, Any],
+
+class EvaluatorCompleteTestsContinuous(domain: RecursiveDomain[Any, Any],
                                        state: State)
                                       (implicit coll: Collector)
-  extends CompleteTestsEvaluator[Double](domain, state) {
+  extends EvaluatorCompleteTests[Double](domain, state) {
   /**
     * Checks correctness of the program only for the given test.
     * The expected output is compared with the answer obtained by executing the
@@ -110,5 +131,14 @@ class CompleteTestsEvaluatorContinuous(domain: RecursiveDomain[Any, Any],
         handleEvalException(test, s, e.getMessage)
         Double.PositiveInfinity
     }
+  }
+}
+
+
+object EvaluatorCompleteTestsContinuous {
+  def apply(state: State)
+           (implicit opt: Options, coll: Collector): EvaluatorCompleteTestsContinuous = {
+    val domain = EvaluatorCompleteTests.getDomain(state)
+    new EvaluatorCompleteTestsContinuous(domain, state)
   }
 }

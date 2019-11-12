@@ -142,22 +142,6 @@ abstract class EvalFunction[S, E](val state: State)
   type I = Map[String, Any]
   type O = Any
 
-  // Creating a domain for evaluation by program execution
-  lazy val domain: RecursiveDomain[Any, Any] = getDomain(state.sygusData.logic)
-
-
-  /**
-    * Creates a domain, which is used for the execution of programs.
-    */
-  def getDomain(logic: String): RecursiveDomain[Any, Any] = logic match {
-    case "SLIA" | "NIA" | "LIA" | "QF_NIA" | "QF_LIA" | "S" | "QF_S" | "ALL" =>
-      DomainSLIA(state.synthTask.argNames, Symbol(state.synthTask.fname), opt("recDepthLimit", 1000))
-    case "NRA" | "LRA" | "QF_NRA" | "QF_LRA"=>
-      DomainReals(state.synthTask.argNames, Symbol(state.synthTask.fname), opt("recDepthLimit", 1000))
-    case _ =>
-      throw new Exception(s"Trying to create domain for the unsupported logic: $logic")
-  }
-
   /**
     * Function used to update existing solution-evaluation pair. Used in steady state
     * evolution variant, when the number of tests increases during runtime and older
@@ -211,6 +195,10 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
   /** Verifies solution on partial constraints in order to add this info to the fitness vector. */
   def getPartialConstraintsEvalVector(s: Op, passValue: EVecEl, nonpassValue: EVecEl): Seq[EVecEl] =
     specialTestsEvaluator.getPartialConstrEvalVector(state)(s, passValue, nonpassValue)
+
+
+  val evaluatorComplete: EvaluatorCompleteTests[EVecEl]
+  val evaluatorIncomplete: EvaluatorIncompleteTests[EVecEl]
 
 
   /**
@@ -267,28 +255,10 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
 
   /** Evaluates complete or incomplete test. **/
   def evaluateTest(s: Op, test: (I, Option[O])): EVecEl = {
-    if (test._2.isDefined) evalTestUsingDomain(s, test)
-    else evalTestUsingSolver(s, test)
+    if (test._2.isDefined) evaluatorComplete.evalTest(s, test)
+    else evaluatorIncomplete.evalTest(s, test)
   }
 
-  /**
-   * Checks correctness of the program only for the given test.
-   * Tests here always have None as the answer, because in general there is no
-   * single answer for the problem being solved in 'solver' mode.
-   */
-  def evalTestUsingSolver(s: Op, test: (I, Option[O])): EVecEl = {
-    try {
-      val testInput: Map[String, Any] = test._1
-      val (dec, _) = state.checkIsProgramCorrectForInput(s, testInput)
-      if (dec == "sat") binaryTestPassValue else binaryTestFailValue
-    }
-    catch {
-      case e: Throwable => handleEvalException(test, s, e.getMessage); binaryTestFailValue
-    }
-  }
-
-
-  def evalTestUsingDomain(s: Op, test: (I, Option[O])): EVecEl
 
   /**
     * Verifies a solution if it is necessary.
@@ -312,37 +282,8 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP,
                                   (implicit opt: Options, coll: Collector)
   extends EvalCDGP[E, Int](state, 0, 1, testsTypesForRatio, EvaluatorSpecialTests[Int]((s: Op) => s.size)) {
 
-  /**
-    * Checks correctness of the program only for the given test.
-    * If test has a defined expected answer, then it is compared with the answer
-    * obtained by executing the program in the domain simulating semantics of SMT
-    * theory.
-    * If test don't have defined expected answer, then the program's output is verified
-    * by the solver for consistency with the specification. The test will be updated if
-    * this output is deemed consistent by the solver.
-    *
-    * Names of variables in test should be the same as those in the function's invocation.
-    * They will be renamed for those in the function's declaration.
-    */
-  def evalTestUsingDomain(s: Op, test: (I, Option[O])): Int = {
-    assert(test._2.isDefined, "Trying to evaluate using the domain a test without defined expected output.")
-    try {
-      val testInput: Map[String, Any] = test._1
-      val testOutput: Option[Any] = test._2
-      val inputVector = state.synthTask.argNames.map(testInput(_))
-      val output = domain(s)(inputVector)
-      if (output.isEmpty)
-        1 // None means that recurrence depth was exceeded
-      else if (output.get == state.convertValue(testOutput.get))
-        0 // output was correct
-      else
-        1 // output was incorrect
-    }
-    catch {
-      case _: ExceptionIncorrectOperation => 1
-      case e: Throwable => handleEvalException(test, s, e.getMessage); 1
-    }
-  }
+  override val evaluatorComplete = EvaluatorCompleteTestsDiscrete(state)
+  override val evaluatorIncomplete = EvaluatorIncompleteTestsDiscrete(state)
 
   def fitnessOnlyTestCases: Op => (Boolean, Seq[Int]) =
     (s: Op) => {
@@ -563,6 +504,9 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP, testsTypesForRatio: Set[S
   coll.set("cdgp.optThresholdMSE", Tools.double2str(optThreshold))
   checkValidity()
 
+  override val evaluatorComplete = EvaluatorCompleteTestsContinuous(state)
+  override val evaluatorIncomplete = EvaluatorIncompleteTestsContinuous(state)
+
   def getTestErrorValue(pname: String): Option[Double] = {
     val s = opt.getOption(pname)
     if (s.isDefined) Some(s.get.toDouble) else None
@@ -581,33 +525,6 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP, testsTypesForRatio: Set[S
     }
   }
 
-  /**
-    * Checks correctness of the program only for the given test.
-    * The expected output is compared with the answer obtained by executing the
-    * program in the domain simulating the semantics of appropriate SMT theory.
-    *
-    * Names of variables in the test should be the same as those in the function's invocation.
-    * They will be renamed for those in the function's declaration.
-    */
-  override def evalTestUsingDomain(s: Op, test: (I, Option[O])): Double = {
-    assert(test._2.isDefined, "Trying to domain-evaluate using a test without defined expected output.")
-    try {
-      val testInput: Map[String, Any] = test._1
-      val testOutput: Option[Any] = test._2
-      val inputVector = state.synthTask.argNames.map(testInput(_))
-      val output = domain(s)(inputVector)
-      if (output.isEmpty)
-        Double.MaxValue // Recurrence depth was exceeded
-      else
-        math.abs(output.get.asInstanceOf[Double] - testOutput.get.asInstanceOf[Double])
-    }
-    catch {
-      case _: ExceptionIncorrectOperation => Double.PositiveInfinity
-      case e: Throwable =>
-        handleEvalException(test, s, e.getMessage)
-        Double.PositiveInfinity
-    }
-  }
 
   def checkValidity(): Unit = {
     var isCorrect = true

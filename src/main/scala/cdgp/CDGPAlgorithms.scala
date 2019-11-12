@@ -98,7 +98,7 @@ class ValidationNoImprovement[S, E <: Fitness](validationSet: Seq[(Map[String, A
       // Evaluate on the validation set
       else {
         val (vOp, vEval) = bestOnValidSet.get
-        val evalValidBsf = if (bOp.equals(vOp)) vEval else evalOnValidationSet(bOp)  // if bestOfRun haven't changed we don't need to evaluate once again
+        val evalValidBsf = if (bOp.equals(vOp)) vEval else evalOnValidationSet(bOp) // if bestOfRun haven't changed we don't need to evaluate once again
         if (bestOnValidSet.isEmpty || ordering.compare(bestOnValidSet.get._2, bsf.bestSoFar.get._2) >= 0) {
           bestOnValidSet = Some(bsf.bestSoFar.get)
           numNotImproved = 0
@@ -108,6 +108,7 @@ class ValidationNoImprovement[S, E <: Fitness](validationSet: Seq[(Map[String, A
           numNotImproved += 1
           if (numNotImproved >= notImprovedWindow) true else false
         }
+      }
     }
   }
 
@@ -146,9 +147,7 @@ abstract class CDGPGenerationalCore[E <: Fitness](moves: GPMoves,
   override def initialize  = RandomStatePop(moves.newSolution _) andThen evaluate andThen updateAfterIteration andThen bsf andThen it
   override def epilogue = super.epilogue andThen reportStats
   override def terminate =
-    Termination(correct).+:(
-    Termination.MaxIter(it)).+:(
-    validationNoImprovement(cdgpEval.state.validationSet, cdgpEval.eval))
+    Termination(correct) ++ Seq(Termination.MaxIter(it), validationNoImprovement(cdgpEval.state.validationSet, cdgpEval.eval))
   override def evaluate = cdgpEval
   override def report = bsf
   override def algorithm =
