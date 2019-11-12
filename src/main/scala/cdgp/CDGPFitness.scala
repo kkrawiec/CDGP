@@ -1,7 +1,6 @@
 package cdgp
 
 import fuel.util.{Collector, Options, TRandom}
-import swim.RecursiveDomain
 import swim.tree.{LongerOrMaxPassedOrdering, Op}
 import sygus.{IntConst, LiteralTerm, StringConst, Term}
 
@@ -175,30 +174,29 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
                                    val binaryTestPassValue: EVecEl,
                                    val binaryTestFailValue: EVecEl,
                                    val testsTypesForRatio: Set[String],
-                                   val specialTestsEvaluator: EvaluatorSpecialTests[EVecEl])
+                                   val evaluatorSpecial: EvaluatorSpecialTests[EVecEl])
                                   (implicit opt: Options, coll: Collector)
   extends EvalFunction[Op, E](state) {
   val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, Int.MaxValue, (x: Int) => x >= 0)
   val testsRatio: Double = opt('testsRatio, 1.0, (x: Double) => x >= 0.0 && x <= 1.0)
   val testsMaxDiff: Option[Int] = opt.getOptionInt("testsMaxDiff")
-  val partialConstraintsInFitness: Boolean = specialTestsEvaluator.partialConstraintsInFitness
-  val globalConstraintInFitness: Boolean = specialTestsEvaluator.globalConstraintInFitness
-  val sizeInFitness: Boolean = specialTestsEvaluator.sizeInFitness
-  val partialConstraintsWeight: Int = specialTestsEvaluator.weight
+  val partialConstraintsInFitness: Boolean = evaluatorSpecial.partialConstraintsInFitness
+  val globalConstraintInFitness: Boolean = evaluatorSpecial.globalConstraintInFitness
+  val sizeInFitness: Boolean = evaluatorSpecial.sizeInFitness
+  val partialConstraintsWeight: Int = evaluatorSpecial.weight
   assert(testsTypesForRatio.subsetOf(Set("c", "i", "s")), "Incorrect type of test for --testsTypesForRatio; supported: c - complete tests, i - incomplete tests, s - special tests.")
   assert( if (testsTypesForRatio.contains("s")) partialConstraintsInFitness || sizeInFitness || globalConstraintInFitness else true, "Special tests were declared to be used for computing tests ratio, but none are part of the fitness vector. Please use at least one of: '--partialConstraintsInFitness true', '--globalConstraintsInFitness true', '--sizeInFitness true'.")
 
+  val evaluatorComplete: EvaluatorCompleteTests[EVecEl]
+  val evaluatorIncomplete: EvaluatorIncompleteTests[EVecEl]
+
 
   /** The number of constraints tests prepended to the evaluation vector.*/
-  val numberOfSpecialTests: Int = specialTestsEvaluator.getNumberOfSpecialTests(state)
+  val numberOfSpecialTests: Int = evaluatorSpecial.getNumberOfSpecialTests(state)
 
   /** Verifies solution on partial constraints in order to add this info to the fitness vector. */
   def getPartialConstraintsEvalVector(s: Op, passValue: EVecEl, nonpassValue: EVecEl): Seq[EVecEl] =
-    specialTestsEvaluator.getPartialConstrEvalVector(state)(s, passValue, nonpassValue)
-
-
-  val evaluatorComplete: EvaluatorCompleteTests[EVecEl]
-  val evaluatorIncomplete: EvaluatorIncompleteTests[EVecEl]
+    evaluatorSpecial.getPartialConstrEvalVector(state)(s, passValue, nonpassValue)
 
 
   /**
@@ -228,12 +226,6 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
   }
 
 
-  def handleEvalException(test: (I, Option[O]), s: Op, message: String) {
-    val msg = s"Error during evaluation of $s and test $test: $message"
-    coll.set("error_evalOnTests", msg)
-    println(msg)
-  }
-
   /**
    * Tests a program on the available tests and returns the vector of 0s (passed test)
    * and 1s (failed test). Depending on the problem will either optimize by executing
@@ -244,7 +236,7 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
   def evalOnTestsAndConstraints(s: Op, tests: Seq[(I, Option[O])]): Seq[EVecEl] = {
     val evalStandard = evalOnTests(s, tests)
     if (partialConstraintsInFitness || globalConstraintInFitness || sizeInFitness)
-      specialTestsEvaluator.getEvalVector(state)(s, binaryTestPassValue, binaryTestFailValue) ++: evalStandard
+      evaluatorSpecial.getEvalVector(state)(s, binaryTestPassValue, binaryTestFailValue) ++: evalStandard
     else
       evalStandard
   }
@@ -264,8 +256,8 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
     * Verifies a solution if it is necessary.
     */
   def verifySolution(s: Op, evalTests: Seq[EVecEl]): (String, Option[String]) = {
-    if (specialTestsEvaluator.partialConstraintsInFitness &&
-       !specialTestsEvaluator.getPartialConstrSubvector(state)(extractEvalSpecial(evalTests)).contains(binaryTestFailValue))
+    if (evaluatorSpecial.partialConstraintsInFitness &&
+       !evaluatorSpecial.getPartialConstrSubvector(state)(extractEvalSpecial(evalTests)).contains(binaryTestFailValue))
       // Optimization: if all partial constraints are correct, then the global correctness will also be correct and no counterexample will be found
      ("unsat", None)
     else

@@ -76,16 +76,16 @@ trait CDGPAlgorithm[S <: Op, E <: Fitness] {
 
 
 
-class ValidationNoImprovement[S, E <: Fitness](validationSet: Seq[(Map[String, Any], Option[Any])],
-                                    eval: EvalFunction[S, E],
-                                    bsf: BestSoFar[S, E],
-                                    ordering: Ordering[E],
-                                    notImprovedWindow: Int) {
-  val logTrainSet: mutable.Seq[E] = mutable.Seq[E]()
-  val logValidationSet: mutable.Seq[E] = mutable.Seq[E]()
-  var bestOnValidSet: Option[(S, E)] = None  // contains the best solution found at some time in evolution and evaluation on the validation set
+class ValidationNoImprovement[E <: Fitness](validationSet: Seq[(Map[String, Any], Option[Any])],
+                                               evaluatorComplete: EvaluatorCompleteTestsContinuous,
+                                               bsf: BestSoFar[Op, E],
+                                               ordering: Ordering[E],
+                                               notImprovedWindow: Int) {
+  val logMseTrainSet: mutable.Seq[Double] = mutable.Seq[Double]()
+  val logMseValidationSet: mutable.Seq[Double] = mutable.Seq[Double]()
+  var bestOnValidSet: Option[(Op, E)] = None  // contains the best solution found at some time in evolution and evaluation on the validation set
   var numNotImproved: Int = 0
-  def apply(s: StatePop[(S, E)]): Boolean = {
+  def apply(s: StatePop[(Op, E)]): Boolean = {
     if (bsf.bestSoFar.isEmpty)
       throw new Exception("Trying to evaluate bestOfRun on the validation set when no best solution of a generation was determined.")
     else {
@@ -112,7 +112,10 @@ class ValidationNoImprovement[S, E <: Fitness](validationSet: Seq[(Map[String, A
     }
   }
 
-  def evalOnValidationSet(s: S): E = eval.apply(s, init=true)
+  def mseOnValidationSet(s: Op): Double = {
+    val v = evaluatorComplete(s, validationSet)
+    Tools.mse(v)
+  }
 }
 
 

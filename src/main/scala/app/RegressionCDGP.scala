@@ -53,6 +53,7 @@ object RegressionCDGP {
     (selection, evoMode) match {
       case ("tournament", "generational") =>
         val eval = getEvalForMSE(state, method)
+        eval.
         val alg = CDGPGenerationalTournament(eval)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
         ((finalPop, alg.bsf.bestSoFar), eval.asInstanceOf[EvalCDGPContinuous[Fitness]])
