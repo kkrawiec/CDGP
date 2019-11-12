@@ -70,6 +70,16 @@ trait CDGPAlgorithm[S <: Op, E <: Fitness] {
     cdgpState.reportData()
     s
   }
+
+  /**
+   * A predicate function for the termination criterion based on no progress on the validation set.
+   */
+  def validationNoImprovement[S, E](validationSet: Seq[(Map[String, Any], Option[Any])], eval: EvalFunction[S, E], bsf: BestSoFar[Op, Fitness]): Boolean = {
+    if (bsf.bestSoFar.isEmpty || validationSet.isEmpty) false
+    else {
+      eval.apply()
+    }
+  }
 }
 
 
@@ -105,7 +115,10 @@ abstract class CDGPGenerationalCore[E <: Fitness](moves: GPMoves,
     bsf)(s)
   override def initialize  = RandomStatePop(moves.newSolution _) andThen evaluate andThen updateAfterIteration andThen bsf andThen it
   override def epilogue = super.epilogue andThen reportStats
-  override def terminate = Termination(correct).+:(Termination.MaxIter(it))
+  override def terminate =
+    Termination(correct).+:(
+    Termination.MaxIter(it)).+:(
+    Termination(validationNoImprovement(cdgpEval.state.validationSet, cdgpEval.eval)))
   override def evaluate = cdgpEval
   override def report = bsf
   override def algorithm =

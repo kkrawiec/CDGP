@@ -27,7 +27,7 @@ abstract class State(val sygusData: SygusProblemData,
   val sizeTestSet: Option[Int] = opt.getOptionInt("sizeTestSet")
 
   // Initializing population of test cases
-  val (trainingSet, _, testSet) = Tools.splitTrainValidationTest(sygusData.testCasesConstrToTests())
+  val (trainingSet, validationSet, testSet) = Tools.splitTrainValidationTest(sygusData.testCasesConstrToTests())
   testsManager.addNewTests(trainingSet, allowInputDuplicates=true, allowTestDuplicates=allowTestDuplicates)
   if (opt('regression, false))
     NoiseAdderStdDev(testsManager) // try to add noise if this is a regression problem. Noise will be added only to the training examples.
