@@ -4,7 +4,7 @@ import fuel.util.Options
 import swim.tree.Op
 
 
-class SpecialTestsEvaluator[EVecEl](val partialConstraintsInFitness: Boolean,
+class EvaluatorSpecialTests[EVecEl](val partialConstraintsInFitness: Boolean,
                                     val globalConstraintInFitness: Boolean,
                                     val sizeInFitness: Boolean,
                                     val programSizeFun: Op => EVecEl,
@@ -64,12 +64,12 @@ class SpecialTestsEvaluator[EVecEl](val partialConstraintsInFitness: Boolean,
 }
 
 
-object SpecialTestsEvaluator {
-  def apply[EVecEl](programSizeFun: Op => EVecEl)(implicit opt: Options): SpecialTestsEvaluator[EVecEl] = {
+object EvaluatorSpecialTests {
+  def apply[EVecEl](programSizeFun: Op => EVecEl)(implicit opt: Options): EvaluatorSpecialTests[EVecEl] = {
     val partialConstraintsInFitness: Boolean = opt('partialConstraintsInFitness, if (opt('method, "") == "CDGPprops") true else false)
     val globalConstraintInFitness: Boolean = opt('globalConstraintInFitness, false)
     val sizeInFitness: Boolean = opt('sizeInFitness, false)
     val weight: Int = opt('partialConstraintsWeight, 1, (x: Int) => x >= 1)
-    new SpecialTestsEvaluator(partialConstraintsInFitness, globalConstraintInFitness, sizeInFitness, programSizeFun, weight)
+    new EvaluatorSpecialTests(partialConstraintsInFitness, globalConstraintInFitness, sizeInFitness, programSizeFun, weight)
   }
 }

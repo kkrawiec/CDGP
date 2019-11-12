@@ -6,6 +6,8 @@ import fuel.util.{CallCounter, CallEvery, Collector, Options, TRandom}
 import swim.eval.{EpsLexicaseSelection, LexicaseSelection01}
 import swim.tree._
 
+import scala.collection.mutable
+
 
 /**
   * This file contains some ready to use genetic programming algorithms using
@@ -70,19 +72,47 @@ trait CDGPAlgorithm[S <: Op, E <: Fitness] {
     cdgpState.reportData()
     s
   }
-
-  /**
-   * A predicate function for the termination criterion based on no progress on the validation set.
-   */
-  def validationNoImprovement[S, E](validationSet: Seq[(Map[String, Any], Option[Any])], eval: EvalFunction[S, E], bsf: BestSoFar[Op, Fitness]): Boolean = {
-    if (bsf.bestSoFar.isEmpty || validationSet.isEmpty) false
-    else {
-      eval.apply()
-    }
-  }
 }
 
 
+
+class ValidationNoImprovement[S, E <: Fitness](validationSet: Seq[(Map[String, Any], Option[Any])],
+                                    eval: EvalFunction[S, E],
+                                    bsf: BestSoFar[S, E],
+                                    ordering: Ordering[E],
+                                    notImprovedWindow: Int) {
+  val logTrainSet: mutable.Seq[E] = mutable.Seq[E]()
+  val logValidationSet: mutable.Seq[E] = mutable.Seq[E]()
+  var bestOnValidSet: Option[(S, E)] = None  // contains the best solution found at some time in evolution and evaluation on the validation set
+  var numNotImproved: Int = 0
+  def apply(s: StatePop[(S, E)]): Boolean = {
+    if (bsf.bestSoFar.isEmpty)
+      throw new Exception("Trying to evaluate bestOfRun on the validation set when no best solution of a generation was determined.")
+    else {
+      val (bOp, bEval) = bsf.bestSoFar.get
+      if (bestOnValidSet.isEmpty) {
+        bestOnValidSet = Some((bOp, evalOnValidationSet(bOp)))
+        numNotImproved = 0
+        false
+      }
+      // Evaluate on the validation set
+      else {
+        val (vOp, vEval) = bestOnValidSet.get
+        val evalValidBsf = if (bOp.equals(vOp)) vEval else evalOnValidationSet(bOp)  // if bestOfRun haven't changed we don't need to evaluate once again
+        if (bestOnValidSet.isEmpty || ordering.compare(bestOnValidSet.get._2, bsf.bestSoFar.get._2) >= 0) {
+          bestOnValidSet = Some(bsf.bestSoFar.get)
+          numNotImproved = 0
+          false
+        }
+        else {
+          numNotImproved += 1
+          if (numNotImproved >= notImprovedWindow) true else false
+        }
+    }
+  }
+
+  def evalOnValidationSet(s: S): E = eval.apply(s, init=true)
+}
 
 
 
@@ -118,7 +148,7 @@ abstract class CDGPGenerationalCore[E <: Fitness](moves: GPMoves,
   override def terminate =
     Termination(correct).+:(
     Termination.MaxIter(it)).+:(
-    Termination(validationNoImprovement(cdgpEval.state.validationSet, cdgpEval.eval)))
+    validationNoImprovement(cdgpEval.state.validationSet, cdgpEval.eval))
   override def evaluate = cdgpEval
   override def report = bsf
   override def algorithm =

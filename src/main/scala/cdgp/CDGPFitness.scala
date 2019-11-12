@@ -6,6 +6,7 @@ import swim.tree.{LongerOrMaxPassedOrdering, Op}
 import sygus.{IntConst, LiteralTerm, StringConst, Term}
 
 
+
 trait Fitness {
   def correct: Boolean
   /**
@@ -146,7 +147,7 @@ abstract class EvalFunction[S, E](val state: State)
 
 
   /**
-    * Creates a domain, which is used for execution of the programs.
+    * Creates a domain, which is used for the execution of programs.
     */
   def getDomain(logic: String): RecursiveDomain[Any, Any] = logic match {
     case "SLIA" | "NIA" | "LIA" | "QF_NIA" | "QF_LIA" | "S" | "QF_S" | "ALL" =>
@@ -190,7 +191,7 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
                                    val binaryTestPassValue: EVecEl,
                                    val binaryTestFailValue: EVecEl,
                                    val testsTypesForRatio: Set[String],
-                                   val specialTestsEvaluator: SpecialTestsEvaluator[EVecEl])
+                                   val specialTestsEvaluator: EvaluatorSpecialTests[EVecEl])
                                   (implicit opt: Options, coll: Collector)
   extends EvalFunction[Op, E](state) {
   val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, Int.MaxValue, (x: Int) => x >= 0)
@@ -309,7 +310,7 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
 abstract class EvalCDGPDiscrete[E](state: StateCDGP,
                                    testsTypesForRatio: Set[String])
                                   (implicit opt: Options, coll: Collector)
-  extends EvalCDGP[E, Int](state, 0, 1, testsTypesForRatio, SpecialTestsEvaluator[Int]((s: Op) => s.size)) {
+  extends EvalCDGP[E, Int](state, 0, 1, testsTypesForRatio, EvaluatorSpecialTests[Int]((s: Op) => s.size)) {
 
   /**
     * Checks correctness of the program only for the given test.
@@ -551,7 +552,7 @@ class EvalGPRInt(state: StateGPR, testsTypesForRatio: Set[String])
   */
 abstract class EvalCDGPContinuous[E](state: StateCDGP, testsTypesForRatio: Set[String])
                                     (implicit opt: Options, coll: Collector)
-  extends EvalCDGP[E, Double](state, 0.0, 1.0, testsTypesForRatio, SpecialTestsEvaluator((op: Op) => op.size.toDouble)) {
+  extends EvalCDGP[E, Double](state, 0.0, 1.0, testsTypesForRatio, EvaluatorSpecialTests((op: Op) => op.size.toDouble)) {
   // Parameters:
   val optThreshold: Double = getOptThreshold()
   val testErrorUseOptThreshold: Boolean = opt("testErrorUseOptThreshold", false)
