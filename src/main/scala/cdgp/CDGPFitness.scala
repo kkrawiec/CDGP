@@ -173,26 +173,28 @@ abstract class EvalFunction[S, E](val state: State)
 abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
                                    val binaryTestPassValue: EVecEl,
                                    val binaryTestFailValue: EVecEl,
-                                   val testsTypesForRatio: Set[String],
-                                   val evaluatorSpecial: EvaluatorSpecialTests[EVecEl])
+                                   val testsTypesForRatio: Set[String])
                                   (implicit opt: Options, coll: Collector)
   extends EvalFunction[Op, E](state) {
+
+  // Test evaluators
+  val evaluatorComplete: EvaluatorCompleteTests[EVecEl]
+  val evaluatorIncomplete: EvaluatorIncompleteTests[EVecEl]
+  val evaluatorSpecial: EvaluatorSpecialTests[EVecEl]
+
   val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, Int.MaxValue, (x: Int) => x >= 0)
   val testsRatio: Double = opt('testsRatio, 1.0, (x: Double) => x >= 0.0 && x <= 1.0)
   val testsMaxDiff: Option[Int] = opt.getOptionInt("testsMaxDiff")
-  val partialConstraintsInFitness: Boolean = evaluatorSpecial.partialConstraintsInFitness
-  val globalConstraintInFitness: Boolean = evaluatorSpecial.globalConstraintInFitness
-  val sizeInFitness: Boolean = evaluatorSpecial.sizeInFitness
-  val partialConstraintsWeight: Int = evaluatorSpecial.weight
+  def partialConstraintsInFitness: Boolean = evaluatorSpecial.partialConstraintsInFitness
+  def globalConstraintInFitness: Boolean = evaluatorSpecial.globalConstraintInFitness
+  def sizeInFitness: Boolean = evaluatorSpecial.sizeInFitness
+  def partialConstraintsWeight: Int = evaluatorSpecial.weight
   assert(testsTypesForRatio.subsetOf(Set("c", "i", "s")), "Incorrect type of test for --testsTypesForRatio; supported: c - complete tests, i - incomplete tests, s - special tests.")
   assert( if (testsTypesForRatio.contains("s")) partialConstraintsInFitness || sizeInFitness || globalConstraintInFitness else true, "Special tests were declared to be used for computing tests ratio, but none are part of the fitness vector. Please use at least one of: '--partialConstraintsInFitness true', '--globalConstraintsInFitness true', '--sizeInFitness true'.")
 
-  val evaluatorComplete: EvaluatorCompleteTests[EVecEl]
-  val evaluatorIncomplete: EvaluatorIncompleteTests[EVecEl]
-
 
   /** The number of constraints tests prepended to the evaluation vector.*/
-  val numberOfSpecialTests: Int = evaluatorSpecial.getNumberOfSpecialTests(state)
+  def numberOfSpecialTests: Int = evaluatorSpecial.getNumberOfSpecialTests(state)
 
   /** Verifies solution on partial constraints in order to add this info to the fitness vector. */
   def getPartialConstraintsEvalVector(s: Op, passValue: EVecEl, nonpassValue: EVecEl): Seq[EVecEl] =
@@ -272,10 +274,12 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
 abstract class EvalCDGPDiscrete[E](state: StateCDGP,
                                    testsTypesForRatio: Set[String])
                                   (implicit opt: Options, coll: Collector)
-  extends EvalCDGP[E, Int](state, 0, 1, testsTypesForRatio, EvaluatorSpecialTests[Int]((s: Op) => s.size)) {
+  extends EvalCDGP[E, Int](state, 0, 1, testsTypesForRatio) {
 
+  // Test evaluators
   override val evaluatorComplete = EvaluatorCompleteTestsDiscrete(state)
   override val evaluatorIncomplete = EvaluatorIncompleteTestsDiscrete(state)
+  override val evaluatorSpecial = EvaluatorSpecialTests[Int]((s: Op) => s.size)
 
   def fitnessOnlyTestCases: Op => (Boolean, Seq[Int]) =
     (s: Op) => {
@@ -485,7 +489,7 @@ class EvalGPRInt(state: StateGPR, testsTypesForRatio: Set[String])
   */
 abstract class EvalCDGPContinuous[E](state: StateCDGP, testsTypesForRatio: Set[String])
                                     (implicit opt: Options, coll: Collector)
-  extends EvalCDGP[E, Double](state, 0.0, 1.0, testsTypesForRatio, EvaluatorSpecialTests((op: Op) => op.size.toDouble)) {
+  extends EvalCDGP[E, Double](state, 0.0, 1.0, testsTypesForRatio) {
   // Parameters:
   val optThreshold: Double = getOptThreshold()
   val testErrorUseOptThreshold: Boolean = opt("testErrorUseOptThreshold", false)
@@ -496,8 +500,10 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP, testsTypesForRatio: Set[S
   coll.set("cdgp.optThresholdMSE", Tools.double2str(optThreshold))
   checkValidity()
 
+  // Test evaluators
   override val evaluatorComplete = EvaluatorCompleteTestsContinuous(state)
   override val evaluatorIncomplete = EvaluatorIncompleteTestsContinuous(state)
+  override val evaluatorSpecial = EvaluatorSpecialTests((op: Op) => op.size.toDouble)
 
   def getTestErrorValue(pname: String): Option[Double] = {
     val s = opt.getOption(pname)

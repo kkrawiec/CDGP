@@ -55,4 +55,9 @@ class TestTools {
     val (train3, val3, test3) = Tools.splitTrainValidationTest(tests)(Options("--sizeValidationSet 30%"))
     assertEquals((7, 3, 0), (train3.size, val3.size, test3.size))
   }
+
+  @Test
+  def test_stringScientificNotation(): Unit = {
+    assertEquals("1E-3,1E2", Tools.stringScientificNotation(Seq(0.001, 100)))
+  }
 }

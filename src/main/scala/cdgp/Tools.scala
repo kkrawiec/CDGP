@@ -41,6 +41,12 @@ object Tools {
     */
   def double2str(d: Double): String = df.format(d)
 
+  def stringScientificNotation(seq: Seq[Double], numDigits: Int = 3): String = {
+    import java.text.DecimalFormat
+    val formatter = new DecimalFormat(s"0.${"#" * numDigits}E0")
+    seq.map(formatter.format(_)).mkString(",")
+  }
+
   def avg(xs: Seq[Double]): Double = {
     if (xs.isEmpty) throw new Exception("Trying to compute average from an empty list!")
     else xs.sum / xs.size

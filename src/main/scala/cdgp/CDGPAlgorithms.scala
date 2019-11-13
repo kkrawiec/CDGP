@@ -76,45 +76,58 @@ trait CDGPAlgorithm[S <: Op, E <: Fitness] {
 
 
 
-class ValidationNoImprovement[E <: Fitness](validationSet: Seq[(Map[String, Any], Option[Any])],
-                                               evaluatorComplete: EvaluatorCompleteTestsContinuous,
-                                               bsf: BestSoFar[Op, E],
-                                               ordering: Ordering[E],
-                                               notImprovedWindow: Int) {
-  val logMseTrainSet: mutable.Seq[Double] = mutable.Seq[Double]()
-  val logMseValidationSet: mutable.Seq[Double] = mutable.Seq[Double]()
-  var bestOnValidSet: Option[(Op, E)] = None  // contains the best solution found at some time in evolution and evaluation on the validation set
-  var numNotImproved: Int = 0
-  def apply(s: StatePop[(Op, E)]): Boolean = {
+
+class ValidationSetTermination[E](trainingSet: Seq[(Map[String, Any], Option[Any])],
+                                  validationSet: Seq[(Map[String, Any], Option[Any])],
+                                  evaluatorComplete: EvaluatorCompleteTestsContinuous,
+                                  notImprovedWindow: Int)
+                                 (implicit coll: Collector)
+  extends Function1[BestSoFar[Op, E], Boolean] {
+  val logTrainSet: mutable.ArrayBuffer[Double] = mutable.ArrayBuffer[Double]()
+  val logValidSet: mutable.ArrayBuffer[Double] = mutable.ArrayBuffer[Double]()
+  var bsfValid: Option[(Op, Double)] = None  // contains the best solution found at some time in evolution and evaluation on the validation set
+  var iterNotImproved: Int = 0
+  override def apply(bsf: BestSoFar[Op, E]): Boolean = {
     if (bsf.bestSoFar.isEmpty)
-      throw new Exception("Trying to evaluate bestOfRun on the validation set when no best solution of a generation was determined.")
+      throw new Exception("Trying to evaluate empty bestOfRun on the validation set.")
     else {
-      val (bOp, bEval) = bsf.bestSoFar.get
-      if (bestOnValidSet.isEmpty) {
-        bestOnValidSet = Some((bOp, evalOnValidationSet(bOp)))
-        numNotImproved = 0
+      val (bOp, _) = bsf.bestSoFar.get
+      val errorT = error(bOp, trainingSet)  // because e.g. in Lexicase fitness is a sequence
+      val errorV = error(bOp, validationSet)  // because e.g. in Lexicase fitness is a sequence
+      logTrainSet.append(errorT)
+      coll.set("cdgp.errorT", errorT)
+      coll.set("cdgp.errorV", errorV)
+      logValidSet.append(errorV)
+      if (bsfValid.isEmpty) {
+        bsfValid = Some((bOp, errorV))
+        iterNotImproved = 0
         false
       }
-      // Evaluate on the validation set
       else {
-        val (vOp, vEval) = bestOnValidSet.get
-        val evalValidBsf = if (bOp.equals(vOp)) vEval else evalOnValidationSet(bOp) // if bestOfRun haven't changed we don't need to evaluate once again
-        if (bestOnValidSet.isEmpty || ordering.compare(bestOnValidSet.get._2, bsf.bestSoFar.get._2) >= 0) {
-          bestOnValidSet = Some(bsf.bestSoFar.get)
-          numNotImproved = 0
+        val (bvOp, bvErrorV) = bsfValid.get
+        if (errorV < bvErrorV) {  // if solution is better on the validation set
+          bsfValid = Some((bOp, errorV))
+          iterNotImproved = 0
           false
         }
         else {
-          numNotImproved += 1
-          if (numNotImproved >= notImprovedWindow) true else false
+          iterNotImproved += 1
+          if (!bOp.equals(bvOp) && iterNotImproved >= notImprovedWindow) true else false
         }
       }
     }
   }
 
-  def mseOnValidationSet(s: Op): Double = {
-    val v = evaluatorComplete(s, validationSet)
+  def error(s: Op, set: Seq[(Map[String, Any], Option[Any])]): Double = {
+    val v = evaluatorComplete(s, set)
     Tools.mse(v)
+  }
+
+  def reset(): Unit = {
+    logTrainSet.clear()
+    logValidSet.clear()
+    bsfValid = None
+    iterNotImproved = 0
   }
 }
 
@@ -138,7 +151,8 @@ class ValidationNoImprovement[E <: Fitness](validationSet: Seq[(Map[String, Any]
  */
 abstract class CDGPGenerationalCore[E <: Fitness](moves: GPMoves,
                                                   cdgpEval: CDGPFuelEvaluation[Op, E],
-                                                  correct: (Op, E) => Boolean)
+                                                  correct: (Op, E) => Boolean,
+                                                  validSetTermination: BestSoFar[Op, E] => Boolean = (s: BestSoFar[Op,E]) => false)
                                    (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
   extends EACore[Op, E](moves, SequentialEval(cdgpEval.eval), correct) with CDGPAlgorithm[Op, E] {
   override def cdgpState = cdgpEval.state
@@ -150,7 +164,7 @@ abstract class CDGPGenerationalCore[E <: Fitness](moves: GPMoves,
   override def initialize  = RandomStatePop(moves.newSolution _) andThen evaluate andThen updateAfterIteration andThen bsf andThen it
   override def epilogue = super.epilogue andThen reportStats
   override def terminate =
-    Termination(correct) ++ Seq(Termination.MaxIter(it), validationNoImprovement(cdgpEval.state.validationSet, cdgpEval.eval))
+    Termination(correct) ++ Seq(Termination.MaxIter(it), (s: StatePop[(Op,E)]) => validSetTermination(bsf))
   override def evaluate = cdgpEval
   override def report = bsf
   override def algorithm =
@@ -164,9 +178,10 @@ abstract class CDGPGenerationalCore[E <: Fitness](moves: GPMoves,
 class CDGPGenerationalStaticBreeder[E <: Fitness](moves: GPMoves,
                                                   cdgpEval: CDGPFuelEvaluation[Op, E],
                                                   correct: (Op, E) => Boolean,
-                                                  selection: Selection[Op, E])
+                                                  selection: Selection[Op, E],
+                                                  validTermination: BestSoFar[Op, E] => Boolean = (s: BestSoFar[Op,E]) => false)
                                                  (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
-  extends CDGPGenerationalCore[E](moves, cdgpEval, correct) {
+  extends CDGPGenerationalCore[E](moves, cdgpEval, correct, validTermination) {
   val breeder = SimpleBreeder[Op, E](selection, moves: _*)
   override def createBreeder(s: StatePop[(Op, E)]) = breeder
 }
@@ -174,9 +189,10 @@ class CDGPGenerationalStaticBreeder[E <: Fitness](moves: GPMoves,
 
 class CDGPGenerationalEpsLexicase[E <: FSeqDouble](moves: GPMoves,
                                                    cdgpEval: CDGPFuelEvaluation[Op, E],
-                                                   correct: (Op, E) => Boolean)
+                                                   correct: (Op, E) => Boolean,
+                                                   validTermination: BestSoFar[Op, E] => Boolean = (s: BestSoFar[Op,E]) => false)
                                                   (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
-  extends CDGPGenerationalCore(moves, cdgpEval, correct) {
+  extends CDGPGenerationalCore(moves, cdgpEval, correct, validTermination) {
   def createBreeder(s: StatePop[(Op, E)]): (StatePop[(Op, E)] => StatePop[Op]) = {
     val epsForTests = EpsLexicaseSelection.medianAbsDev(s)
     val sel = new EpsLexicaseSelection[Op, E](epsForTests)
@@ -186,46 +202,47 @@ class CDGPGenerationalEpsLexicase[E <: FSeqDouble](moves: GPMoves,
 
 
 object CDGPGenerationalStaticBreeder {
-  def apply[E <: Fitness](cdgpEval: CDGPFuelEvaluation[Op, E], sel: Selection[Op, E])
+  def apply[E <: Fitness](cdgpEval: CDGPFuelEvaluation[Op, E], sel: Selection[Op, E],
+                          validTermination: BestSoFar[Op,E] => Boolean = (s: BestSoFar[Op,E]) => false)
                          (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalStaticBreeder[E] = {
     implicit val ordering = cdgpEval.eval.ordering
     val grammar = cdgpEval.eval.state.sygusData.getSwimGrammar(rng)
     val moves = GPMoves(grammar, Common.isFeasible(cdgpEval.eval.state.synthTask.fname, opt))
     val correct = Common.correct(cdgpEval.eval)
-    new CDGPGenerationalStaticBreeder(moves, cdgpEval, correct, sel)
+    new CDGPGenerationalStaticBreeder(moves, cdgpEval, correct, sel, validTermination)
   }
 }
 
 
 object CDGPGenerationalTournament {
-  def apply[E <: Fitness](eval: EvalFunction[Op, E])
+  def apply[E <: Fitness](eval: EvalFunction[Op, E], validTermination: BestSoFar[Op,E] => Boolean = (s: BestSoFar[Op,E]) => false)
                          (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalStaticBreeder[E] = {
     val cdgpEval = new CDGPFuelEvaluation[Op, E](eval)
     val sel = new TournamentSelection[Op, E](eval.ordering, opt('tournamentSize, 7))
-    CDGPGenerationalStaticBreeder[E](cdgpEval, sel)
+    CDGPGenerationalStaticBreeder[E](cdgpEval, sel, validTermination)
   }
 }
 
 
 object CDGPGenerationalLexicase {
-  def apply[E <: FSeqInt](eval: EvalFunction[Op, E])
+  def apply[E <: FSeqInt](eval: EvalFunction[Op, E], validTermination: BestSoFar[Op,E] => Boolean = (s: BestSoFar[Op,E]) => false)
                          (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalStaticBreeder[E] = {
     val cdgpEval = new CDGPFuelEvaluation[Op, E](eval)
     val sel = new LexicaseSelection01[Op, E]
-    CDGPGenerationalStaticBreeder[E](cdgpEval, sel)
+    CDGPGenerationalStaticBreeder[E](cdgpEval, sel, validTermination)
   }
 }
 
 
 object CDGPGenerationalEpsLexicase {
-  def apply(eval: EvalFunction[Op, FSeqDouble])
+  def apply(eval: EvalFunction[Op, FSeqDouble], validTermination: BestSoFar[Op,FSeqDouble] => Boolean = (s: BestSoFar[Op,FSeqDouble]) => false)
            (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalEpsLexicase[FSeqDouble] = {
     implicit val ordering = eval.ordering
     val grammar = eval.state.sygusData.getSwimGrammar(rng)
     val moves = GPMoves(grammar, Common.isFeasible(eval.state.synthTask.fname, opt))
     val cdgpEval = new CDGPFuelEvaluation[Op, FSeqDouble](eval)
     val correct = Common.correct(cdgpEval.eval)
-    new CDGPGenerationalEpsLexicase(moves, cdgpEval, correct)
+    new CDGPGenerationalEpsLexicase(moves, cdgpEval, correct, validTermination)
   }
 }
 
@@ -413,12 +430,12 @@ object Common {
   }
 
   def restartLoop[S,E](initialize: Unit => StatePop[(S,E)],
-                     algorithm: StatePop[(S,E)] => StatePop[(S,E)],
-                     correct: (S, E) => Boolean,
-                     callCounter: CallCounter[StatePop[(S,E)], StatePop[(S,E)]],
-                     bsf: BestSoFar[S, E],
-                     opt: Options, coll: Collector
-                    )(s: StatePop[(S,E)]): StatePop[(S,E)] = {
+                       algorithm: StatePop[(S,E)] => StatePop[(S,E)],
+                       correct: (S, E) => Boolean,
+                       callCounter: CallCounter[StatePop[(S,E)], StatePop[(S,E)]],
+                       bsf: BestSoFar[S, E],
+                       opt: Options, coll: Collector
+                      )(s: StatePop[(S,E)]): StatePop[(S,E)] = {
     @scala.annotation.tailrec
     def helper(startPop: StatePop[(S,E)], m: Int): StatePop[(S,E)] = {
       // println(s"\n----- Algorithm run #${opt('maxRestarts, 1)-m} -----")
@@ -430,7 +447,8 @@ object Common {
         else {
           callCounter.reset()
           coll.set("cdgp.doneAlgRestarts", 1 + coll.get("cdgp.doneAlgRestarts").get.asInstanceOf[Int])
-          helper(initialize(), m-1)
+          val newInitialPop = initialize()
+          helper(newInitialPop, m-1)
         }
       }
     }
