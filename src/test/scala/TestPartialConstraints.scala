@@ -40,7 +40,7 @@ final class TestPartialConstraints {
     val problem = LoadSygusBenchmark.parseText(sygusMonotonicityOld)
     val sygusData = SygusProblemData(problem)
     val state = StateCDGP(sygusData)
-    val eval = new EvalCDGPSeqDouble(state, Set("c", "i", "s"))
+    val eval = EvalContinuous.EvalCDGPSeqDouble(state, Set("c", "i", "s"))
 
     var op = Op('x)
     var v = eval.getPartialConstraintsEvalVector(op, passValue = 0, nonpassValue = 1)
@@ -58,7 +58,7 @@ final class TestPartialConstraints {
     val problem = LoadSygusBenchmark.parseText(sygusMonotonicityNew)
     val sygusData = SygusProblemData(problem)
     val state = StateCDGP(sygusData)
-    val eval = new EvalCDGPSeqDouble(state, Set("c", "i", "s"))
+    val eval = EvalContinuous.EvalCDGPSeqDouble(state, Set("c", "i", "s"))
 
     var op = Op('x)
     var v = eval.getPartialConstraintsEvalVector(op, passValue = 0, nonpassValue = 1)

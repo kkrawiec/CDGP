@@ -17,16 +17,16 @@ object RegressionCDGP {
 
     if (method == "CDGPprops") {
       val testsTypesForRatio = opt('testsTypesForRatio, "i,s").split(",").toSet
-      new EvalCDGPDoubleMSE(state, testsTypesForRatio)
+      EvalContinuous.EvalCDGPDoubleMSE(state, testsTypesForRatio)
     }
     else if (method == "CDGP") {
       val testsTypesForRatio = opt('testsTypesForRatio, "i").split(",").toSet
       opt.retrievedOptions
-      new EvalCDGPDoubleMSE(state, testsTypesForRatio)
+      EvalContinuous.EvalCDGPDoubleMSE(state, testsTypesForRatio)
     }
     else {
       val testsTypesForRatio = opt('testsTypesForRatio, "i").split(",").toSet
-      new EvalGPDoubleMSE(state, testsTypesForRatio)
+      EvalContinuous.EvalGPDoubleMSE(state, testsTypesForRatio)
     }
   }
 
@@ -35,15 +35,15 @@ object RegressionCDGP {
   EvalCDGPContinuous[FSeqDouble] = {
     if (method == "CDGPprops") {
       val testsTypesForRatio = opt('testsTypesForRatio, "i,s").split(",").toSet
-      new EvalCDGPSeqDouble(state, testsTypesForRatio)
+      EvalContinuous.EvalCDGPSeqDouble(state, testsTypesForRatio)
     }
     else if (method == "CDGP") {
       val testsTypesForRatio = opt('testsTypesForRatio, "i").split(",").toSet
-      new EvalCDGPSeqDouble(state, testsTypesForRatio)
+      EvalContinuous.EvalCDGPSeqDouble(state, testsTypesForRatio)
     }
     else {
       val testsTypesForRatio = opt('testsTypesForRatio, "i").split(",").toSet
-      new EvalGPSeqDouble(state, testsTypesForRatio)
+      EvalContinuous.EvalGPSeqDouble(state, testsTypesForRatio)
     }
   }
 

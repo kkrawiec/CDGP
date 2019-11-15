@@ -11,6 +11,7 @@ class EvaluatorSpecialTests[EVecEl](val partialConstraintsInFitness: Boolean,
                                     val nonpassValue: EVecEl,
                                     val programSizeFun: Op => EVecEl,
                                     val weight: Int = 1) {
+  def isNonzeroTests: Boolean = partialConstraintsInFitness || sizeInFitness || globalConstraintInFitness
 
   def getNumberOfSpecialTests(state: StateCDGP): Int = {
     weight *

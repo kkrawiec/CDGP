@@ -79,7 +79,7 @@ trait CDGPAlgorithm[S <: Op, E <: Fitness] {
 
 class ValidationSetTermination[E](trainingSet: Seq[(Map[String, Any], Option[Any])],
                                   validationSet: Seq[(Map[String, Any], Option[Any])],
-                                  evaluatorComplete: EvaluatorCompleteTestsContinuous,
+                                  evaluatorComplete: EvaluatorCompleteTests[Double],
                                   notImprovedWindow: Int)
                                  (implicit coll: Collector)
   extends Function1[BestSoFar[Op, E], Boolean] {

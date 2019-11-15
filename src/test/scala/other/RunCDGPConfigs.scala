@@ -18,25 +18,25 @@ object RunCDGPConfigs extends App {
     val evoMode = opt('evolutionMode)
     val (res, bestOfRun) = (method, selection, evoMode) match {
       case ("CDGP", "tournament", "generational") =>
-        val eval = new EvalCDGPInt(StateCDGP(opt('benchmark)), Set("c", "i", "s"))
+        val eval = EvalDiscrete.EvalCDGPInt(StateCDGP(opt('benchmark)), Set("c", "i", "s"))
         val alg = CDGPGenerationalTournament(eval)
         val finalPop = RunExperiment(alg)
         (finalPop, alg.bsf.bestSoFar)
 
       case ("CDGP", "tournament", "steadyState") =>
-        val eval = new EvalCDGPInt(StateCDGP(opt('benchmark)), Set("c", "i", "s"))
+        val eval = EvalDiscrete.EvalCDGPInt(StateCDGP(opt('benchmark)), Set("c", "i", "s"))
         val alg = CDGPSteadyStateTournament(eval)
         val finalPop = RunExperiment(alg)
         (finalPop, alg.bsf.bestSoFar)
 
       case ("CDGP", "lexicase", "generational") =>
-        val eval = new EvalCDGPSeqInt(StateCDGP(opt('benchmark)), Set("c", "i", "s"))
+        val eval = EvalDiscrete.EvalCDGPSeqInt(StateCDGP(opt('benchmark)), Set("c", "i", "s"))
         val alg = CDGPGenerationalLexicase(eval)
         val finalPop = RunExperiment(alg)
         (finalPop, alg.bsf.bestSoFar)
 
       case ("CDGP", "lexicase", "steadyState") =>
-        val eval = new EvalCDGPSeqInt(StateCDGP(opt('benchmark)), Set("c", "i", "s"))
+        val eval = EvalDiscrete.EvalCDGPSeqInt(StateCDGP(opt('benchmark)), Set("c", "i", "s"))
         val alg = CDGPSteadyStateLexicase(eval)
         val finalPop = RunExperiment(alg)
         (finalPop, alg.bsf.bestSoFar)
@@ -44,25 +44,25 @@ object RunCDGPConfigs extends App {
       // ------------------------- GPR --------------------------------
 
       case ("GPR", "tournament", "generational") =>
-        val eval = new EvalGPRInt(StateGPR(opt('benchmark)), Set("c", "i", "s"))
+        val eval = EvalDiscrete.EvalGPRInt(StateGPR(opt('benchmark)), Set("c", "i", "s"))
         val alg = CDGPGenerationalTournament(eval)
         val finalPop = RunExperiment(alg)
         (finalPop, alg.bsf.bestSoFar)
 
       case ("GPR", "tournament", "steadyState") =>
-        val eval = new EvalGPRInt(StateGPR(opt('benchmark)), Set("c", "i", "s"))
+        val eval = EvalDiscrete.EvalGPRInt(StateGPR(opt('benchmark)), Set("c", "i", "s"))
         val alg = CDGPSteadyStateTournament(eval)
         val finalPop = RunExperiment(alg)
         (finalPop, alg.bsf.bestSoFar)
 
       case ("GPR", "lexicase", "generational") =>
-        val eval = new EvalGPRSeqInt(StateGPR(opt('benchmark)), Set("c", "i", "s"))
+        val eval = EvalDiscrete.EvalGPRSeqInt(StateGPR(opt('benchmark)), Set("c", "i", "s"))
         val alg = CDGPGenerationalLexicase(eval)
         val finalPop = RunExperiment(alg)
         (finalPop, alg.bsf.bestSoFar)
 
       case ("GPR", "lexicase", "steadyState") =>
-        val eval = new EvalGPRSeqInt(StateGPR(opt('benchmark)), Set("c", "i", "s"))
+        val eval = EvalDiscrete.EvalGPRSeqInt(StateGPR(opt('benchmark)), Set("c", "i", "s"))
         val alg = CDGPSteadyStateLexicase(eval)
         val finalPop = RunExperiment(alg)
         (finalPop, alg.bsf.bestSoFar)

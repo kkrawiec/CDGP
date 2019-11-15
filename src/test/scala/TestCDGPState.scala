@@ -135,11 +135,11 @@ final class TestCDGPState {
     implicit val optEvalPercent300 = Options(s"--testErrorVerPercent 3.0 --regression true --testsTypesForRatio c,s,i --partialConstraintsInFitness true ${Global.solverConfig}")
     val problem = LoadSygusBenchmark.parseText(TestCDGPState.scriptIdentity)
     val state = StateCDGP(problem)(opt, coll, rng)
-    val eval = new EvalCDGPSeqDouble(state, Set("c", "i", "s"))(opt, coll, rng)
-    val evalValueCIS = new EvalCDGPSeqDouble(state, Set("c", "i", "s"))(optEvalValue, coll, rng)
-    val evalValueDiff5CIS = new EvalCDGPSeqDouble(state, Set("c", "i", "s"))(optEvalValueDiff5, coll, rng)
-    val evalRatio100CIS = new EvalCDGPSeqDouble(state, Set("c", "i", "s"))(optEvalPercent100, coll, rng)
-    val evalRatio300C = new EvalCDGPSeqDouble(state, Set("c"))(optEvalPercent300, coll, rng)
+    val eval = EvalContinuous.EvalCDGPSeqDouble(state, Set("c", "i", "s"))(opt, coll)
+    val evalValueCIS = EvalContinuous.EvalCDGPSeqDouble(state, Set("c", "i", "s"))(optEvalValue, coll)
+    val evalValueDiff5CIS = EvalContinuous.EvalCDGPSeqDouble(state, Set("c", "i", "s"))(optEvalValueDiff5, coll)
+    val evalRatio100CIS = EvalContinuous.EvalCDGPSeqDouble(state, Set("c", "i", "s"))(optEvalPercent100, coll)
+    val evalRatio300C = EvalContinuous.EvalCDGPSeqDouble(state, Set("c"))(optEvalPercent300, coll)
     // (constraint (= (f 1.0) 1.0))  // the first normal test
     state.testsManager.addNewTest((Map("x"->10.0), None))
     state.testsManager.addNewTest((Map("x"->11.0), None))
@@ -185,7 +185,7 @@ final class TestCDGPState {
   def test_max2_t(): Unit = {
     // Testing CDGP for pure test-based specification
     val state = StateCDGP("resources/LIA/tests/max2_t.sl")
-    val eval = new EvalCDGPSeqInt(state, Set("c", "i"))
+    val eval = EvalDiscrete.EvalCDGPSeqInt(state, Set("c", "i"))
     state.testsManager.flushHelpers()  // propagate tests
     assertEquals(5, state.testsManager.getNumberOfTests)
     assertEquals(5, state.testsManager.getNumberOfKnownOutputs)
@@ -206,7 +206,7 @@ final class TestCDGPState {
     val tests = Seq(t1, t2, t3)
     val code = TestCDGPState.scriptMax
     val problem = LoadSygusBenchmark.parseText(code)
-    val eval = new EvalCDGPSeqInt(StateCDGP(problem), Set("c", "i"))
+    val eval = EvalDiscrete.EvalCDGPSeqInt(StateCDGP(problem), Set("c", "i"))
     assertEquals(Seq(0, 0, 1), eval.evalOnTests(op, tests))
   }
 
@@ -214,7 +214,7 @@ final class TestCDGPState {
   def test_evalOnTestsMaxUsingSolver(): Unit = {
     val problem = LoadSygusBenchmark.parseText(TestCDGPState.scriptMax)
     val state = StateCDGP(problem)
-    val eval = new EvalCDGPSeqInt(state, Set("c", "i"))
+    val eval = EvalDiscrete.EvalCDGPSeqInt(state, Set("c", "i"))
     val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=true)
     val t1 = (GetValueParser("((x 4)(y 3))").toMap, Some(4))
     val t2 = (GetValueParser("((x 5)(y 1))").toMap, Some(5))
@@ -233,7 +233,7 @@ final class TestCDGPState {
   def test_evalOnTestsString(): Unit = {
     val problem = LoadSygusBenchmark.parseText(Global.specFirstname)
     val state = StateCDGP(problem)
-    val eval = new EvalCDGPSeqInt(state, Set("c", "i"))
+    val eval = EvalDiscrete.EvalCDGPSeqInt(state, Set("c", "i"))
     val tests = Seq(
       (Map("name" -> "\\x00 \\x00"), Some("\\x00")),
       (Map("name" -> " "),Some("")),
@@ -263,7 +263,7 @@ final class TestCDGPState {
   @Test
   def test_evalOnTestsMaxDifferentVarOrderInModel(): Unit = {
     val problem = LoadSygusBenchmark.parseText(TestCDGPState.scriptMax)
-    val eval = new EvalCDGPSeqInt(StateCDGP(problem), Set("c", "i"))
+    val eval = EvalDiscrete.EvalCDGPSeqInt(StateCDGP(problem), Set("c", "i"))
     val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=true)
     val t1 = (GetValueParser("((y 3)(x 4))").toMap, Some(4))
     val t2 = (GetValueParser("((y 1)(x 5))").toMap, Some(5))
@@ -276,7 +276,7 @@ final class TestCDGPState {
   def test_evalOnTestsMaxRenamedVars(): Unit = {
     val problem = LoadSygusBenchmark.parseText(TestCDGPState.scriptMaxRenamedVars)
     val state = StateCDGP(problem)
-    val eval = new EvalCDGPSeqInt(state, Set("c", "i"))
+    val eval = EvalDiscrete.EvalCDGPSeqInt(state, Set("c", "i"))
     val op = Op.fromStr("ite(>=(a b) a 0)", useSymbols=true)
     val t1 = state.createCompleteTest(GetValueParser("((x 4)(y 3))").toMap, Some(4))
     val t2 = state.createCompleteTest(GetValueParser("((x 5)(y 1))").toMap, Some(5))
@@ -293,7 +293,7 @@ final class TestCDGPState {
   def test_evalOnTestsMaxFixedX(): Unit = {
     val problem = LoadSygusBenchmark.parseText(TestCDGPState.scriptMaxFixedX)
     val state = StateCDGP(problem)
-    val eval = new EvalCDGPSeqInt(state, Set("c", "i"))
+    val eval = EvalDiscrete.EvalCDGPSeqInt(state, Set("c", "i"))
     val op = Op.fromStr("ite(>=(argA argB) argA 0)", useSymbols=true)
     val t1 = state.createCompleteTest(GetValueParser("((asd 4)(y -3))").toMap, Some(1))
     val t2 = state.createCompleteTest(GetValueParser("((asd 5)(y 0))").toMap, Some(1))
@@ -306,7 +306,7 @@ final class TestCDGPState {
   def test_evalOnTestsMaxFixedX2(): Unit = {
     val problem = LoadSygusBenchmark.parseText(TestCDGPState.scriptMaxFixedX)
     val state = StateCDGP(problem)
-    val eval = new EvalCDGPSeqInt(state, Set("c", "i"))
+    val eval = EvalDiscrete.EvalCDGPSeqInt(state, Set("c", "i"))
     val op = Op.fromStr("ite(>=(argA argB) argA 0)", useSymbols=true)
     val t1 = state.createCompleteTest(GetValueParser("((y -3))").toMap, Some(1))
     val t2 = state.createCompleteTest(GetValueParser("((y 0))").toMap, Some(1))

@@ -10,8 +10,7 @@ import swim.tree.Op
   * given so called "domain", which is understood as a semantics for the operators
   * present in the program.
   */
-abstract class EvaluatorCompleteTests[EVecEl](val domain: RecursiveDomain[Any, Any],
-                                              val state: State)
+abstract class EvaluatorCompleteTests[EVecEl](val domain: RecursiveDomain[Any, Any], val state: State)
                                              (implicit coll: Collector) {
   // The types for input and output
   type I = Map[String, Any]
@@ -60,8 +59,7 @@ object EvaluatorCompleteTests {
 
 
 
-class EvaluatorCompleteTestsDiscrete(domain: RecursiveDomain[Any, Any],
-                                     state: State)
+class EvaluatorCompleteTestsDiscrete(domain: RecursiveDomain[Any, Any], state: State)
                                     (implicit coll: Collector)
   extends EvaluatorCompleteTests[Int](domain, state) {
   /**
@@ -101,8 +99,7 @@ object EvaluatorCompleteTestsDiscrete {
 }
 
 
-class EvaluatorCompleteTestsContinuous(domain: RecursiveDomain[Any, Any],
-                                       state: State)
+class EvaluatorCompleteTestsContinuous(domain: RecursiveDomain[Any, Any], state: State)
                                       (implicit coll: Collector)
   extends EvaluatorCompleteTests[Double](domain, state) {
   /**
