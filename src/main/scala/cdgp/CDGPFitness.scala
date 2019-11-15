@@ -1,6 +1,6 @@
 package cdgp
 
-import fuel.util.{Collector, Options, TRandom}
+import fuel.util.{Collector, Options}
 import swim.tree.{LongerOrMaxPassedOrdering, Op}
 import sygus.{IntConst, LiteralTerm, StringConst, Term}
 
@@ -170,94 +170,6 @@ abstract class EvalFunction[S, E](val state: State)
 
 
 
-//object EvalCDGP {
-//  // The types for input and output
-//  type I = Map[String, Any]
-//  type O = Any
-//
-//  /**
-//   * Returns parts of the evaluation vector that is concerned with testsRatio as a tuple,
-//   * in which the first element are evaluations of complete tests, and the second evaluations
-//   * of incomplete and special tests.
-//   */
-//  def getEvalForVerificationRatio[EVecEl](evalTests: Seq[EVecEl],
-//                                          tests: Seq[(I, Option[O])],
-//                                          testsTypesForRatio: Set[String],
-//                                          numSpecialTests: Int): (Seq[EVecEl], Seq[EVecEl], Seq[EVecEl]) = {
-//    val evalComplete = if (testsTypesForRatio.contains("c")) extractEvalComplete(evalTests, tests, numSpecialTests) else Seq()
-//    val evalIncomplete = if (testsTypesForRatio.contains("i")) extractEvalIncomplete(evalTests, tests, numSpecialTests) else Seq()
-//    val evalSpecial = if (testsTypesForRatio.contains("s")) extractEvalSpecial(evalTests, numSpecialTests) else Seq()
-//    (evalComplete, evalIncomplete, evalSpecial)
-//  }
-//
-//  /**
-//   * Verifies a solution if it is necessary.
-//   */
-//  def verifySolution[EVecEl](s: Op,
-//                             state: StateCDGP,
-//                             evalTests: Seq[EVecEl],
-//                             evaluatorSpecial: EvaluatorSpecialTests[EVecEl]): (String, Option[String]) = {
-//    if (evaluatorSpecial.partialConstraintsInFitness &&
-//      !evaluatorSpecial.getPartialConstrSubvector(state)(extractEvalSpecial(evalTests)).contains(evaluatorSpecial.nonpassValue))
-//    // Optimization: if all partial constraints are correct, then the global correctness will also be correct and no counterexample will be found
-//      ("unsat", None)
-//    else
-//      state.verify(s)
-//  }
-//
-//  def extractEvalNormal[EVecEl](eval: Seq[EVecEl], numSpecialTests: Int): Seq[EVecEl] = eval.drop(numSpecialTests)
-//  def extractEvalSpecial[EVecEl](eval: Seq[EVecEl], numSpecialTests: Int): Seq[EVecEl] = eval.take(numSpecialTests)
-//  def extractEvalComplete[EVecEl](eval: Seq[EVecEl], tests: Seq[(Map[String, Any], Option[Any])], numSpecialTests: Int): Seq[EVecEl] = {
-//    val evalNormal = extractEvalNormal(eval, numSpecialTests)
-//    assert(evalNormal.size == tests.size)
-//    for (i <- evalNormal.indices; if tests(i)._2.isDefined) yield evalNormal(i)
-//  }
-//  def extractEvalIncomplete[EVecEl](eval: Seq[EVecEl], tests: Seq[(Map[String, Any], Option[Any])], numSpecialTests: Int): Seq[EVecEl] = {
-//    val evalNormal = extractEvalNormal(eval, numSpecialTests)
-//    assert(evalNormal.size == tests.size)
-//    for (i <- evalNormal.indices; if tests(i)._2.isEmpty) yield evalNormal(i)
-//  }
-//
-//  /**
-//   * Tests a program on the available tests and returns the vector of 0s (passed test)
-//   * and 1s (failed test). Depending on the problem will either optimize by executing
-//   * program directly on the tests, or will have to resort to a solver.
-//   *
-//   * Takes into account partial constraints.
-//   */
-//  def evalOnTestsAndConstraints[EVecEl](s: Op,
-//                                        tests: Seq[(I, Option[O])],
-//                                        state: StateCDGP,
-//                                        evaluatorComplete: EvaluatorCompleteTests[EVecEl],
-//                                        evaluatorIncomplete: EvaluatorIncompleteTests[EVecEl],
-//                                        evaluatorSpecial: EvaluatorSpecialTests[EVecEl]): Seq[EVecEl] = {
-//    val evalStandard = evalOnTests(s, tests, evaluatorComplete, evaluatorIncomplete)
-//    if (evaluatorSpecial.isNonzeroTests)
-//      evaluatorSpecial.getEvalVector(state)(s) ++: evalStandard
-//    else
-//      evalStandard
-//  }
-//
-//
-//  /** Evaluates a program on the provided set of tests (complete or incomplete). **/
-//  def evalOnTests[EVecEl](s: Op,
-//                          tests: Seq[(I, Option[O])],
-//                          evaluatorComplete: EvaluatorCompleteTests[EVecEl],
-//                          evaluatorIncomplete: EvaluatorIncompleteTests[EVecEl]): Seq[EVecEl] =
-//    for (test <- tests) yield { evaluateTest(s, test, evaluatorComplete, evaluatorIncomplete) }
-//
-//
-//  /** Evaluates complete or incomplete test. **/
-//  def evaluateTest[EVecEl](s: Op,
-//                           test: (I, Option[O]),
-//                           evaluatorComplete: EvaluatorCompleteTests[EVecEl],
-//                           evaluatorIncomplete: EvaluatorIncompleteTests[EVecEl]): EVecEl = {
-//    if (test._2.isDefined) evaluatorComplete.evalTest(s, test)
-//    else evaluatorIncomplete.evalTest(s, test)
-//  }
-//}
-
-
 
 abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
                                    val testsTypesForRatio: Set[String],
@@ -268,11 +180,6 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
                                    override val ordering: Ordering[E])
                                   (implicit opt: Options, coll: Collector)
   extends EvalFunction[Op, E](state) {
-
-  // Test evaluators
-//  val evaluatorComplete: EvaluatorCompleteTests[EVecEl]
-//  val evaluatorIncomplete: EvaluatorIncompleteTests[EVecEl]
-//  val evaluatorSpecial: EvaluatorSpecialTests[EVecEl]
 
   val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, Int.MaxValue, (x: Int) => x >= 0)
   val testsRatio: Double = opt('testsRatio, 1.0, (x: Double) => x >= 0.0 && x <= 1.0)
@@ -372,11 +279,6 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP,
                           ordering: Ordering[E])
                          (implicit opt: Options, coll: Collector)
   extends EvalCDGP[E, Int](state, testsTypesForRatio, evaluatorComplete, evaluatorIncomplete, evaluatorSpecial, correct, ordering) {
-
-  // Test evaluators
-//  override val evaluatorComplete = EvaluatorCompleteTestsDiscrete(state)
-//  override val evaluatorIncomplete = EvaluatorIncompleteTestsDiscrete(state)
-//  override val evaluatorSpecial = EvaluatorSpecialTests[Int](0, 1, (s: Op) => s.size)
 
   def fitnessOnlyTestCases: Op => (Boolean, Seq[Int]) =
     (s: Op) => {
@@ -497,74 +399,6 @@ object EvalDiscrete {
     (evComplete, evIncomplete, evSpecial)
   }
 
-//  def fitnessOnlyTestCases(state: StateCDGP,
-//                           evComplete: EvaluatorCompleteTests[Int],
-//                           evIncomplete: EvaluatorIncompleteTests[Int],
-//                           evSpecial: EvaluatorSpecialTests[Int]): Op => (Boolean, Seq[Int]) =
-//    (s: Op) => {
-//      val evalTests = EvalCDGP.evalOnTestsAndConstraints(s, state.testsManager.getTests(), state, evComplete, evIncomplete, evSpecial)
-//      if (evalTests.sum == 0)
-//        (true, evalTests)
-//      else
-//        (false, evalTests)
-//    }
-//
-//  def doVerify(evalTests: Seq[Int],
-//               tests: Seq[(Map[String, Any], Option[Any])],
-//               testsTypesForRatio: Set[String],
-//               testsRatio: Double,
-//               numSpecialTests: Int,
-//               testsMaxDiff: Option[Int] = None): Boolean = {
-//    val (evalCompl, evalIncompl, evalSpecial) = EvalCDGP.getEvalForVerificationRatio(evalTests, tests, testsTypesForRatio, numSpecialTests)
-//    // CDGP in a discrete variant treats all tests as binary (passed or not), so all types of tests are treated equally.
-//    val evalForRatio = evalCompl ++ evalIncompl ++ evalSpecial
-//    val numPassed = evalForRatio.count(_ == 0)
-//    if (testsMaxDiff.isDefined)
-//      evalForRatio.size - numPassed <= testsMaxDiff.get
-//    else
-//      evalForRatio.isEmpty || (numPassed.toDouble / evalForRatio.size) >= testsRatio
-//  }
-//
-//
-//  /** Fitness is always computed on the tests that were flushed. */
-//  def fitnessCDGPGeneral(state: StateCDGP,
-//                         evComplete: EvaluatorCompleteTests[Int],
-//                         evIncomplete: EvaluatorIncompleteTests[Int],
-//                         evSpecial: EvaluatorSpecialTests[Int],
-//                         maxNewTestsPerIter: Int)
-//                        (ignoreVerification: Boolean = false): Op => (Boolean, Seq[Int]) =
-//    if (state.sygusData.formalInvocations.isEmpty) fitnessOnlyTestCases
-//    else (s: Op) => {
-//      val tests = state.testsManager.getTests()
-//      val evalTests = EvalCDGP.evalOnTestsAndConstraints(s, tests)
-//      // If the program passes the specified ratio of test cases, it will be verified
-//      // and a counterexample will be produced (or program will be deemed correct).
-//      // NOTE: if the program does not pass all test cases, then the probability is high
-//      // that the produced counterexample will already be in the set of test cases.
-//      if (ignoreVerification || !doVerify(evalTests, tests))
-//        (false, evalTests)
-//      else {
-//        val (decision, r) = verifySolution(s, evalTests)  //state.verify(s)
-//        if (decision == "unsat" && evalTests.sum == 0 &&
-//          (state.sygusData.logic != "SLIA" || evalTests.nonEmpty))  // a guard against bugs in the solver for Strings
-//          (true, evalTests) // perfect program found; end of run
-//        else if (decision == "sat") {
-//          if (state.testsManager.newTests.size < maxNewTestsPerIter) {
-//            val newTest = state.createTestFromFailedVerification(r.get)
-//            if (newTest.isDefined)
-//              state.testsManager.addNewTest(newTest.get, allowInputDuplicates=false, allowTestDuplicates=false)
-//          }
-//          (false, evalTests)
-//        }
-//        else {
-//          // The 'unknown' or 'timeout' solver's decision. Program potentially may be the optimal
-//          // solution, but solver is not able to verify this. We proceed by adding no new tests
-//          // and treating the program as incorrect.
-//          (false, evalTests)
-//        }
-//      }
-//    }
-
 
   def EvalCDGPSeqInt(state: StateCDGP, testsTypesForRatio: Set[String])
                     (implicit opt: Options, coll: Collector): EvalCDGPDiscrete[FSeqInt] = {
@@ -653,95 +487,6 @@ object EvalDiscrete {
 }
 
 
-//class EvalCDGPSeqInt(state: StateCDGP, testsTypesForRatio: Set[String])
-//                    (implicit opt: Options, coll: Collector)
-//  extends EvalCDGPDiscrete[FSeqInt](state, testsTypesForRatio) {
-//  override def apply(s: Op, init: Boolean): FSeqInt = {
-//      val (isPerfect, eval) = fitnessCDGPGeneral(init)(s)
-//      FSeqInt(isPerfect, eval, s.size)
-//  }
-//  override def updateEval(s: (Op, FSeqInt)): (Op, FSeqInt) = {
-//    val missingTests = state.testsManager.dropFromTests(s._2.totalTests) ++ state.testsManager.newTests.toList
-//    (s._1, FSeqInt(s._2.correct, s._2.value ++ evalOnTests(s._1, missingTests), s._1.size))
-//  }
-//  override val correct = (e: FSeqInt) => e.correct && e.value.sum == 0
-//  override val ordering = FSeqIntOrdering
-//}
-
-
-
-
-
-//class EvalCDGPInt(state: StateCDGP, testsTypesForRatio: Set[String])
-//                 (implicit opt: Options, coll: Collector)
-//  extends EvalCDGPDiscrete[FInt](state, testsTypesForRatio) {
-//  override def apply(s: Op, init: Boolean): FInt = {
-//      val (isPerfect, eval) = fitnessCDGPGeneral(init)(s)
-//      FInt(isPerfect, eval, s.size)
-//  }
-//  override def updateEval(s: (Op, FInt)): (Op, FInt) = {
-//    val missingTests = state.testsManager.dropFromTests(s._2.totalTests) ++ state.testsManager.newTests.toList
-//    val newFit = FInt(s._2.correct, s._2.value + evalOnTests(s._1, missingTests).sum, s._1.size, state.testsManager.getNumberOfTests)
-//    (s._1, newFit)
-//  }
-//  override val correct = (e: FInt) => e.correct && e.value == 0
-//  override val ordering = FIntOrdering
-//}
-
-
-
-
-
-
-
-//class EvalGPRSeqInt(state: StateGPR, testsTypesForRatio: Set[String])
-//                   (implicit opt: Options, coll: Collector)
-//  extends EvalGPRDiscrete[FSeqInt](state, testsTypesForRatio) {
-//  override def apply(s: Op, init: Boolean): FSeqInt = {
-//    if (init) {
-//      val e = evalOnTestsAndConstraints(s, state.testsManager.getTests())
-//      FSeqInt(false, e, s.size)
-//    }
-//    else {
-//      val (isPerfect, eval) = fitnessGPR(s)
-//      FSeqInt(isPerfect, eval, s.size)
-//    }
-//  }
-//  override def updateEval(s: (Op, FSeqInt)): (Op, FSeqInt) = {
-//    val missingTests = state.testsManager.dropFromTests(s._2.totalTests) ++ state.testsManager.newTests.toList
-//    (s._1, FSeqInt(s._2.correct, s._2.value ++ evalOnTests(s._1, missingTests), s._1.size))
-//  }
-//  override val correct = (e: FSeqInt) => e.correct && e.value.sum == 0
-//  override val ordering = FSeqIntOrdering
-//}
-//
-//
-//class EvalGPRInt(state: StateGPR, testsTypesForRatio: Set[String])
-//                (implicit opt: Options, coll: Collector)
-//  extends EvalGPRDiscrete[FInt](state, testsTypesForRatio) {
-//  override def apply(s: Op, init: Boolean): FInt = {
-//    if (init) {
-//      val e = evalOnTestsAndConstraints(s, state.testsManager.getTests())
-//      FInt(false, e, s.size)
-//    }
-//    else {
-//      val (isPerfect, eval) = fitnessGPR(s)
-//      FInt(isPerfect, eval, s.size)
-//    }
-//  }
-//  override def updateEval(s: (Op, FInt)): (Op, FInt) = {
-//    val missingTests = state.testsManager.dropFromTests(s._2.totalTests) ++ state.testsManager.newTests.toList
-//    val newFit = FInt(s._2.correct, s._2.value + evalOnTests(s._1, missingTests).sum, s._1.size, state.testsManager.getNumberOfTests)
-//    (s._1, newFit)
-//  }
-//  override val correct = (e: FInt) => e.correct && e.value == 0
-//  override val ordering = FIntOrdering
-//}
-
-
-
-
-
 
 
 
@@ -774,10 +519,6 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP,
   coll.set("cdgp.optThresholdMSE", Tools.double2str(optThreshold))
   checkValidity()
 
-  // Test evaluators
-//  override val evaluatorComplete = EvaluatorCompleteTestsContinuous(state)
-//  override val evaluatorIncomplete = EvaluatorIncompleteTestsContinuous(state)
-//  override val evaluatorSpecial = EvaluatorSpecialTests(0.0, 1.0, (op: Op) => op.size.toDouble)
 
   def getTestErrorValue(pname: String): Option[Double] = {
     val s = opt.getOption(pname)
@@ -1008,66 +749,3 @@ object EvalContinuous {
     }
   }
 }
-
-
-
-
-//class EvalGPSeqDouble(state: StateCDGP, testsTypesForRatio: Set[String])
-//                     (implicit opt: Options, coll: Collector, rng: TRandom)
-//  extends EvalCDGPContinuous[FSeqDouble](state, testsTypesForRatio) {
-//  override def apply(s: Op, init: Boolean): FSeqDouble = {
-//    val (isPerfect, eval) = fitnessOnlyTestCases(s)
-//    FSeqDouble(isPerfect, eval, s.size, numPCtests=numberOfSpecialTests)
-//  }
-//  override def updateEval(s: (Op, FSeqDouble)): (Op, FSeqDouble) = {
-//    val missingTests = state.testsManager.dropFromTests(s._2.totalTests) ++ state.testsManager.newTests.toList
-//    (s._1, FSeqDouble(s._2.correct, s._2.value ++ evalOnTests(s._1, missingTests), s._2.progSize, s._2.numPCtests))
-//  }
-//  override val correct = (e: FSeqDouble) => e.correct
-//  override val ordering = FSeqDoubleOrderingMSE
-//}
-
-
-//class EvalCDGPSeqDouble(state: StateCDGP, testsTypesForRatio: Set[String])
-//                       (implicit opt: Options, coll: Collector, rng: TRandom)
-//  extends EvalGPSeqDouble(state, testsTypesForRatio) {
-//  override def apply(s: Op, init: Boolean): FSeqDouble = {
-//    // init=true ensures that correctness is false in order to not trigger verification on example;
-//    // useful especially for steady state
-//    val (isPerfect, eval) = fitnessCDGPRegression(init)(s)
-//    FSeqDouble(isPerfect, eval, s.size, numPCtests=numberOfSpecialTests)
-//  }
-//}
-
-
-//class EvalGPDoubleMSE(state: StateCDGP, testsTypesForRatio: Set[String])
-//                     (implicit opt: Options, coll: Collector, rng: TRandom)
-//  extends EvalCDGPContinuous[FDouble](state, testsTypesForRatio) {
-//  override def apply(s: Op, init: Boolean): FDouble = {
-//    val (isPerfect, eval) = fitnessOnlyTestCases(s)
-//    val mse = Tools.mse(extractEvalNormal(eval))
-//    FDouble(isPerfect, mse, s.size, eval.size)
-//  }
-//  override def updateEval(s: (Op, FDouble)): (Op, FDouble) = {
-//    // evalOnTests returns a vector of absolute differences
-//    val missingTests = state.testsManager.dropFromTests(s._2.totalTests) ++ state.testsManager.newTests.toList
-//    val newValue = s._2.value + evalOnTests(s._1, missingTests).map{ x => x * x }.sum
-//    val newFit = FDouble(s._2.correct, newValue, s._2.progSize, s._2.totalTests + missingTests.size)
-//    (s._1, newFit)
-//  }
-//  override val correct = (e: FDouble) => e.correct
-//  override val ordering = FDoubleOrdering
-//}
-//
-//
-//class EvalCDGPDoubleMSE(state: StateCDGP, testsTypesForRatio: Set[String])
-//                       (implicit opt: Options, coll: Collector, rng: TRandom)
-//  extends EvalGPDoubleMSE(state, testsTypesForRatio) {
-//  override def apply(s: Op, init: Boolean): FDouble = {
-//    // init=true ensures that correctness is false in order to not trigger verification on example;
-//    // useful especially for steady state
-//    val (isPerfect, eval) = fitnessCDGPRegression(init)(s)
-//    val mse = Tools.mse(extractEvalNormal(eval))
-//    FDouble(isPerfect, mse, s.size, eval.size)
-//  }
-//}
