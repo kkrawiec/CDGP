@@ -7,6 +7,8 @@ import swim.tree.Op
 class EvaluatorSpecialTests[EVecEl](val partialConstraintsInFitness: Boolean,
                                     val globalConstraintInFitness: Boolean,
                                     val sizeInFitness: Boolean,
+                                    val passValue: EVecEl,
+                                    val nonpassValue: EVecEl,
                                     val programSizeFun: Op => EVecEl,
                                     val weight: Int = 1) {
 
@@ -18,7 +20,7 @@ class EvaluatorSpecialTests[EVecEl](val partialConstraintsInFitness: Boolean,
   }
 
   /** Constructs an evaluation vector for the special tests. */
-  def getEvalVector(state: StateCDGP)(s: Op, passValue: EVecEl, nonpassValue: EVecEl): Seq[EVecEl] = {
+  def getEvalVector(state: StateCDGP)(s: Op): Seq[EVecEl] = {
     var vector = Seq[EVecEl]()
     val w = weight
     if (partialConstraintsInFitness)
@@ -65,11 +67,11 @@ class EvaluatorSpecialTests[EVecEl](val partialConstraintsInFitness: Boolean,
 
 
 object EvaluatorSpecialTests {
-  def apply[EVecEl](programSizeFun: Op => EVecEl)(implicit opt: Options): EvaluatorSpecialTests[EVecEl] = {
+  def apply[EVecEl](passValue: EVecEl, nonpassValue: EVecEl, programSizeFun: Op => EVecEl)(implicit opt: Options): EvaluatorSpecialTests[EVecEl] = {
     val partialConstraintsInFitness: Boolean = opt('partialConstraintsInFitness, if (opt('method, "") == "CDGPprops") true else false)
     val globalConstraintInFitness: Boolean = opt('globalConstraintInFitness, false)
     val sizeInFitness: Boolean = opt('sizeInFitness, false)
     val weight: Int = opt('partialConstraintsWeight, 1, (x: Int) => x >= 1)
-    new EvaluatorSpecialTests(partialConstraintsInFitness, globalConstraintInFitness, sizeInFitness, programSizeFun, weight)
+    new EvaluatorSpecialTests(partialConstraintsInFitness, globalConstraintInFitness, sizeInFitness, passValue, nonpassValue, programSizeFun, weight)
   }
 }

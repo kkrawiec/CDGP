@@ -238,7 +238,7 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
   def evalOnTestsAndConstraints(s: Op, tests: Seq[(I, Option[O])]): Seq[EVecEl] = {
     val evalStandard = evalOnTests(s, tests)
     if (partialConstraintsInFitness || globalConstraintInFitness || sizeInFitness)
-      evaluatorSpecial.getEvalVector(state)(s, binaryTestPassValue, binaryTestFailValue) ++: evalStandard
+      evaluatorSpecial.getEvalVector(state)(s) ++: evalStandard
     else
       evalStandard
   }
@@ -259,7 +259,7 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
     */
   def verifySolution(s: Op, evalTests: Seq[EVecEl]): (String, Option[String]) = {
     if (evaluatorSpecial.partialConstraintsInFitness &&
-       !evaluatorSpecial.getPartialConstrSubvector(state)(extractEvalSpecial(evalTests)).contains(binaryTestFailValue))
+       !evaluatorSpecial.getPartialConstrSubvector(state)(extractEvalSpecial(evalTests)).contains(evaluatorSpecial.nonpassValue))
       // Optimization: if all partial constraints are correct, then the global correctness will also be correct and no counterexample will be found
      ("unsat", None)
     else
@@ -279,7 +279,7 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP,
   // Test evaluators
   override val evaluatorComplete = EvaluatorCompleteTestsDiscrete(state)
   override val evaluatorIncomplete = EvaluatorIncompleteTestsDiscrete(state)
-  override val evaluatorSpecial = EvaluatorSpecialTests[Int]((s: Op) => s.size)
+  override val evaluatorSpecial = EvaluatorSpecialTests[Int](0, 1, (s: Op) => s.size)
 
   def fitnessOnlyTestCases: Op => (Boolean, Seq[Int]) =
     (s: Op) => {
@@ -503,7 +503,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP, testsTypesForRatio: Set[S
   // Test evaluators
   override val evaluatorComplete = EvaluatorCompleteTestsContinuous(state)
   override val evaluatorIncomplete = EvaluatorIncompleteTestsContinuous(state)
-  override val evaluatorSpecial = EvaluatorSpecialTests((op: Op) => op.size.toDouble)
+  override val evaluatorSpecial = EvaluatorSpecialTests(0.0, 1.0, (op: Op) => op.size.toDouble)
 
   def getTestErrorValue(pname: String): Option[Double] = {
     val s = opt.getOption(pname)
