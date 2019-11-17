@@ -98,7 +98,7 @@ class ValidationSetTermination[E](trainingSet: Seq[(Map[String, Any], Option[Any
       val (bOp, _) = bsf.bestSoFar.get
       val errorT = error(bOp, trainingSet)  // because e.g. in Lexicase fitness is a sequence
       val errorV = error(bOp, validationSet)  // because e.g. in Lexicase fitness is a sequence
-      // print(s"Errors: $errorT (train)   $errorV (valid)")
+      // println(s"Errors: $errorT (train)   $errorV (valid)")
       logTrainSet.append(errorT)
       logValidSet.append(errorV)
       coll.set("cdgp.errorT", errorT)
