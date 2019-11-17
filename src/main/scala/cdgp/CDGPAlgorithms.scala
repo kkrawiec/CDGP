@@ -75,12 +75,16 @@ trait CDGPAlgorithm[S <: Op, E <: Fitness] {
 }
 
 
-
-
+/**
+ * Implements a termination condition based on no progress on the validation set.
+ * If the number of calls exceeds the maxWithoutImprovement parameter, a signal to
+ * terminate evolution is send. However, if the solution was not changed in the meantime,
+ * termination signal will be issued only in case new different solution will be worse.
+ */
 class ValidationSetTermination[E](trainingSet: Seq[(Map[String, Any], Option[Any])],
                                   validationSet: Seq[(Map[String, Any], Option[Any])],
                                   evaluatorComplete: EvaluatorCompleteTests[Double],
-                                  notImprovedWindow: Int)
+                                  maxWithoutImprovement: Int)
                                  (implicit coll: Collector)
   extends Function1[BestSoFar[Op, E], Boolean] {
   val logTrainSet: mutable.ArrayBuffer[Double] = mutable.ArrayBuffer[Double]()
@@ -94,10 +98,11 @@ class ValidationSetTermination[E](trainingSet: Seq[(Map[String, Any], Option[Any
       val (bOp, _) = bsf.bestSoFar.get
       val errorT = error(bOp, trainingSet)  // because e.g. in Lexicase fitness is a sequence
       val errorV = error(bOp, validationSet)  // because e.g. in Lexicase fitness is a sequence
+      // print(s"Errors: $errorT (train)   $errorV (valid)")
       logTrainSet.append(errorT)
+      logValidSet.append(errorV)
       coll.set("cdgp.errorT", errorT)
       coll.set("cdgp.errorV", errorV)
-      logValidSet.append(errorV)
       if (bsfValid.isEmpty) {
         bsfValid = Some((bOp, errorV))
         iterNotImproved = 0
@@ -112,7 +117,7 @@ class ValidationSetTermination[E](trainingSet: Seq[(Map[String, Any], Option[Any
         }
         else {
           iterNotImproved += 1
-          if (!bOp.equals(bvOp) && iterNotImproved >= notImprovedWindow) true else false
+          if (!bOp.equals(bvOp) && iterNotImproved > maxWithoutImprovement) true else false
         }
       }
     }
