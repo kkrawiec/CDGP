@@ -101,8 +101,8 @@ class ValidationSetTermination[E](trainingSet: Seq[(Map[String, Any], Option[Any
       // println(s"Errors: $errorT (train)   $errorV (valid)")
       logTrainSet.append(errorT)
       logValidSet.append(errorV)
-      coll.set("cdgp.errorT", errorT)
-      coll.set("cdgp.errorV", errorV)
+      coll.set("cdgp.logTrainSet", Tools.stringScientificNotation(logTrainSet))
+      coll.set("cdgp.logValidSet", Tools.stringScientificNotation(logValidSet))
       if (bsfValid.isEmpty) {
         bsfValid = Some((bOp, errorV))
         iterNotImproved = 0
@@ -113,11 +113,16 @@ class ValidationSetTermination[E](trainingSet: Seq[(Map[String, Any], Option[Any
         if (errorV < bvErrorV) {  // if solution is better on the validation set
           bsfValid = Some((bOp, errorV))
           iterNotImproved = 0
+          coll.set("cdgp.wasValidationTermination", false)
           false
         }
         else {
           iterNotImproved += 1
-          if (!bOp.equals(bvOp) && iterNotImproved > maxWithoutImprovement) true else false
+          if (!bOp.equals(bvOp) && iterNotImproved > maxWithoutImprovement) {
+            coll.set("cdgp.wasValidationTermination", true)
+            true
+          }
+          else false
         }
       }
     }
