@@ -182,6 +182,7 @@ object CDGPOptions {
   // options used only in the regression mode
   args += OptionInfo("noiseDeltaX", "Double", default=Some("0.0"), desc="In regression mode, this will be the modifier for the standard deviation of the independent variables. Higher value means higher noise.")
   args += OptionInfo("noiseDeltaY", "Double", default=Some("0.0"), desc="In regression mode, this will be the modifier for the standard deviation of the dependent variable. Higher value means higher noise.")
+  args += OptionInfo("notImprovedWindow", "Int", default=Some("15"), desc="A number of iterations without improvement, after which a *new* bestSoFar solution worse on a validation set than the previous bestSoFar solution will trigger the termination of EA.")
   args += OptionInfo("optThreshold", "Double", default=None, desc="Optimality threshold. If the solution's error is below this number, then it is assumed to be optimal and the run is terminated. If not specified, it is computed automatically as 0.001 times standard deviation of tests outputs.")
   args += OptionInfo("optThresholdC", "Double", default=Some("0.01"), desc="Factor C for automatic scaling of the optimality threshold ((C*stddev)^2).")
   args += OptionInfo("shuffleData", "Bool", default=Some("true"), desc="If true, then the test cases will be shuffled before dividing them on training and test sets. By setting this to false one can be certain, that the first sizeTrainSet examples will land in the training set.")
