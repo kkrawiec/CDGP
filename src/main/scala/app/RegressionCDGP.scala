@@ -48,8 +48,11 @@ object RegressionCDGP {
   }
 
   def createValidationSetTermination[E <: Fitness](state: StateCDGP, eval: EvalCDGPContinuous[E])
-                                                  (implicit opt: Options, coll: Collector): ValidationSetTermination[E] = {
-    new ValidationSetTermination[E](state.trainingSet, state.validationSet, eval.evaluatorComplete, opt('notImprovedWindow, 15))
+                                                  (implicit opt: Options, coll: Collector): (BestSoFar[Op, E]) => Boolean = {
+    if (opt.paramInt('sizeValidationSet) == 0)
+      (_: BestSoFar[Op, E]) => false
+    else
+      new ValidationSetTermination[E](state.trainingSet, state.validationSet, eval.evaluatorComplete, opt('notImprovedWindow, 15))
   }
 
   def runConfigRegressionCDGP(state: StateCDGP, method: String, selection: String, evoMode: String)
@@ -66,21 +69,21 @@ object RegressionCDGP {
       case ("tournament", "steadyState") =>
         val eval = getEvalForMSE(state, method)
         val validTermination = createValidationSetTermination(state, eval)
-        val alg = CDGPSteadyStateTournament(eval)
+        val alg = CDGPSteadyStateTournament(eval, validTermination)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
         ((finalPop, alg.bsf.bestSoFar), eval.asInstanceOf[EvalCDGPContinuous[Fitness]])
 
       case ("lexicase", "generational") =>
         val eval = getEvalForSeqDouble(state, method)
         val validTermination = createValidationSetTermination(state, eval)
-        val alg = CDGPGenerationalEpsLexicase(eval)
+        val alg = CDGPGenerationalEpsLexicase(eval, validTermination)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
         ((finalPop, alg.bsf.bestSoFar), eval.asInstanceOf[EvalCDGPContinuous[Fitness]])
 
       case ("lexicase", "steadyState") =>
         val eval = getEvalForSeqDouble(state, method)
         val validTermination = createValidationSetTermination(state, eval)
-        val alg = CDGPSteadyStateEpsLexicase(eval)
+        val alg = CDGPSteadyStateEpsLexicase(eval, validTermination)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
         ((finalPop, alg.bsf.bestSoFar), eval.asInstanceOf[EvalCDGPContinuous[Fitness]])
     }

@@ -87,6 +87,7 @@ class ValidationSetTermination[E](trainingSet: Seq[(Map[String, Any], Option[Any
                                   maxWithoutImprovement: Int)
                                  (implicit coll: Collector)
   extends Function1[BestSoFar[Op, E], Boolean] {
+  assert(validationSet.nonEmpty, "Trying to use validation set termination condition with an empty validation set")
   val logTrainSet: mutable.ArrayBuffer[Double] = mutable.ArrayBuffer[Double]()
   val logValidSet: mutable.ArrayBuffer[Double] = mutable.ArrayBuffer[Double]()
   var bsfValid: Option[(Op, Double)] = None  // contains the best solution found at some time in evolution and evaluation on the validation set
@@ -280,7 +281,8 @@ object CDGPGenerationalEpsLexicase {
 abstract class CDGPSteadyStateCore[E <: Fitness]
                                   (moves: GPMoves,
                                    cdgpEval: CDGPFuelEvaluationSteadyState[Op, E],
-                                   correct: (Op, E) => Boolean)
+                                   correct: (Op, E) => Boolean,
+                                   validSetTermination: BestSoFar[Op, E] => Boolean = (s: BestSoFar[Op,E]) => false)
                                   (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
   extends EACore[Op, E](moves, SequentialEval(cdgpEval.eval), correct) with CDGPAlgorithm[Op, E] {
   override def cdgpState = cdgpEval.state
@@ -291,7 +293,8 @@ abstract class CDGPSteadyStateCore[E <: Fitness]
     bsfCaller)(s)
   override def initialize  = RandomStatePop(moves.newSolution _) andThen evaluate andThen updateAfterIteration andThen bsf andThen it
   override def epilogue = super.epilogue andThen reportStats
-  override def terminate = Termination(correct).+:(Termination.MaxIter(it))
+  override def terminate =
+    Termination(correct) ++ Seq(Termination.MaxIter(it), (s: StatePop[(Op,E)]) => validSetTermination(bsf))
   override def report = bsf
   override def evaluate: StatePop[Op] => StatePop[(Op,E)] = // used only for the initial population
     (s: StatePop[Op]) => {
@@ -316,9 +319,10 @@ class CDGPSteadyStateStaticBreeder[E <: Fitness]
                                    cdgpEval: CDGPFuelEvaluationSteadyState[Op, E],
                                    correct: (Op, E) => Boolean,
                                    selection: Selection[Op, E],
-                                   deselection: Selection[Op, E])
+                                   deselection: Selection[Op, E],
+                                   validSetTermination: BestSoFar[Op, E] => Boolean = (s: BestSoFar[Op,E]) => false)
                                   (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
-  extends CDGPSteadyStateCore[E](moves, cdgpEval, correct) {
+  extends CDGPSteadyStateCore[E](moves, cdgpEval, correct, validSetTermination) {
   val breeder = new SimpleSteadyStateBreeder[Op, E](selection, RandomMultiOperator(moves: _*), deselection, cdgpEval.eval)
   override def createBreeder(s: StatePop[(Op, E)]) = breeder
 }
@@ -332,9 +336,10 @@ class CDGPSteadyStateStaticBreeder[E <: Fitness]
 class CDGPSteadyStateEpsLexicase[E <: FSeqDouble](moves: GPMoves,
                                                   cdgpEval: CDGPFuelEvaluationSteadyState[Op, E],
                                                   correct: (Op, E) => Boolean,
-                                                  deselection: Selection[Op, E])
+                                                  deselection: Selection[Op, E],
+                                                  validSetTermination: BestSoFar[Op, E] => Boolean = (s: BestSoFar[Op,E]) => false)
                                                  (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
-  extends CDGPSteadyStateCore[E](moves, cdgpEval, correct) {
+  extends CDGPSteadyStateCore[E](moves, cdgpEval, correct, validSetTermination) {
   def createBreeder(s: StatePop[(Op, E)]): (StatePop[(Op, E)] => StatePop[(Op, E)]) = {
     val epsForTests = EpsLexicaseSelection.medianAbsDev(s)
     val sel = new EpsLexicaseSelection[Op, E](epsForTests)
@@ -344,13 +349,16 @@ class CDGPSteadyStateEpsLexicase[E <: FSeqDouble](moves: GPMoves,
 
 
 object CDGPSteadyStateStaticBreeder {
-  def apply[E <: Fitness](cdgpEval: CDGPFuelEvaluationSteadyState[Op, E], sel: Selection[Op, E], desel: Selection[Op, E])
+  def apply[E <: Fitness](cdgpEval: CDGPFuelEvaluationSteadyState[Op, E],
+                          sel: Selection[Op, E],
+                          desel: Selection[Op, E],
+                          validSetTermination: BestSoFar[Op, E] => Boolean = (s: BestSoFar[Op,E]) => false)
                          (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyStateStaticBreeder[E] = {
     implicit val ordering = cdgpEval.eval.ordering
     val grammar = cdgpEval.eval.state.sygusData.getSwimGrammar(rng)
     val moves = GPMoves(grammar, Common.isFeasible(cdgpEval.eval.state.synthTask.fname, opt))
     val correct = Common.correct(cdgpEval.eval)
-    new CDGPSteadyStateStaticBreeder(moves, cdgpEval, correct, sel, desel)
+    new CDGPSteadyStateStaticBreeder(moves, cdgpEval, correct, sel, desel, validSetTermination)
   }
 }
 
@@ -362,12 +370,12 @@ object CDGPSteadyStateTournament {
     val k = opt('tournamentSize, 7)
     new TournamentSelection(eval.ordering.reverse, opt('tournamentDeselectSize, k))
   }
-  def apply[E <: Fitness](eval: EvalFunction[Op, E])
+  def apply[E <: Fitness](eval: EvalFunction[Op, E], validSetTermination: BestSoFar[Op, E] => Boolean = (s: BestSoFar[Op,E]) => false)
                          (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyStateStaticBreeder[E] = {
     val cdgpEval = new CDGPFuelEvaluationSteadyState(eval, eval.updateEval)
     val sel = getSelection(cdgpEval.eval)
     val desel = getDeselection(cdgpEval.eval)
-    CDGPSteadyStateStaticBreeder(cdgpEval, sel, desel)
+    CDGPSteadyStateStaticBreeder(cdgpEval, sel, desel, validSetTermination)
   }
 }
 
@@ -381,12 +389,12 @@ object CDGPSteadyStateLexicase {
       val k = opt('tournamentSize, 7)
       new TournamentSelection[Op, E](eval.ordering.reverse, opt('tournamentDeselectSize, k))
     }
-  def apply[E <: FSeqInt](eval: EvalFunction[Op, E])
+  def apply[E <: FSeqInt](eval: EvalFunction[Op, E], validSetTermination: BestSoFar[Op, E] => Boolean = (s: BestSoFar[Op,E]) => false)
                          (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyStateStaticBreeder[E] = {
     val cdgpEval = new CDGPFuelEvaluationSteadyState(eval, eval.updateEval)
     val sel = getSelection[E]()
     val desel = getDeselection(cdgpEval.eval)
-    CDGPSteadyStateStaticBreeder(cdgpEval, sel, desel)
+    CDGPSteadyStateStaticBreeder(cdgpEval, sel, desel, validSetTermination)
   }
 }
 
@@ -397,7 +405,7 @@ object CDGPSteadyStateEpsLexicase {
     new TournamentSelection[Op, E](eval.ordering.reverse, opt('tournamentDeselectSize, k))
   }
 
-  def apply[E <: FSeqDouble](eval: EvalFunction[Op, E])
+  def apply[E <: FSeqDouble](eval: EvalFunction[Op, E], validSetTermination: BestSoFar[Op, E] => Boolean = (s: BestSoFar[Op,E]) => false)
                             (implicit opt: Options, coll: Collector, rng: TRandom): CDGPSteadyStateEpsLexicase[E] = {
     implicit val ordering = eval.ordering
     val grammar = eval.state.sygusData.getSwimGrammar(rng)
@@ -405,7 +413,7 @@ object CDGPSteadyStateEpsLexicase {
     val cdgpEval = new CDGPFuelEvaluationSteadyState[Op, E](eval, eval.updateEval)
     val correct = Common.correct(cdgpEval.eval)
     val desel = getDeselection(eval)
-    new CDGPSteadyStateEpsLexicase[E](moves, cdgpEval, correct, desel)
+    new CDGPSteadyStateEpsLexicase[E](moves, cdgpEval, correct, desel, validSetTermination)
   }
 }
 
