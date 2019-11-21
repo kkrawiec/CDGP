@@ -70,8 +70,12 @@ object Main {
 
         // If there was a timeout, something could be already sent to the solver through the pipe,
         // and in order to avoid problems we need to clear the pipe.
-        alg.cdgpState.solver.close()
-        alg.cdgpState.solver.open()
+        try {
+          alg.cdgpState.solver.close()
+        }
+        finally {
+          alg.cdgpState.solver.open()
+        }
 
         coll.saveSnapshot("cdgp")
         alg.pop

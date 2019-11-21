@@ -29,23 +29,34 @@ class TestsManagerCDGP[I,O](val tests: mutable.ArrayBuffer[(I, Option[O])],
 
   /** Returns collected 'old' tests. */
   def getTests(): Seq[(I, Option[O])] = tests
+  /** Returns collected 'new' tests. */
+  def getNewTests(): Seq[(I, Option[O])] = newTests
+
   /** Returns both collected 'new' and 'old' tests. */
   def getAllCollectedTests: List[(I, Option[O])] = tests.toList ++: newTests.toList
   def getNumberOfTests: Int = tests.size
   def getNumberOfKnownOutputs: Int = tests.count{ case (in, out) => out.isDefined}
   def getNumberOfUnknownOutputs: Int = getNumberOfTests - getNumberOfKnownOutputs
 
-  def addNewTests(ts:Seq[(I, Option[O])], allowInputDuplicates: Boolean = true, allowTestDuplicates: Boolean = false) {
-    ts.foreach(addNewTest(_, allowInputDuplicates, allowTestDuplicates))
+  def addNewTests(ts: Seq[(I, Option[O])], allowInputDuplicates: Boolean = true, allowTestDuplicates: Boolean = false) {
+    // Remove duplicates within the provided set of tests
+    val ts2 = TestsManagerCDGP.removeDuplicates(ts, allowInputDuplicates, allowTestDuplicates)
+    // Try to add tests and remove duplicates with the earlier accumulated tests
+    ts2.foreach(addNewTest(_, allowInputDuplicates, allowTestDuplicates))
   }
+
   /** This method takes into account only newTests and inputs of the tests. Duplicates of already accepted tests are not checked. **/
   def addNewTest(t: (I, Option[O]), allowInputDuplicates: Boolean = true, allowTestDuplicates: Boolean = false) {
     //println("** Trying to add new test: " + t)
-    if (allowInputDuplicates || (!keysIndex.contains(t._1) && !newTests.exists(_._1 == t._1))) {
-      if (allowTestDuplicates || (!keysIndex.contains(t._1) && !newTests.contains(t)))
-        newTests.append(t)
+    (allowInputDuplicates, allowTestDuplicates) match {
+      case (true, true) => newTests.append(t)
+      case (false, _) => if (!isInputInIndex(t) && !newTests.exists(_._1.equals(t._1))) newTests.append(t)  // every test duplicate is also an input duplicate
+      case (_, false) => if (!isInputInIndex(t) && !newTests.contains(t)) newTests.append(t)
     }
   }
+
+  def isInputInIndex(t: (I, Option[O]), index: mutable.HashSet[I] = keysIndex): Boolean = keysIndex.contains(t._1)
+
 
   /** Updates test for the given index. **/
   def updateTest(index: Int, t: (I, Option[O])) {
@@ -67,12 +78,11 @@ class TestsManagerCDGP[I,O](val tests: mutable.ArrayBuffer[(I, Option[O])],
 
   /**
     * Moves elements from newTests to a global tests pool, and prepares manager for the next iteration
-    * by clearing newTests.
+    * by clearing newTests. No test redundancy checks are performed - such check was already conducted
+    * when the test was added to the newTests list.
     */
   def flushHelpers() {
     for (test <- newTests) {
-      // It's not checked whether a duplicate is added or not, because such check was already conducted
-      // when the test was added to the newTests list.
       tests.append(test)  // append test
       keysIndex.add(test._1)
       if (printAddedTests) println(s"Added test: $test")
@@ -105,12 +115,39 @@ object TestsManagerCDGP {
     val newTests = mutable.ArrayBuffer[(I, Option[O])]()
     new TestsManagerCDGP(tests, newTests, testsHistory, printAddedTests, saveTests)
   }
+
   def apply[I,O]()(implicit opt: Options, rng: TRandom): TestsManagerCDGP[I,O] = {
     val testsHistory = opt('logTestsHistory, false)
     val printAddedTests = opt('printTests, false)
     val saveTests = opt('saveTests, false)
     TestsManagerCDGP(testsHistory, printAddedTests, saveTests)
   }
+
+  /**
+    * Removes, as specified by the parameters, redundant tests in the provided list of tests.
+    * Two types of redundancy are distinguished:
+    * - input duplicates - two tests with the same input
+    * - test duplicates - two test with the same input and output
+    */
+  def removeDuplicates[I,O](ts: Seq[(I, Option[O])],
+                       allowInputDuplicates: Boolean = true,
+                       allowTestDuplicates: Boolean = false): Seq[(I, Option[O])] = {
+    (allowInputDuplicates, allowTestDuplicates) match {
+      case (true, true) => ts
+      case (false, _) => removeInputDuplicates(ts)  // every test duplicate is also an input duplicate
+      case (_, false) => removeTestDuplicates(ts)
+    }
+  }
+
+  /** Removes all tests with the same input as some other test earlier in the sequence. **/
+  def removeInputDuplicates[I,O](ts: Seq[(I, Option[O])]): Seq[(I, Option[O])] = {
+    ts.foldLeft[Seq[(I, Option[O])]](Seq()) { case (prevTests, t) =>
+      if (prevTests.exists(_._1.equals(t._1))) prevTests else prevTests :+ t
+    }
+  }
+
+  /** Removes all tests which are exactly equivalent to one another, leaving only one copy of such tests. **/
+  def removeTestDuplicates[I,O](ts: Seq[(I, Option[O])]): Seq[(I, Option[O])] = ts.distinct
 }
 
 

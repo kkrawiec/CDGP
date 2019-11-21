@@ -41,9 +41,9 @@ object Tools {
     */
   def double2str(d: Double): String = df.format(d)
 
-  def stringScientificNotation(seq: Seq[Double], numDigits: Int = 3): String = {
+  def stringScientificNotation(seq: Seq[Double], numDigits: Int = 2): String = {
     import java.text.DecimalFormat
-    val formatter = new DecimalFormat(s"0.${"#" * numDigits}E0")
+    val formatter = new DecimalFormat(s"0.${"#" * numDigits}E0", DecimalFormatSymbols.getInstance(Locale.ENGLISH))
     seq.map(formatter.format(_)).mkString(",")
   }
 

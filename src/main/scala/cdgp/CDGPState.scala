@@ -27,12 +27,18 @@ abstract class State(val sygusData: SygusProblemData,
   val sizeTestSet: Option[Int] = opt.getOptionInt("sizeTestSet")
 
   // Initializing population of test cases
-  val (trainingSet, validationSet, testSet) = Tools.splitTrainValidationTest(sygusData.testCasesConstrToTests())
+  val (trainingSet, validationSet, testSet) = createTestsSets
   testsManager.addNewTests(trainingSet, allowInputDuplicates=true, allowTestDuplicates=allowTestDuplicates)
   if (opt('regression, false))
     NoiseAdderStdDev(testsManager) // try to add noise if this is a regression problem. Noise will be added only to the training examples.
   // testsManager.flushHelpers() // This is done elsewhere (at the beginning of evolution)
 
+  def createTestsSets: (Seq[(I, Option[Any])], Seq[(I, Option[Any])], Seq[(I, Option[Any])]) = {
+    def rawTests = sygusData.testCasesConstrToTests()
+    // Filtering out duplicate tests
+    val filteredTests = TestsManagerCDGP.removeDuplicates(rawTests, allowInputDuplicates=true, allowTestDuplicates=allowTestDuplicates)
+    Tools.splitTrainValidationTest(filteredTests)
+  }
 
   /**
     * Saves state-related info and statistics in the collector.
