@@ -389,7 +389,7 @@ class StateGPR(sygusData: SygusProblemData,
       case IntSortExpr()  => gprMinInt + rng.nextInt(gprMaxInt+1-gprMinInt)
       case RealSortExpr() => gprMinDouble + rng.nextDouble() * (gprMaxDouble-gprMinDouble)
       case BoolSortExpr() => rng.nextBoolean()
-      case _: Throwable   => throw new Exception(s"Trying to run GPR for unsupported type: ${tpe.name}.")
+      case _   => throw new Exception(s"Trying to run GPR for unsupported type: ${tpe.name}.")
     }
     val model = sygusData.varDecls.map(v => (v.sym, sample(v.sortExpr))).toMap
     if (testsManager.tests.contains(model))
