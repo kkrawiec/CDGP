@@ -84,7 +84,8 @@ trait CDGPAlgorithm[S <: Op, E <: Fitness] {
 class ValidationSetTermination[E](trainingSet: Seq[(Map[String, Any], Option[Any])],
                                   validationSet: Seq[(Map[String, Any], Option[Any])],
                                   evaluatorComplete: EvaluatorCompleteTests[Double],
-                                  maxWithoutImprovement: Int)
+                                  maxWithoutImprovement: Int,
+                                  loggingFreq: Int = 10)
                                  (implicit coll: Collector)
   extends Function1[BestSoFar[Op, E], Boolean] {
   assert(validationSet.nonEmpty, "Trying to use validation set termination condition with an empty validation set")
@@ -92,6 +93,7 @@ class ValidationSetTermination[E](trainingSet: Seq[(Map[String, Any], Option[Any
   val logValidSet: mutable.ArrayBuffer[Double] = mutable.ArrayBuffer[Double]()
   var bsfValid: Option[(Op, Double)] = None  // contains the best solution found at some time in evolution and evaluation on the validation set
   var iterNotImproved: Int = 0
+  var loggingCnt: Int = 0
   override def apply(bsf: BestSoFar[Op, E]): Boolean = {
     if (bsf.bestSoFar.isEmpty)
       throw new Exception("Trying to evaluate empty bestOfRun on the validation set.")
@@ -100,10 +102,15 @@ class ValidationSetTermination[E](trainingSet: Seq[(Map[String, Any], Option[Any
       val errorT = error(bOp, trainingSet)  // because e.g. in Lexicase fitness is a sequence
       val errorV = error(bOp, validationSet)  // because e.g. in Lexicase fitness is a sequence
       // println(s"Errors: $errorT (train)   $errorV (valid)")
-      logTrainSet.append(errorT)
-      logValidSet.append(errorV)
-      coll.set("cdgp.logTrainSet", Tools.stringScientificNotation(logTrainSet))
-      coll.set("cdgp.logValidSet", Tools.stringScientificNotation(logValidSet))
+
+      if (loggingCnt % loggingFreq == 0) {
+        logTrainSet.append(errorT)
+        logValidSet.append(errorV)
+        coll.set("cdgp.logTrainSet", Tools.stringScientificNotation(logTrainSet))
+        coll.set("cdgp.logValidSet", Tools.stringScientificNotation(logValidSet))
+      }
+      loggingCnt += 1
+
       if (bsfValid.isEmpty) {
         bsfValid = Some((bOp, errorV))
         iterNotImproved = 0
@@ -139,6 +146,7 @@ class ValidationSetTermination[E](trainingSet: Seq[(Map[String, Any], Option[Any
     logValidSet.clear()
     bsfValid = None
     iterNotImproved = 0
+    loggingCnt = 0
   }
 }
 

@@ -52,7 +52,7 @@ object RegressionCDGP {
     if (opt.paramInt('sizeValidationSet) == 0)
       (_: BestSoFar[Op, E]) => false
     else
-      new ValidationSetTermination[E](state.trainingSet, state.validationSet, eval.evaluatorComplete, opt('notImprovedWindow, 15))
+      new ValidationSetTermination[E](state.trainingSet, state.validationSet, eval.evaluatorComplete, opt('notImprovedWindow, 15), opt('reportFreq, 10))
   }
 
   def runConfigRegressionCDGP(state: StateCDGP, method: String, selection: String, evoMode: String)
