@@ -533,9 +533,9 @@ object RegressionConstraints {
     * Returns data in the tab-separated values format, with the first row containing names of the variables.
     * Constraints are ignored.
     */
-  def generateInTsvFormat(b: Benchmark): String = {
+  def generateInCsvFormat(b: Benchmark, delimiter: String = ","): String = {
     val header = b.vars :+ b.funName
-    header.mkString("", "\t", "\n") +
-      b.tests.map {case (inputs, value) => Tools.double2str(inputs :+ value).mkString("\t")}.mkString("\n")
+    header.mkString("", delimiter, "\n") +
+      b.tests.map {case (inputs, value) => Tools.double2str(inputs :+ value).mkString(delimiter)}.mkString("\n")
   }
 }

@@ -136,7 +136,7 @@ object BenchmarksGPEM extends App {
 
   benchmarks.foreach{ b =>
     val sygusCode = RegressionConstraints.generateInSygusFormat(b, logic="NRA")
-    val tsvCode = RegressionConstraints.generateInTsvFormat(b)
+    val tsvCode = RegressionConstraints.generateInCsvFormat(b, delimiter="\t")
     val pathSl = s"${dirPath}/${b.fileName(extension=".sl")}"
     val pathTsv = s"${dirPath}/tsv/${b.fileName(extension=".tsv")}"
     println(sygusCode)
