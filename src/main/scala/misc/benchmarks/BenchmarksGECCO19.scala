@@ -231,8 +231,8 @@ object BenchmarksGECCO19 extends App {
   dir.mkdir()
 
   benchmarks.foreach{ b =>
-    val sygusCode = RegressionConstraints.generateSygusCode(b, logic="QF_NRA")
-    val path = s"${dirPath}/${b.fileName}"
+    val sygusCode = RegressionConstraints.generateInSygusFormat(b, logic="QF_NRA")
+    val path = s"${dirPath}/${b.fileName(".sl")}"
     println(sygusCode)
     println("\n\n")
     Utils.saveFile(path, sygusCode)

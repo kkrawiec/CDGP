@@ -17,7 +17,7 @@ case class Benchmark(funName: String,
                      vars: Seq[String],
                      props: Seq[Property],
                      tests: Seq[(Seq[Double], Double)] = Seq()) {
-  def fileName: String = funName + "_" + tests.size + ".sl"
+  def fileName(extension: String): String = funName + "_" + tests.size + extension
   def argsSignature: String = vars.map{ v => s"($v Real)" }.mkString("(", "", ")")
 }
 
@@ -488,13 +488,16 @@ object RegressionConstraints {
     val sfName = b.funName
     var s = ""
     b.tests.foreach { case (in, out) =>
-      s += s"(constraint (= ($sfName ${in.map(Tools.double2str(_)).mkString(" ")}) ${Tools.double2str(out)}))\n"
+      s += s"(constraint (= ($sfName ${Tools.double2str(in).mkString(" ")}) ${Tools.double2str(out)}))\n"
     }
     s
   }
 
 
-  def generateSygusCode(b: Benchmark, mergeFormalConstr: Boolean = false, logic: String = "NRA"): String = {
+  /**
+    * Returns data in the SyGuS competition format. Constraints are included.
+    */
+  def generateInSygusFormat(b: Benchmark, mergeFormalConstr: Boolean = false, logic: String = "NRA"): String = {
     val sfName = b.funName
     var s = s"(set-logic $logic)\n"
     s += s"(synth-fun $sfName ${b.argsSignature} Real)\n"
@@ -523,5 +526,16 @@ object RegressionConstraints {
       s += constr.map(c => s"(constraint $c)").mkString("\n")
     s += "\n\n(check-synth)\n"
     s
+  }
+
+
+  /**
+    * Returns data in the tab-separated values format, with the first row containing names of the variables.
+    * Constraints are ignored.
+    */
+  def generateInTsvFormat(b: Benchmark): String = {
+    val header = b.vars :+ b.funName
+    header.mkString("", "\t", "\n") +
+      b.tests.map {case (inputs, value) => Tools.double2str(inputs :+ value).mkString("\t")}.mkString("\n")
   }
 }

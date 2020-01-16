@@ -37,4 +37,11 @@ object Utils {
       case e: Exception => println(s"Error while saving file $path.\nError:\n${e.getMessage}")
     }
   }
+
+  def ensureDir(path: String): Unit = {
+    val dir = new File(path)
+    if (dir.exists())
+      dir.delete()
+    dir.mkdir()
+  }
 }

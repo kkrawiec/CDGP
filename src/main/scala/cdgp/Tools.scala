@@ -40,6 +40,7 @@ object Tools {
     * Convert Double to String using dot punctuation and without scientific notation.
     */
   def double2str(d: Double): String = df.format(d)
+  def double2str(d: Seq[Double]): Seq[String] = d.map(double2str(_))
 
   def stringScientificNotation(seq: Seq[Double], numDigits: Int = 2): String = {
     import java.text.DecimalFormat

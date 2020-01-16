@@ -131,17 +131,18 @@ object BenchmarksGPEM extends App {
   //////////////////////////////////////////////////////////////////////////
 
   val dirPath = "resources/NRA/gpem"
-
-  val dir = new File(dirPath)
-  if (dir.exists())
-    dir.delete()
-  dir.mkdir()
+  ensureDir(dirPath)
+  ensureDir(dirPath + "/tsv")
 
   benchmarks.foreach{ b =>
-    val sygusCode = RegressionConstraints.generateSygusCode(b, logic="NRA")
-    val path = s"${dirPath}/${b.fileName}"
+    val sygusCode = RegressionConstraints.generateInSygusFormat(b, logic="NRA")
+    val tsvCode = RegressionConstraints.generateInTsvFormat(b)
+    val pathSl = s"${dirPath}/${b.fileName(extension=".sl")}"
+    val pathTsv = s"${dirPath}/tsv/${b.fileName(extension=".tsv")}"
     println(sygusCode)
     println("\n\n")
-    Utils.saveFile(path, sygusCode)
+    println(tsvCode)
+    Utils.saveFile(pathSl, sygusCode)
+    Utils.saveFile(pathTsv, tsvCode)
   }
 }
