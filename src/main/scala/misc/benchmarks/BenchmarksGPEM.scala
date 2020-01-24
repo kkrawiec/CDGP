@@ -1,7 +1,9 @@
 package misc.benchmarks
 
 import java.io.File
+
 import Utils._
+import fuel.util.{Options, Rng}
 import misc._
 
 
@@ -129,20 +131,45 @@ object BenchmarksGPEM extends App {
 
 
   //////////////////////////////////////////////////////////////////////////
+  def generateNoNoise(benchmarks: Seq[Benchmark], dirPath: String): Unit = {
+    ensureDir(dirPath)
+    ensureDir(dirPath + "/tsv")
 
-  val dirPath = "resources/NRA/gpem"
-  ensureDir(dirPath)
-  ensureDir(dirPath + "/tsv")
-
-  benchmarks.foreach{ b =>
-    val sygusCode = RegressionConstraints.generateInSygusFormat(b, logic="NRA")
-    val tsvCode = RegressionConstraints.generateInCsvFormat(b, delimiter="\t", useFunctionNameAsTarget=false)
-    val pathSl = s"${dirPath}/${b.fileName(extension=".sl")}"
-    val pathTsv = s"${dirPath}/tsv/${b.fileName(extension=".tsv")}"
-    println(sygusCode)
-    println("\n\n")
-    println(tsvCode)
-    Utils.saveFile(pathSl, sygusCode)
-    Utils.saveFile(pathTsv, tsvCode)
+    benchmarks.foreach{ b =>
+      val sygusCode = RegressionConstraints.generateInSygusFormat(b, logic="NRA")
+      val tsvCode = RegressionConstraints.generateInCsvFormat(b, delimiter="\t", useFunctionNameAsTarget=false)
+      val pathSl = s"${dirPath}/${b.fileName(extension=".sl")}"
+      val pathTsv = s"${dirPath}/tsv/${b.fileName(extension=".tsv")}"
+      println(sygusCode)
+      println("\n\n")
+      println(tsvCode)
+      Utils.saveFile(pathSl, sygusCode)
+      Utils.saveFile(pathTsv, tsvCode)
+    }
   }
+
+  def generateWithNoise(benchmarks: Seq[Benchmark], dirPath: String, percentY: Double, percentX: Double = 0.0): Unit = {
+    ensureDir(dirPath)
+    ensureDir(dirPath + "/tsv")
+
+    implicit val rng = Rng(Options("--seed 0"))
+    val benchmarks2 = benchmarks.map(NoiseAdder.noiseNormalPercentB(_, percentY, percentX))
+
+    benchmarks2.foreach{ b =>
+      val sygusCode = RegressionConstraints.generateInSygusFormat(b, logic="NRA")
+      val tsvCode = RegressionConstraints.generateInCsvFormat(b, delimiter="\t", useFunctionNameAsTarget=false)
+      val pathSl = s"${dirPath}/${b.fileName(extension=".sl")}"
+      val pathTsv = s"${dirPath}/tsv/${b.fileName(extension=".tsv")}"
+      println(sygusCode)
+      println("\n\n")
+      println(tsvCode)
+      Utils.saveFile(pathSl, sygusCode)
+      Utils.saveFile(pathTsv, tsvCode)
+    }
+  }
+
+  // NOTE: the same set of generated benchmarks are reused for noise
+  ensureDir("resources/NRA/gpem")
+  generateNoNoise(benchmarks, "resources/NRA/gpem/noNoise")
+  generateWithNoise(benchmarks, "resources/NRA/gpem/withNoise", 0.01, 0.01)
 }

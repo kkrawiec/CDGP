@@ -1,7 +1,10 @@
 package misc.benchmarks
 
 import java.io.{BufferedWriter, File, FileWriter}
-import misc.Range
+
+import fuel.util.TRandom
+import misc.{Benchmark, Range}
+
 import scala.util.Random
 
 
@@ -43,5 +46,32 @@ object Utils {
     if (dir.exists())
       dir.delete()
     dir.mkdir()
+  }
+}
+
+
+object NoiseAdder {
+  /**
+    * Adds a noise from a normal distribution to the output of the test. Average of this distribution is
+    * the exact value, and the standard deviation is the provided percent of that value.
+    */
+  def noiseNormalPercentB(b: Benchmark, percentY: Double, percentX: Double = 0.0)
+                         (implicit rng: TRandom): Benchmark = {
+    val newTests = noiseNormalPercent(b.tests, percentY, percentX)
+    Benchmark(b.funName, b.vars, b.props, newTests)
+  }
+
+  /**
+    * Adds a noise from a normal distribution to the output of the test. Average of this distribution is
+    * the exact value, and the standard deviation is the provided percent of that value.
+    */
+  def noiseNormalPercent(tests: Seq[(Seq[Double], Double)], percentY: Double, percentX: Double = 0.0)
+                        (implicit rng: TRandom): Seq[(Seq[Double], Double)] = {
+    def newValue(v: Double, p: Double): Double = v + rng.nextGaussian() * p * v
+    tests.map{ case (inputs, output) =>
+        val newInputs = if (percentX == 0.0) inputs else inputs.map(newValue(_, percentX))
+        val newOutput = newValue(output, percentY)
+      (newInputs, newOutput)
+    }
   }
 }
