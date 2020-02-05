@@ -195,7 +195,8 @@ object CDGP {
       val selection = opt('selection, "lexicase")
       val evoMode = opt('evolutionMode, "generational")
       val multipopScheme = opt("multipop.scheme", "none")
-      assert(method == "CDGP" || method == "GPR", s"Invalid method '$method'! Possible values: 'CDGP', 'GPR'.")
+      assert(method == "CDGP" || method == "GPR" || method == "CDGPprops",
+        s"Invalid method '$method'! Possible values: 'CDGP', 'CDGPprops', 'GPR'.")
       assert(evoMode == "generational" || evoMode == "steadyState",
         s"Invalid evolutionMode: '$evoMode'! Possible values: 'generational', 'steadyState'.")
       assert(selection == "tournament" || selection == "lexicase",
@@ -206,7 +207,7 @@ object CDGP {
 
       // Run algorithm
       val (state, _, bestOfRun) =
-        if (method == "CDGP")
+        if (method == "CDGP" || method == "CDGPprops" )
           if (multipopScheme == "convectionEqualNumber")
             runMultipopCDGP(benchmark, selection, evoMode)
           else

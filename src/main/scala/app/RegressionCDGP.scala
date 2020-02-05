@@ -15,13 +15,8 @@ object RegressionCDGP {
                    (implicit coll: Collector, opt: Options, rng: TRandom):
   EvalCDGPContinuous[FDouble] = {
 
-    if (method == "CDGPprops") {
-      val testsTypesForRatio = opt('testsTypesForRatio, "i,s").split(",").toSet
-      EvalContinuous.EvalCDGPDoubleMSE(state, testsTypesForRatio)
-    }
-    else if (method == "CDGP") {
+    if (Set("CDGP", "CDGPprops").contains(method)) {
       val testsTypesForRatio = opt('testsTypesForRatio, "i").split(",").toSet
-      opt.retrievedOptions
       EvalContinuous.EvalCDGPDoubleMSE(state, testsTypesForRatio)
     }
     else {
@@ -33,11 +28,7 @@ object RegressionCDGP {
   def getEvalForSeqDouble(state: StateCDGP, method: String)
                          (implicit coll: Collector, opt: Options, rng: TRandom):
   EvalCDGPContinuous[FSeqDouble] = {
-    if (method == "CDGPprops") {
-      val testsTypesForRatio = opt('testsTypesForRatio, "i,s").split(",").toSet
-      EvalContinuous.EvalCDGPSeqDouble(state, testsTypesForRatio)
-    }
-    else if (method == "CDGP") {
+    if (Set("CDGP", "CDGPprops").contains(method)) {
       val testsTypesForRatio = opt('testsTypesForRatio, "i").split(",").toSet
       EvalContinuous.EvalCDGPSeqDouble(state, testsTypesForRatio)
     }

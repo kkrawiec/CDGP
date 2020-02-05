@@ -198,7 +198,7 @@ object CDGPOptions {
 
   // fuel and swim options
   args += OptionInfo("deleteOutputFile", "Bool", default=Some("true"), desc="Deletes output file upon successful completion of experiment.")
-  args += OptionInfo("operatorProbs", "[Double]+", default=Some("0.5,0.5"), desc="Probabilities of engaging search operators (comma-separated list of doubles).")
+  args += OptionInfo("operatorProbs", "[Double]+", default=Some("0.5,0.5"), desc="Probabilities of engaging search operators (comma-separated list of doubles). For CDGP, the first value corresponds to mutation, and the second to crossover.")
   args += OptionInfo("outDir", "String", desc="Output directory.")
   args += OptionInfo("outFile", "String", desc="Output file.")
   args += OptionInfo("quiet", "Bool", default=Some("false"), desc="Silences progress reporting.")
