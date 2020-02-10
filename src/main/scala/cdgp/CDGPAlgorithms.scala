@@ -117,6 +117,7 @@ class ValidationSetTermination[E](trainingSet: Seq[(Map[String, Any], Option[Any
         false
       }
       else {
+        // println(s"Error on validation set: ${errorV}\t(iters without improvement: ${iterNotImproved})")
         val (bvOp, bvErrorV) = bsfValid.get
         if (errorV < bvErrorV) {  // if solution is better on the validation set
           bsfValid = Some((bOp, errorV))
