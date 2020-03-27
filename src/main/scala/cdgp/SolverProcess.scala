@@ -426,7 +426,8 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
   protected def throwExceededMaxRestartsException(query: String, error: Throwable): Nothing = {
     error.printStackTrace()
     val msg = s"Exceeded the maximum number of $maxSolverRestarts solver restarts. " +
-              s"Original message: ${error.getMessage}\n"
+              s"Original message: ${error.getMessage}\n" +
+              s"Query:\n$query\n"
     throw ExceededMaxRestartsException(msg)
   }
 
