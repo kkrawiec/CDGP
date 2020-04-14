@@ -173,8 +173,7 @@ case class SolverInteractive(path: String, args: String = SolverInteractive.ARGS
       // We must be careful here. One of the models for String problem was:
       // ((s "&(A\x02\x02 \x00")). This '(' in String made the previous version
       // of this code wait infinitely long for a new input.
-      // NOTE: the code below is still not prepared for the case when '"' char is
-      // in the string (e.g., "as\"df").
+      // NOTE: it is assumed that solver prints every '"' as '""'.
       for (c <- s) c match {
         case '\"' if !qMarkOpened => qMarkOpened = true
         case '\"' if  qMarkOpened => qMarkOpened = false

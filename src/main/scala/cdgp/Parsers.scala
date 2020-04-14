@@ -26,7 +26,7 @@ object GetValueParser extends RegexParsers {
   def posNumber: Parser[Int] = """(0|[1-9]\d*)""".r ^^ { _.toInt }
   def negNumber: Parser[Int] = (("(-" ~> intConst <~ ")") | ("-" ~> intConst)) ^^ { a => -a }
   def intConst: Parser[Int] = posNumber | negNumber
-  def string: Parser[String] = """\"([^"]*)\"""".r ^^ { s =>  s.substring(1, s.size-1) }
+  def string: Parser[String] = """\"(([^"]|\"\")*)\"""".r ^^ { s =>  s.substring(1, s.size-1) }
 
   def entryAssigned: Parser[Any] = boolConst | realConst | intConst | string
   def entry: Parser[(String, Any)] = "(" ~> varName ~ entryAssigned <~ ")" ^^ { case a ~ b => (a, b) }

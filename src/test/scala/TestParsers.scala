@@ -3,7 +3,7 @@ package tests
 import cdgp.solvers.OutputParserDreal3
 import org.junit.Test
 import org.junit.Assert._
-import cdgp.{ConstParser, GetValueParser, ValueParseException}
+import cdgp.{ConstParser, GetValueParser, Tools, ValueParseException}
 
 
 final class TestParsers {
@@ -44,6 +44,20 @@ final class TestParsers {
     val parsed = GetValueParser(model).toMap
     assertEquals(Map("s" -> "", "a" -> 0, "b" -> 0, "res1__2" -> "AAAAAAAAAA", "res2__2" -> "BAAAAAAAAA"),
       parsed)
+  }
+
+  @Test
+  def testGetValueParser_ParserString2(): Unit = {
+    val model = """((s "\x00"))"""
+    val parsed = GetValueParser(model).toMap
+    assertEquals(Map("s" -> raw"\x00"), parsed)
+  }
+
+  @Test
+  def testGetValueParser_ParserString3(): Unit = {
+    val model = "((s \"as=\"\"=sa\"))"
+    val parsed = GetValueParser(model).toMap
+    assertEquals(Map("s" -> "as=\"\"=sa"), parsed)
   }
 
   @Test
