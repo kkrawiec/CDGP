@@ -60,6 +60,7 @@ class DomainSLIA(val funArgsNames: Seq[String], funName: Symbol, recDepth: Int =
       if (!x.isInstanceOf[String]) x
       else
         // Convert hex encoding of chars (e.g. \x00) sometimes returned by solver.
+        // Convert "" into "
         Tools.convertSmtToJavaString(x.asInstanceOf[String])
     }
     operationalSemanticsInternal(input2)(childRes)

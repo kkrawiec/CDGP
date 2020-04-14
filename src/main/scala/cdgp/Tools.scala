@@ -90,8 +90,9 @@ object Tools {
   }
 
   /**
-    * Finds in the string all hex encoded chars (e.g. \x00) and converts them to chars.
-    * Additionally replaces \n, \t and other such sequences for their appropriate chars.
+    * 1. Finds in the string all hex encoded chars (e.g. \x00) and converts them to chars.
+    * 2. Replaces \n, \t and other such sequences for their appropriate chars.
+    * 3. Converts "" into ".
     */
   def convertSmtToJavaString(s: String): String = {
     var res = ""
