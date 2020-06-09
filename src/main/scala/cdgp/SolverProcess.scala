@@ -249,6 +249,7 @@ case class SolverInteractive(path: String, args: String = SolverInteractive.ARGS
 
 object SolverInteractive {
   // pp.min-alias-size=1000000 pp.max_depth=1000000 are needed for simplification to not have let expressions
+  // model_validate=true
   def ARGS_Z3: String = "-smt2 pp.decimal_precision=50 pp.decimal=true pp.min-alias-size=1000000 pp.max_depth=1000000 -in "
   // To use timeout with CVC4: --moreSolverArgs "--tlimit-per 1000"
   def ARGS_CVC4: String = "--lang=smt2.6.1 --strings-exp --default-dag-thresh=0 --incremental "

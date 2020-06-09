@@ -8,6 +8,8 @@ import fuel.func._
 import fuel.util._
 import swim.tree.Op
 
+import scala.util.Random
+
 
 object RegressionCDGP {
 
@@ -81,11 +83,18 @@ object RegressionCDGP {
   }
 
 
+  def run(args: Array[String]): Unit = {
+    val opt = Main.getOptions(args ++ Array("--parEval", "false"), group=Some(CDGPOptions.groupCDSR))
+    run(opt)
+  }
+
 
   def run(implicit opt: Options): Unit = {
     assert(!opt('parEval, false), "CDGP does not support multithreaded evaluation.")
     implicit val coll = CollectorFile(opt)
     implicit val rng = Rng(opt)
+
+    Random.setSeed(opt('seed, 0))
 
     try {
       val benchmark = opt('benchmark)
@@ -245,8 +254,7 @@ object RegressionCDGP {
   def main(args: Array[String]): Unit = {
     if (Main.systemOptions(args))
       sys.exit()
-    val opt = Main.getOptions(args ++ Array("--parEval", "false")) // ensure that --parEval false is used
-    run(opt)
+    run(args)
   }
 
 }

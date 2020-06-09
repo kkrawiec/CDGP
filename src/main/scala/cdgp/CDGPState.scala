@@ -23,8 +23,6 @@ abstract class State(val sygusData: SygusProblemData,
   type O = Any
   protected val silent: Boolean = opt('silent, false)
   val allowTestDuplicates: Boolean = opt('allowTestDuplicates, false)
-  val sizeTrainSet: Option[Int] = opt.getOptionInt("sizeTrainSet")
-  val sizeTestSet: Option[Int] = opt.getOptionInt("sizeTestSet")
 
   // Initializing population of test cases
   val (trainingSet, validationSet, testSet) = createTestsSets

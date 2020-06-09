@@ -10,7 +10,6 @@ import cdgp._
 import scala.concurrent._
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.Random
 
 
 /**
@@ -88,15 +87,15 @@ object Main {
     new OptionsMap(tmp.allOptions.filter{ case (k, v) => !k.startsWith("result") })
   }
 
-  def getOptions(args: Array[String]): Options = {
+  def getOptions(args: Array[String], group: Option[String] = None): Options = {
     val opt = Options(args)
     val opt2 = if (opt.getOption("optionsFile").isDefined) loadReplayOptions(opt) else opt
-    CDGPOptions.validator.process(opt2)
+    CDGPOptions.getValidator(group).process(opt2)
   }
 
-  def systemOptions(args: Array[String]): Boolean = {
-    if (args.contains("--version")) { print("2018.1.0"); true }
-    else if (args.contains("--help")) { CDGPOptions.validator.printOptions(); true }
+  def systemOptions(args: Array[String], group: Option[String] = None): Boolean = {
+    if (args.contains("--version")) { print("2020.06"); true }
+    else if (args.contains("--help")) { CDGPOptions.getValidator(group).printOptions(); true }
     else false
   }
 
@@ -109,13 +108,11 @@ object Main {
   def main(args: Array[String]): Unit = {
     if (systemOptions(args))
       sys.exit()
-    val opt = getOptions(args ++ Array("--parEval", "false"))  // ensure that "--parEval false" is used
-    Random.setSeed(opt('seed, 0))
-    val useRegression = opt.paramBool("regression", false)
+    val useRegression = getOptions(args).paramBool("regression", false)
     if (useRegression)
-      RegressionCDGP.run(opt)
+      RegressionCDGP.run(args)
     else
-      CDGP.run(opt)
+      CDGP.run(args)
   }
 
 }

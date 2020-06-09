@@ -18,8 +18,8 @@ final case class IncorrectValueException(message: String, cause: Throwable = Non
   * Stores basic meta-information related to some option.
   */
 case class OptionInfo(name: String, tpe: String = "", desc: String = "", default: Option[String] = None,
-                      choice: Set[String] = Set(), required: Boolean = false) {
-  assert(choice.isEmpty || default.isEmpty || choice.contains(default.get), "Default value must be a part of choice options.")
+                      choice: Set[String] = Set(), required: Boolean = false, group: Option[String] = None) {
+  assert(choice.isEmpty || default.isEmpty || choice.contains(default.get), "If default value is specified for a choice option, then it must be a part of choice-set.")
   override def toString: String = {
     val textDefault = if (default.isDefined) s" (default: ${default.get})" else ""
     val textChoice = if (choice.nonEmpty) s" (choice: ${choice.mkString(", ")})" else ""
@@ -41,7 +41,7 @@ case class OptionInfo(name: String, tpe: String = "", desc: String = "", default
   *
   * @param args A list of metadata regarding the accepted options.
   */
-case class OptionsValidator(args: List[OptionInfo]) {
+case class OptionsValidator(args: List[OptionInfo], optionsGroup: Option[String] = None) {
   val argsMap: Map[String, OptionInfo] = args.map(a => (a.name, a)).toMap
   private val strictUnrecognizedPolicy = true
 
@@ -91,6 +91,9 @@ case class OptionsValidator(args: List[OptionInfo]) {
   def fillDefaultValues(opt: Options): Options = {
     val list = args.flatMap {
       case a: OptionInfo if a.default.isDefined && !opt.allOptions.contains(a.name) =>
+        if (a.group.isDefined && optionsGroup.isDefined && a.group.get != optionsGroup.get)
+          List()
+        else
           List(s"--${a.name}", a.default.get)
       case a: OptionInfo if opt.allOptions.contains(a.name) =>
         if (opt.allOptions.contains(a.name))
@@ -114,12 +117,14 @@ case class OptionsValidator(args: List[OptionInfo]) {
 object OptionsValidator {
   val optVersion = OptionInfo("version", tpe="-", desc="Prints version.")
   val optHelp = OptionInfo("help", tpe="-", desc="Prints help.")
-  def apply(opts: OptionInfo*): OptionsValidator = new OptionsValidator(opts.toList)
 }
 
 
 
 object CDGPOptions {
+  val groupCDSR = "cdsr"
+  val groupCDGP = "cdgp"
+
   val args = mutable.MutableList[OptionInfo]()
   args += OptionsValidator.optVersion
   args += OptionsValidator.optHelp
@@ -137,11 +142,11 @@ object CDGPOptions {
   // other args
   args += OptionInfo("allowTestDuplicates", "Bool", default=Some("false"), desc="If false, then the test duplicates will not be added to the set of test cases. In most cases the preferred option.")
   args += OptionInfo("globalConstraintInFitness", "Bool", default=Some("false"), desc="If true, then the solution will be verified on all formal constraints at once and the result will be prepended to the fitness vector.")
-  args += OptionInfo("gprMaxInt", "Int", default=Some("100"), desc="Upper bound for Int terminals in GPR.")
-  args += OptionInfo("gprMaxDouble", "Double", default=Some("1.0"), desc="Upper bound for Double terminals in GPR.")
-  args += OptionInfo("gprMinInt", "Int", default=Some("-100"), desc="Lower bound for Int terminals in GPR.")
-  args += OptionInfo("gprMinDouble", "Double", default=Some("0.0"), desc="Lower bound for Double terminals in GPR.")
-  args += OptionInfo("gprRetryIfUndefined", "Bool", default=Some("true"), desc="In GPR, when a new random test is generated, check if the output for the test is defined, i.e., not all output values are correct. Adding such tests is meaningless. If the function is known to be defined at every point, switching this off will slightly speed up GPR.")
+  args += OptionInfo("gprMaxInt", "Int", default=Some("100"), desc="Upper bound for Int terminals in GPR.", group=Some(groupCDGP))
+  args += OptionInfo("gprMaxDouble", "Double", default=Some("1.0"), desc="Upper bound for Double terminals in GPR.", group=Some(groupCDGP))
+  args += OptionInfo("gprMinInt", "Int", default=Some("-100"), desc="Lower bound for Int terminals in GPR.", group=Some(groupCDGP))
+  args += OptionInfo("gprMinDouble", "Double", default=Some("0.0"), desc="Lower bound for Double terminals in GPR.", group=Some(groupCDGP))
+  args += OptionInfo("gprRetryIfUndefined", "Bool", default=Some("true"), desc="In GPR, when a new random test is generated, check if the output for the test is defined, i.e., not all output values are correct. Adding such tests is meaningless. If the function is known to be defined at every point, switching this off will slightly speed up GPR.", group=Some(groupCDGP))
   args += OptionInfo("lexicaseDeselection", "Bool", default=Some("false"), desc="Deselection to be used in lexicase.")
   args += OptionInfo("logAllQueries", "Bool", default=Some("false"), desc="Log every query to the solver.")
   args += OptionInfo("logPassedConstraints", "Bool", default=Some("true"), desc="Save information about which constraints were passed. Requires a separate verification query for each constraint.")
@@ -151,11 +156,11 @@ object CDGPOptions {
   args += OptionInfo("maxSolverRestarts", "Int", default=Some("1"), desc="Maximum number of times a solver will be restarted after failure.")
   args += OptionInfo("mixedSpecAllowed", "Bool", default=Some("true"), desc="If false, then tests will be treated as part of a formal specification instead of seeding the set of test cases.")
   args += OptionInfo("moreSolverArgs", "String", default=Some(""), desc="Additional arguments for the solver, appended after the previous.")
-  args += OptionInfo("multipop.maxGenerations", "Int", default=Some("100"), desc="Number of generations per subpopulation.")
-  args += OptionInfo("multipop.maxTime", "Int", default=Some("86400000"), desc="Maximum time for a multipop scenario.")
-  args += OptionInfo("multipop.M", "Int", default=Some("5"), desc="Number of populations.")
+  args += OptionInfo("multipop.maxGenerations", "Int", default=Some("100"), desc="Number of generations per subpopulation.", group=Some(groupCDGP))
+  args += OptionInfo("multipop.maxTime", "Int", default=Some("86400000"), desc="Maximum time for a multipop scenario.", group=Some(groupCDGP))
+  args += OptionInfo("multipop.M", "Int", default=Some("5"), desc="Number of populations.", group=Some(groupCDGP))
   args += OptionInfo("multipop.scheme", "String", choice=Set("none", "convectionEqualNumber"), default=Some("none"),
-                     desc="Maximum time for a multipop scenario.")
+                     desc="Maximum time for a multipop scenario.", group=Some(groupCDGP))
   args += OptionInfo("notes", "String", desc="Any additional notes to be saved in logs.")
   args += OptionInfo("maxRestarts", "Int", desc="Number of times the algorithm will be restarted. If a correct solution is found in any run, then the whole algorithm terminates.")
   args += OptionInfo("optionsFile", "String", desc="Path to property file from which options will be read.")
@@ -180,20 +185,20 @@ object CDGPOptions {
   args += OptionInfo("verbose", "Bool", default=Some("false"), desc="More printing.")
 
   // options used only in the regression mode
-  args += OptionInfo("noiseDeltaX", "Double", default=Some("0.0"), desc="In regression mode, this will be the modifier for the standard deviation of the independent variables. Higher value means higher noise.")
-  args += OptionInfo("noiseDeltaY", "Double", default=Some("0.0"), desc="In regression mode, this will be the modifier for the standard deviation of the dependent variable. Higher value means higher noise.")
-  args += OptionInfo("notImprovedWindow", "Int", default=Some("15"), desc="A number of iterations without improvement, after which a *new* bestSoFar solution worse on a validation set than the previous bestSoFar solution will trigger the termination of EA.")
-  args += OptionInfo("optThreshold", "Double", default=None, desc="Optimality threshold. If the solution's error is below this number, then it is assumed to be optimal and the run is terminated. If not specified, it is computed automatically as 0.001 times standard deviation of tests outputs.")
-  args += OptionInfo("optThresholdC", "Double", default=Some("0.01"), desc="Factor C for automatic scaling of the optimality threshold ((C*stddev)^2).")
-  args += OptionInfo("shuffleData", "Bool", default=Some("true"), desc="If true, then the test cases will be shuffled before dividing them on training and test sets. By setting this to false one can be certain, that the first sizeTrainSet examples will land in the training set.")
-  args += OptionInfo("sizeTestSet", "String", default=Some("0"), desc="Size of the test set. When '%' is the suffix, the size is taken as a given percent.")
-  args += OptionInfo("sizeTrainSet", "String", desc="Size of the training set. When '%' is the suffix, the size is taken as a given percent.")
-  args += OptionInfo("sizeValidationSet", "String", default=Some("0"), desc="Size of the validation set. When '%' is the suffix, the size is taken as a given percent.")
-  args += OptionInfo("testErrorUseOptThreshold", "Bool", default=Some("false"), desc="If true, then the optimality criterion for tests will be the error on individual tests rather than the cumulative MSE. This option is limited to the termination criterion of the CDGP.")
-  args += OptionInfo("testErrorOptPercent", "Int", default=Some("0.05"), desc="The percent threshold, for example, a 5% deviation from the original value treated as acceptable. It is the default option when the correctness of a single regression test is concerned. Assumed notation: 1% = 0.01. Is used only for checking the optimality of some solution.")
-  args += OptionInfo("testErrorOptValue", "Int", desc="An absolute deviation from the expected value while still treated as a passed test. If this option is specified, then it overrides the --testErrorOptPercent option. Is used only for checking the optimality of some solution.")
-  args += OptionInfo("testErrorVerPercent", "Int", default=Some("0.05"), desc="The percent threshold, for example, a 5% deviation from the original value treated as acceptable. It is the default option when the correctness of a single regression test is concerned. Assumed notation: 1% = 0.01.")
-  args += OptionInfo("testErrorVerValue", "Int", desc="An absolute deviation from the expected value while still treated as a passed test. If this option is specified, then it overrides the --testErrorVerPercent option.")
+  args += OptionInfo("noiseDeltaX", "Double", default=Some("0.0"), desc="In regression mode, this will be the modifier for the standard deviation of the independent variables. Higher value means higher noise.", group=Some(groupCDSR))
+  args += OptionInfo("noiseDeltaY", "Double", default=Some("0.0"), desc="In regression mode, this will be the modifier for the standard deviation of the dependent variable. Higher value means higher noise.", group=Some(groupCDSR))
+  args += OptionInfo("notImprovedWindow", "Int", default=Some("15"), desc="A number of iterations without improvement, after which a *new* bestSoFar solution worse on a validation set than the previous bestSoFar solution will trigger the termination of EA.", group=Some(groupCDSR))
+  args += OptionInfo("optThreshold", "Double", default=None, desc="Optimality threshold. If the solution's error is below this number, then it is assumed to be optimal and the run is terminated. If not specified, it is computed automatically as 0.001 times standard deviation of tests outputs.", group=Some(groupCDSR))
+  args += OptionInfo("optThresholdC", "Double", default=Some("0.01"), desc="Factor C for automatic scaling of the optimality threshold ((C*stddev)^2).", group=Some(groupCDSR))
+  args += OptionInfo("shuffleData", "Bool", default=Some("true"), desc="If true, then the test cases will be shuffled before dividing them on training and test sets. By setting this to false one can be certain, that the first sizeTrainSet examples will land in the training set.", group=Some(groupCDSR))
+  args += OptionInfo("sizeTestSet", "String", default=Some("0"), desc="Size of the test set. When '%' is the suffix, the size is taken as a given percent.", group=Some(groupCDSR))
+  args += OptionInfo("sizeTrainSet", "String", desc="Size of the training set. When '%' is the suffix, the size is taken as a given percent.", group=Some(groupCDSR))
+  args += OptionInfo("sizeValidationSet", "String", default=Some("0"), desc="Size of the validation set. When '%' is the suffix, the size is taken as a given percent.", group=Some(groupCDSR))
+  args += OptionInfo("testErrorUseOptThreshold", "Bool", default=Some("false"), desc="If true, then the optimality criterion for tests will be the error on individual tests rather than the cumulative MSE. This option is limited to the termination criterion of the CDGP.", group=Some(groupCDSR))
+  args += OptionInfo("testErrorOptPercent", "Int", default=Some("0.05"), desc="The percent threshold, for example, a 5% deviation from the original value treated as acceptable. It is the default option when the correctness of a single regression test is concerned. Assumed notation: 1% = 0.01. Is used only for checking the optimality of some solution.", group=Some(groupCDSR))
+  args += OptionInfo("testErrorOptValue", "Int", desc="An absolute deviation from the expected value while still treated as a passed test. If this option is specified, then it overrides the --testErrorOptPercent option. Is used only for checking the optimality of some solution.", group=Some(groupCDSR))
+  args += OptionInfo("testErrorVerPercent", "Int", default=Some("0.05"), desc="The percent threshold, for example, a 5% deviation from the original value treated as acceptable. It is the default option when the correctness of a single regression test is concerned. Assumed notation: 1% = 0.01.", group=Some(groupCDSR))
+  args += OptionInfo("testErrorVerValue", "Int", desc="An absolute deviation from the expected value while still treated as a passed test. If this option is specified, then it overrides the --testErrorVerPercent option.", group=Some(groupCDSR))
 
 
   // fuel and swim options
@@ -219,5 +224,5 @@ object CDGPOptions {
   args += OptionInfo("maxTreeDepth", "Int", default=Some("12"), desc=".")
   args += OptionInfo("stoppingDepthRatio", "Double", default=Some("0.8"), desc=".")
 
-  val validator = OptionsValidator(args.toList)
+  def getValidator(group: Option[String]) = OptionsValidator(args.toList, group)
 }
