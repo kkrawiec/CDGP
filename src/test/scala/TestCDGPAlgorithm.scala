@@ -180,9 +180,20 @@ final class TestCDGPAlgorithm {
     state.testsManager.addNewTest((Map("x1"->2.0), Some(6.0)), allowInputDuplicates=true, allowTestDuplicates=false)
     state.testsManager.addNewTest((Map("x1"->2.0), Some(6.0)), allowInputDuplicates=true, allowTestDuplicates=false)
     assertEquals(0, state.testsManager.newTests.size)
+    state.testsManager.addNewTest((Map("x1"->2.0), Some(6.0)), allowInputDuplicates=false, allowTestDuplicates=false)
+    state.testsManager.addNewTest((Map("x1"->2.0), Some(6.0)), allowInputDuplicates=false, allowTestDuplicates=false)
+    assertEquals(0, state.testsManager.newTests.size)
     state.testsManager.flushHelpers()
 
     assertEquals(0, state.testsManager.newTests.size)
     assertEquals(6, state.testsManager.tests.size)
+
+    state.testsManager.addNewTest((Map("x1"->10.0), Some(6.0)), allowInputDuplicates=true, allowTestDuplicates=false)
+    state.testsManager.addNewTest((Map("x1"->10.0), Some(6.0)), allowInputDuplicates=true, allowTestDuplicates=false)
+    assertEquals(1, state.testsManager.newTests.size)
+    state.testsManager.flushHelpers()
+
+    assertEquals(0, state.testsManager.newTests.size)
+    assertEquals(7, state.testsManager.tests.size)
   }
 }
