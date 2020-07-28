@@ -149,7 +149,7 @@ case class SolverInteractive(path: String, args: String = SolverInteractive.ARGS
 
     // This sleep magically solves problems with 'is or 'os being randomly
     // null shortly after the creation of the process.
-    Thread.sleep(10)
+    Thread.sleep(20)
     process
   }
   private[this] val process = startProcess
