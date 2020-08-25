@@ -2,9 +2,13 @@ package cdgp
 
 import java.io._
 import java.util.Scanner
+
 import scala.sys.process._
 import fuel.util.{Collector, FApp, Options}
+
 import scala.collection.mutable
+import scala.concurrent.duration.{Duration, MILLISECONDS}
+import scala.concurrent.{Await, Future}
 import scala.util.Random
 
 
@@ -40,9 +44,9 @@ trait SolverSMT extends Closeable {
   /**
     * Executes the query and returns raw output of the solver.
     */
-  def executeQuery(query: Query): String
-  def executeQuery(query: String, satCmds: String = "", unsatCmds: String = ""): String = {
-    executeQuery(CheckSatQuery(query, satCmds, unsatCmds))
+  def solveRawOutput(query: Query): String
+  def solveRawOutput(query: String, satCmds: String = "", unsatCmds: String = ""): String = {
+    solveRawOutput(CheckSatQuery(query, satCmds, unsatCmds))
   }
 
   protected lazy val logFile = new File(SolverSMT.LOG_FILE)
@@ -92,7 +96,7 @@ case class SolverFromScript(path: String, args: String = SolverFromScript.ARGS_Z
 
   override def solve(query: Query): (String, Option[String]) = {
     val inputStr = s"${query.getScript}\n"
-    val output = SolverSMT.normalizeOutput(executeQuery(inputStr))
+    val output = SolverSMT.normalizeOutput(solveRawOutput(inputStr))
     val lines = output.split("\n").map(_.trim)
     val outputDec = lines.head
     val outputRest = if (lines.size == 1) None else Some(lines.tail.mkString("\n"))
@@ -102,7 +106,7 @@ case class SolverFromScript(path: String, args: String = SolverFromScript.ARGS_Z
   }
 
   /** Executes a query and returns raw output as a String. */
-  def executeQuery(query: Query): String = {
+  def solveRawOutput(query: Query): String = {
     val inputStr = query.getScript
     if (verbose) println(s"Input to the solver:\n$inputStr\n")
     val output = apply(inputStr).trim
@@ -227,7 +231,7 @@ case class SolverInteractive(path: String, args: String = SolverInteractive.ARGS
   }
 
   /** Executes a query and returns raw output as a String. */
-  def executeQuery(query: Query): String = executeQuery(query.getScript)
+  def solveRawOutput(query: Query): String = executeQuery(query.getScript)
 
   /** Simply executes a query and returns raw output. */
   def executeQuery(inputStr: String): String = {
@@ -285,6 +289,7 @@ case class ExceededMaxRestartsException(msg: String) extends RuntimeException(ms
 class SolverManager(val path: String, val args: Option[String] = None, val moreArgs: String = "",
                     verbose: Boolean = false)
                    (implicit opt: Options, coll: Collector) {
+  private val solverHardTimeout: Option[Int] = opt.getOptionInt("solverHardTimeout")
   private val maxSolverRestarts: Int = opt('maxSolverRestarts, 1)
   private val solverInteractive: Boolean = opt('solverInteractive, true)
   private val logAllQueries: Boolean = opt('logAllQueries, false)
@@ -297,7 +302,7 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
   private var sumSolveTime: Double = 0.0
   def getNumRestarts: Int = doneRestarts
   def getNumCalls: Int = numCalls
-  def setNumCalls(nc: Int) { numCalls = nc}
+  def setNumCalls(nc: Int) { numCalls = nc }
   def getSolveTimesAsCountMap: Map[Double, Int] = solveTimes.toMap
   def getSumSolveTime: Double = sumSolveTime
   def getMinSolveTime: Double = solveTimes.keys.min
@@ -356,6 +361,11 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
     }
   }
 
+  def runWithTimeout[T](timeoutMs: Long)(f: => T) : Option[T] = {
+    import scala.concurrent.ExecutionContext.Implicits.global
+    Some(Await.result(Future(f), Duration(timeoutMs, MILLISECONDS)))
+  }
+
   /**
     * Executes provided commands using the SMT solver.
     * @param query Commands to be executed.
@@ -363,16 +373,35 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
   def executeQuery(query: Query): (String, Option[String]) = {
     try {
       val start = System.currentTimeMillis()
-      val res = solver.solve(query)
+      val res: (String, Option[String]) = if (solverHardTimeout.isDefined) {
+          val x = runWithTimeout(solverHardTimeout.get) {solver.solve(query)}
+          if (x.isDefined) x.get else ("timeout", None)
+        }
+        else
+          solver.solve(query)
+
       updateRunStats((System.currentTimeMillis() - start) / 1000.0)
       res
     }
     catch {
+      case e: java.util.concurrent.TimeoutException =>
+         // Subtle assumption made here: solverHardTimeout should be different than global timeout
+        val text = s"Futures timed out after [${solverHardTimeout.get} milliseconds]"
+        if (e.getMessage.contains(text)) {
+          close()
+          open()
+          ("timeout", None)
+        }
+        else {
+          throw e // this was a global timout, throw it once again
+        }
       // case e : UnknownSolverOutputException => throw e  // we want to fail if any error happens
       // Sometimes error happens when solver runs too long in the interactive mode.
       case e: Throwable => { // Restarting solver, because most likely it crashed.
+        println("Restarting solver due to error")
         if (doneRestarts < maxSolverRestarts) {
           doneRestarts += 1
+          close()
           open()
           executeQuery(query)
         }
@@ -380,6 +409,7 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
       }
     }
   }
+
 
   /**
     * Executes the provided query using the SMT solver. Solver's output is returned without any processing.
@@ -389,7 +419,7 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
   def executeQueryRawOutput(query: Query): String = {
     try {
       val start = System.currentTimeMillis()
-      val res = solver.executeQuery(query)
+      val res = solver.solveRawOutput(query)
       updateRunStats((System.currentTimeMillis() - start) / 1000.0)
       res
     }
@@ -406,6 +436,7 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
       }
     }
   }
+
 
 
   /**
