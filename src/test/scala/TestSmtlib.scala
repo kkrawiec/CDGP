@@ -78,20 +78,20 @@ final class TestSmtlib {
     val templateVerification = new TemplateVerification(maxData)
     val op = Op.fromStr("ite(=(x y) x y)", useSymbols = true)
     val query = templateVerification(op)
-    val (dec, model) = solver.runSolver(query)
+    val (dec, model) = solver.executeQuery(query)
     assertEquals("sat", dec)
     assertEquals(true, model.isDefined)
     println(s"Counterexample: $model")
 
     val op2 = Op.fromStr("ite(>=(x y) x y)", useSymbols = true)
     val query2 = templateVerification(op2)
-    val (dec2, model2) = solver.runSolver(query2)
+    val (dec2, model2) = solver.executeQuery(query2)
     assertEquals("unsat", dec2)
 
     // what if a correct solution has a potential division by 0?
     val op3 = Op.fromStr("ite(>=(x y) (div (* x x) x) y)", useSymbols = true)
     val query3 = templateVerification(op3)
-    val (dec3, model3) = solver.runSolver(query3)
+    val (dec3, model3) = solver.executeQuery(query3)
     assertEquals("sat", dec3)  // This is actually desired in this case, because sat is returned while program is incorrect
     assertEquals(Some(0), GetValueParser(model3.get).toMap.get("x"))
   }
@@ -101,13 +101,13 @@ final class TestSmtlib {
     val templateFindOutput = new TemplateFindOutput(maxData)
     val inputs = Map("x" -> 5, "y" -> 2)
     val query = templateFindOutput(inputs)
-    val (dec, model) = solver.runSolver(query)
+    val (dec, model) = solver.executeQuery(query)
     assertEquals("sat", dec)
     assertEquals(true, model.isDefined)
     assertEquals(Map("CorrectOutput" -> 5), GetValueParser(model.get).toMap)
     // Try to find other correct output
     val query2 = templateFindOutput(inputs, Seq(5))
-    val (dec2, model2) = solver.runSolver(query2)
+    val (dec2, model2) = solver.executeQuery(query2)
     assertEquals("unsat", dec2)
   }
 
@@ -116,11 +116,11 @@ final class TestSmtlib {
     val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(maxData)
     val inputs = Map("x" -> 5, "y" -> 2)
     val query = templateIsOutputCorrectForInput(inputs, 5)
-    val (dec, model) = solver.runSolver(query)
+    val (dec, model) = solver.executeQuery(query)
     assertEquals("sat", dec)
 
     val query2 = templateIsOutputCorrectForInput(inputs, 2)
-    val (dec2, model2) = solver.runSolver(query2)
+    val (dec2, model2) = solver.executeQuery(query2)
     assertEquals("unsat", dec2)
   }
 
@@ -130,19 +130,19 @@ final class TestSmtlib {
     val op = Op.fromStr("ite(=(x y) x y)", useSymbols = true)
     val inputs = Map("x" -> 5, "y" -> 2)
     val query = templateIsProgramCorrectForInput(op, inputs)
-    val (dec, model) = solver.runSolver(query)
+    val (dec, model) = solver.executeQuery(query)
     assertEquals("unsat", dec)
 
     val op2 = Op.fromStr("ite(>=(x y) x y)", useSymbols = true)
     val query2 = templateIsProgramCorrectForInput(op2, inputs)
-    val (dec2, model2) = solver.runSolver(query2)
+    val (dec2, model2) = solver.executeQuery(query2)
     assertEquals("sat", dec2)
 
     // what if an incorrect solution has a potential division by 0?
     val inputs3 = Map("x" -> 5, "y" -> 0)
     val op3 = Op.fromStr("ite(>=(x y) (div (* y y) y) y)", useSymbols = true)
     val query3 = templateIsProgramCorrectForInput(op3, inputs3)
-    val (dec3, model3) = solver.runSolver(query3)
+    val (dec3, model3) = solver.executeQuery(query3)
     assertEquals("sat", dec3)  // This is undesired in this case, program is incorrect, but it is claimed to work correct for this input
   }
 
@@ -151,7 +151,7 @@ final class TestSmtlib {
     assertEquals(true, maxData.singleInvocFormal)
     assertEquals(true, maxData.singleInvocAll)
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(maxProblem, maxData)
-    val (dec, model) = solver.runSolver(query)
+    val (dec, model) = solver.executeQuery(query)
     assertEquals("unsat", dec)
   }
 
@@ -160,7 +160,7 @@ final class TestSmtlib {
     val templateSimplify = new TemplateSimplify(maxData)
     val query = templateSimplify("(+ x (- 0 x))")
     println(query)
-    val res = solver.executeQuery(query)
+    val res = solver.executeQueryRawOutput(query)
     assertEquals("0", res)
   }
 
@@ -176,14 +176,14 @@ final class TestSmtlib {
     val templateVerification = new TemplateVerification(maxPartialData)
     val op = Op.fromStr("ite(=(x y) x y)", useSymbols = true)
     val query = templateVerification(op)
-    val (dec, model) = solver.runSolver(query)
+    val (dec, model) = solver.executeQuery(query)
     assertEquals("sat", dec)
     assertEquals(true, model.isDefined)
     println(s"Counterexample: $model")
 
     val op2 = Op.fromStr("ite(>=(x y) x y)", useSymbols = true)
     val query2 = templateVerification(op2)
-    val (dec2, model2) = solver.runSolver(query2)
+    val (dec2, model2) = solver.executeQuery(query2)
     assertEquals("unsat", dec2)
   }
 
@@ -192,7 +192,7 @@ final class TestSmtlib {
     val templateFindOutput = new TemplateFindOutput(maxPartialData)
     val inputs = Map("x" -> 5, "y" -> 2)
     val query = templateFindOutput(inputs)
-    val (dec, model) = solver.runSolver(query)
+    val (dec, model) = solver.executeQuery(query)
     assertEquals("sat", dec)
     assertEquals(true, model.isDefined)
     assertEquals(Map("CorrectOutput" -> 5), GetValueParser(model.get).toMap)
@@ -203,11 +203,11 @@ final class TestSmtlib {
     val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(maxPartialData)
     val inputs = Map("x" -> 5, "y" -> 2)
     val query = templateIsOutputCorrectForInput(inputs, 5)
-    val (dec, model) = solver.runSolver(query)
+    val (dec, model) = solver.executeQuery(query)
     assertEquals("sat", dec)
 
     val query2 = templateIsOutputCorrectForInput(inputs, 1)
-    val (dec2, model2) = solver.runSolver(query2)
+    val (dec2, model2) = solver.executeQuery(query2)
     assertEquals("unsat", dec2)
   }
 
@@ -218,12 +218,12 @@ final class TestSmtlib {
     val inputs = Map("x" -> 5, "y" -> 2)
     val query = templateIsProgramCorrectForInput(op, inputs)
     println(query)
-    val (dec, model) = solver.runSolver(query)
+    val (dec, model) = solver.executeQuery(query)
     assertEquals("unsat", dec)
 
     val op2 = Op.fromStr("ite(>=(x y) x y)", useSymbols = true)
     val query2 = templateIsProgramCorrectForInput(op2, inputs)
-    val (dec2, model2) = solver.runSolver(query2)
+    val (dec2, model2) = solver.executeQuery(query2)
     assertEquals("sat", dec2)
   }
 
@@ -232,7 +232,7 @@ final class TestSmtlib {
     assertEquals(true, maxPartialData.singleInvocFormal)
     assertEquals(true, maxPartialData.singleInvocAll)
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(maxPartialProblem, maxPartialData)
-    val (dec, model) = solver.runSolver(query)
+    val (dec, model) = solver.executeQuery(query)
     assertEquals("unsat", dec)
   }
 
@@ -249,7 +249,7 @@ final class TestSmtlib {
     val op = Op.fromStr("ite(>=(a b) a b)", useSymbols = true)
     val query = templateVerification(op)
     println(query)
-    val (dec, model) = solver.runSolver(query)
+    val (dec, model) = solver.executeQuery(query)
     assertEquals("sat", dec)
     assertEquals(true, model.isDefined)
     println(s"Counterexample: $model")
@@ -264,7 +264,7 @@ final class TestSmtlib {
     println("op2:\n" + op2)
     val query2 = templateVerification(op2)
     println("query2:\n" + query2)
-    val (dec2, model2) = solver.runSolver(query2)
+    val (dec2, model2) = solver.executeQuery(query2)
     assertEquals("unsat", dec2)
   }
 
@@ -273,13 +273,13 @@ final class TestSmtlib {
     val templateFindOutput = new TemplateFindOutput(medianData)
     val inputs = Map("a" -> 5, "b" -> 2, "c" -> 2)
     val query = templateFindOutput(inputs)
-    val (dec, model) = solver.runSolver(query)
+    val (dec, model) = solver.executeQuery(query)
     assertEquals("sat", dec)
     assertEquals(true, model.isDefined)
     assertEquals(Map("CorrectOutput" -> 2), GetValueParser(model.get).toMap)
     // Try to find other correct output
     val query2 = templateFindOutput(inputs, Seq(2))
-    val (dec2, _) = solver.runSolver(query2)
+    val (dec2, _) = solver.executeQuery(query2)
     assertEquals("unsat", dec2)
   }
 
@@ -289,11 +289,11 @@ final class TestSmtlib {
     val inputs = Map("a" -> 5, "b" -> 2, "c" -> 2)
     val query = templateIsOutputCorrectForInput(inputs, 2) // correct
     println("query:\n" + query)
-    val (dec, model) = solver.runSolver(query)
+    val (dec, model) = solver.executeQuery(query)
     assertEquals("sat", dec)
 
     val query2 = templateIsOutputCorrectForInput(inputs, 5) // incorrect
-    val (dec2, model2) = solver.runSolver(query2)
+    val (dec2, model2) = solver.executeQuery(query2)
     assertEquals("unsat", dec2)
   }
 
@@ -303,13 +303,13 @@ final class TestSmtlib {
     val op = Op.fromStr("ite(>=(a b) a b)", useSymbols = true) // incorrect
     val inputs = Map("a" -> 5, "b" -> 2,  "c" -> 2)
     val query = templateIsProgramCorrectForInput(op, inputs)
-    val (dec, model) = solver.runSolver(query)
+    val (dec, model) = solver.executeQuery(query)
     assertEquals("unsat", dec)
     assertEquals(false, model.isDefined)
 
     val op2 = Op.fromStr("2", useSymbols = true) // correct (on this input)
     val query2 = templateIsProgramCorrectForInput(op2, inputs)
-    val (dec2, model2) = solver.runSolver(query2)
+    val (dec2, model2) = solver.executeQuery(query2)
     assertEquals("sat", dec2)
   }
 
@@ -318,7 +318,7 @@ final class TestSmtlib {
     assertEquals(true, medianData.singleInvocFormal)
     assertEquals(false, medianData.singleInvocAll)
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(medianProblem, medianData)
-    val (dec, model) = solver.runSolver(query)
+    val (dec, model) = solver.executeQuery(query)
     assertEquals("unsat", dec)
   }
 
@@ -334,14 +334,14 @@ final class TestSmtlib {
     val templateVerification = new TemplateVerification(unitedData)
     val op = Op.fromStr("a", useSymbols = true)
     val query = templateVerification(op)
-    val (dec, model) = solver.runSolver(query)
+    val (dec, model) = solver.executeQuery(query)
     assertEquals("sat", dec)
     assertEquals(true, model.isDefined)
     println(s"Counterexample: $model")
 
     val op2 = Op.fromStr("5", useSymbols = true)
     val query2 = templateVerification(op2)
-    val (dec2, model2) = solver.runSolver(query2)
+    val (dec2, model2) = solver.executeQuery(query2)
     assertEquals("unsat", dec2)
   }
 
@@ -367,13 +367,13 @@ final class TestSmtlib {
     val op = Op.fromStr("a", useSymbols = true) // incorrect
     val inputs = Map("x" -> 3)
     val query = templateIsProgramCorrectForInput(op, inputs)
-    val (dec, model) = solver.runSolver(query)
+    val (dec, model) = solver.executeQuery(query)
     assertEquals("unsat", dec)
     assertEquals(false, model.isDefined)
 
     val op2 = Op.fromStr("5", useSymbols = true) // correct
     val query2 = templateIsProgramCorrectForInput(op2, inputs)
-    val (dec2, model2) = solver.runSolver(query2)
+    val (dec2, model2) = solver.executeQuery(query2)
     assertEquals("sat", dec2)
   }
 
@@ -383,12 +383,12 @@ final class TestSmtlib {
     assertEquals(false, unitedData.singleInvocAll)
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(unitedProblem, unitedData,
       useAllConstraints=false)
-    val (dec, _) = solver.runSolver(query)
+    val (dec, _) = solver.executeQuery(query)
     assertEquals("sat", dec)
 
     val query2 = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(unitedProblem, unitedData,
       useAllConstraints=true)
-    val (dec2, _) = solver.runSolver(query2)
+    val (dec2, _) = solver.executeQuery(query2)
     assertEquals("unsat", dec2)  // unsat, because test cases constraints bound possibilities
   }
 

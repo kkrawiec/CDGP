@@ -321,7 +321,7 @@ final class TestCDGPState {
     val sygusData = SygusProblemData(problem)
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(problem, sygusData)
     val state = StateCDGP(problem)
-    val (decision, output) = state.solver.runSolver(query)
+    val (decision, output) = state.solver.executeQuery(query)
     assertEquals("unsat", decision)  // unsat, so there is only a single answer
   }
 
@@ -338,7 +338,7 @@ final class TestCDGPState {
     val sygusData = SygusProblemData(problem)
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(problem, sygusData)
     val state = StateCDGP(problem)
-    val (decision, output) = state.solver.runSolver(query)
+    val (decision, output) = state.solver.executeQuery(query)
     assertEquals("sat", decision)
   }
 

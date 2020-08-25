@@ -25,14 +25,14 @@ final class TestSmtlibString {
     val templateVerification = new TemplateVerification(firstnameData)
     val op = Op.fromStr("str.at(name 0)", useSymbols = true)
     val query = templateVerification(op)
-    val (dec, model) = solver.runSolver(query)
+    val (dec, model) = solver.executeQuery(query)
     assertEquals("sat", dec)
     assertEquals(true, model.isDefined)
     println(s"Counterexample: $model")
 
     val op2 = """(str.substr name 0 (str.indexof name " " 0))"""
     val query2 = templateVerification(op2)
-    val (dec2, model2) = solver.runSolver(query2)
+    val (dec2, model2) = solver.executeQuery(query2)
     assertEquals("unsat", dec2)
   }
 
@@ -41,13 +41,13 @@ final class TestSmtlibString {
     val templateFindOutput = new TemplateFindOutput(firstnameData)
     val inputs = Map("s" -> "Iwo Bladek")
     val query = templateFindOutput(inputs)
-    val (dec, model) = solver.runSolver(query)
+    val (dec, model) = solver.executeQuery(query)
     assertEquals("sat", dec)
     assertEquals(true, model.isDefined)
     assertEquals(Map("CorrectOutput" -> "Iwo"), GetValueParser(model.get).toMap)
     // Try to find other correct output
     val query2 = templateFindOutput(inputs, Seq("Iwo"))
-    val (dec2, model2) = solver.runSolver(query2)
+    val (dec2, model2) = solver.executeQuery(query2)
     assertEquals("unsat", dec2)
   }
 
@@ -56,11 +56,11 @@ final class TestSmtlibString {
     val templateIsOutputCorrectForInput = new TemplateIsOutputCorrectForInput(firstnameData)
     val inputs = Map("s" -> "Iwo Bladek")
     val query = templateIsOutputCorrectForInput(inputs, "Iwo")
-    val (dec, model) = solver.runSolver(query)
+    val (dec, model) = solver.executeQuery(query)
     assertEquals("sat", dec)
 
     val query2 = templateIsOutputCorrectForInput(inputs, "Bladek")
-    val (dec2, model2) = solver.runSolver(query2)
+    val (dec2, model2) = solver.executeQuery(query2)
     assertEquals("unsat", dec2)
   }
 
@@ -70,12 +70,12 @@ final class TestSmtlibString {
     val op = "(str.substr name 0 1)"
     val inputs = Map("s" -> "Iwo Bladek")
     val query = templateIsProgramCorrectForInput(op, inputs)
-    val (dec, model) = solver.runSolver(query)
+    val (dec, model) = solver.executeQuery(query)
     assertEquals("unsat", dec)  // incorrect
 
     val op2 = """(str.substr name 0 (str.indexof name " " 0))"""
     val query2 = templateIsProgramCorrectForInput(op2, inputs)
-    val (dec2, model2) = solver.runSolver(query2)
+    val (dec2, model2) = solver.executeQuery(query2)
     assertEquals("sat", dec2)  // correct
   }
 
@@ -84,7 +84,7 @@ final class TestSmtlibString {
     assertEquals(true, firstnameData.singleInvocFormal)
     assertEquals(true, firstnameData.singleInvocAll)
     val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(firstnameProblem, firstnameData)
-    val (dec, model) = solver.runSolver(query)
+    val (dec, model) = solver.executeQuery(query)
     assertEquals("sat", dec)
   }
 
@@ -93,7 +93,7 @@ final class TestSmtlibString {
     val templateSimplify = new TemplateSimplify(firstnameData)
     val query = templateSimplify("(str.++ \"asd\" \"\")")
     println(query)
-    val res = solver.executeQuery(query)
+    val res = solver.executeQueryRawOutput(query)
     assertEquals("\"asd\"", res)
   }
 
@@ -112,7 +112,7 @@ final class TestSmtlibString {
       val query = templateVerification(correct)
       // println(s"Query:\n$query")
       val start = System.currentTimeMillis()
-      val (dec, model) = solver.runSolver(query)
+      val (dec, model) = solver.executeQuery(query)
       println("Time: " + (System.currentTimeMillis() - start) + " [ms]")
       println(s"Result: ($dec, $model)\n")
       assertEquals(expected, dec)

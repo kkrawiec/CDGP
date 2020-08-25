@@ -360,7 +360,7 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
     * Executes provided commands using the SMT solver.
     * @param query Commands to be executed.
     */
-  def runSolver(query: Query): (String, Option[String]) = {
+  def executeQuery(query: Query): (String, Option[String]) = {
     try {
       val start = System.currentTimeMillis()
       val res = solver.solve(query)
@@ -374,7 +374,7 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
         if (doneRestarts < maxSolverRestarts) {
           doneRestarts += 1
           open()
-          runSolver(query)
+          executeQuery(query)
         }
         else throwExceededMaxRestartsException(query.toString, e)
       }
@@ -386,7 +386,7 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
     * @param query A full query for the solver. Nothing will be added to it except from
     *              the "(reset)" in the beginning in case of interactive solver.
     */
-  def executeQuery(query: Query): String = {
+  def executeQueryRawOutput(query: Query): String = {
     try {
       val start = System.currentTimeMillis()
       val res = solver.executeQuery(query)
@@ -400,7 +400,7 @@ class SolverManager(val path: String, val args: Option[String] = None, val moreA
         if (doneRestarts < maxSolverRestarts) {
           doneRestarts += 1
           open()
-          executeQuery(query)
+          executeQueryRawOutput(query)
         }
         else throwExceededMaxRestartsException(query.toString, e)
       }

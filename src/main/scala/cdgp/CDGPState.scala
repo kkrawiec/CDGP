@@ -127,7 +127,7 @@ class StateSMTSolver(sygusData: SygusProblemData,
     else {
       val query = SMTLIBFormatter.checkIfSingleAnswerForEveryInput(problem, sygusData, solverTimeout = timeout)
       printQuery("\nQuery hasSingleAnswerForEveryInput:\n" + query)
-      val (dec, model) = solver.runSolver(query)
+      val (dec, model) = solver.executeQuery(query)
       if (dec == "sat") {
         val values = GetValueParser(model.get)
         if (!silent) println("Example of multiple correct answers: " + values.mkString(" "))
@@ -159,7 +159,7 @@ class StateSMTSolver(sygusData: SygusProblemData,
   def verify(s: Op, template: TemplateVerification): (String, Option[String]) = {
     val query = template(s)
     printQuery("\nQuery verify:\n" + query)
-    solver.runSolver(query)
+    solver.executeQuery(query)
   }
 
 
@@ -171,7 +171,7 @@ class StateSMTSolver(sygusData: SygusProblemData,
                            output: Any): (String, Option[String]) = {
     val query = templateIsOutputCorrectForInput(testInputsMap, output)
     printQuery("\nQuery checkIsOutputCorrect:\n" + query)
-    solver.runSolver(query)
+    solver.executeQuery(query)
   }
 
 
@@ -182,7 +182,7 @@ class StateSMTSolver(sygusData: SygusProblemData,
                                     testInput: Map[String, Any]): (String, Option[String]) = {
     val query = templateIsProgramCorrectForInput(s, testInput)
     printQuery("\nQuery checkIsProgramCorrectForInput:\n" + query)
-    solver.runSolver(query)
+    solver.executeQuery(query)
   }
 
 
@@ -194,7 +194,7 @@ class StateSMTSolver(sygusData: SygusProblemData,
     try {
       val query = templateSimplify(smtlib)
       printQuery(s"Simplification query:\n$query")
-      val res = solver.executeQuery(query)
+      val res = solver.executeQueryRawOutput(query)
       if (res.trim.startsWith("(error")) None else Some(res)
     }
     catch { case _: Throwable => None }
@@ -273,7 +273,7 @@ class StateCDGP(sygusData: SygusProblemData,
       try {
         val query = templateFindOutput(model)
         // printQuery("\nQuery findOutputForTestCase:\n" + query)
-        val (dec, res) = solver.runSolver(query)
+        val (dec, res) = solver.executeQuery(query)
         if (dec == "sat") {
           val output: Option[Any] = GetValueParser(res.get).toMap.get(TemplateFindOutput.CORRECT_OUTPUT_VAR)
           if (singleAnswerFormal) // we have guarantees that the found output is the only correct one
@@ -290,7 +290,7 @@ class StateCDGP(sygusData: SygusProblemData,
               // problem to not have the single-answer property, even if otherwise all inputs have single-answer.
               val query2 = templateFindOutput(model, excludeValues = List(output.get))
               // printQuery("\nQuery findOutputForTestCase2:\n" + query2)
-              val (dec2, res2) = solver.runSolver(query2)
+              val (dec2, res2) = solver.executeQuery(query2)
               if (dec2 == "unsat")
                 createCompleteTest(model, output) // single-output
               else
@@ -397,7 +397,7 @@ class StateGPR(sygusData: SygusProblemData,
       // This is necessary in case GPR generated a test with undefined answer, i.e., all outputs are correct.
       // Adding such a test is meaningless.
       val query = templateFindOutputNeg(model)
-      val (dec, _) = solver.runSolver(query)
+      val (dec, _) = solver.executeQuery(query)
       if (dec == "unsat")
         createRandomTest() // try again
       else
