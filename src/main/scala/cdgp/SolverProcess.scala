@@ -41,12 +41,16 @@ trait SolverSMT extends Closeable {
     * other content (e.g. model).
     */
   def solve(query: Query): (String, Option[String])
+  def solve(query: String, satCmds: String = "", unsatCmds: String = ""): (String, Option[String]) = {
+    solve(CheckSatQuery(query, satCmds, unsatCmds))
+  }
   /**
-    * Executes the query and returns raw output of the solver.
+    * Executes the query and returns raw output of the solver. Commands dependent on the query
+    * outcome are not employed.
     */
   def solveRawOutput(query: Query): String
-  def solveRawOutput(query: String, satCmds: String = "", unsatCmds: String = ""): String = {
-    solveRawOutput(CheckSatQuery(query, satCmds, unsatCmds))
+  def solveRawOutput(query: String): String = {
+    solveRawOutput(CheckSatQuery(query, "", ""))
   }
 
   protected lazy val logFile = new File(SolverSMT.LOG_FILE)
@@ -231,10 +235,8 @@ case class SolverInteractive(path: String, args: String = SolverInteractive.ARGS
   }
 
   /** Executes a query and returns raw output as a String. */
-  def solveRawOutput(query: Query): String = executeQuery(query.getScript)
-
-  /** Simply executes a query and returns raw output. */
-  def executeQuery(inputStr: String): String = {
+  def solveRawOutput(query: Query): String = {
+    val inputStr = query.getScript
     if (verbose) println(s"Input to the solver:\n$inputStr\n")
     apply("(reset)\n")  // remove all earlier definitions and constraints
     apply(inputStr)
