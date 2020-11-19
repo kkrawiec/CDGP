@@ -103,7 +103,7 @@ object BenchmarksGPEM extends App {
   val b_nguyen4 = Benchmark("nguyen4", Seq("x"),
     Seq(
       PropOutputBound(Some(0.0), None, range=rangesGtZero("x")),
-      PropOutputBound(None, Some(-0.75), range=rangesLtZero("x")),
+      PropOutputBound(Some(-0.75), None, range=rangesLtZero("x")),
       CustomConstraint("(>= (nguyen4 x) (nguyen4 (- x)))", range=rangesGtZero("x"))
     ))
   val b_pagie1 = Benchmark("pagie1", Seq("x", "y"),

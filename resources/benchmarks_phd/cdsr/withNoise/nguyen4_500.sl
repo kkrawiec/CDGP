@@ -505,7 +505,7 @@
 
 
 (constraint (=> (and (> x 0.0)) (>= (nguyen4 x) 0.0)))
-(constraint (=> (and (< x 0.0)) (<= (nguyen4 x) -0.75)))
+(constraint (=> (and (< x 0.0)) (>= (nguyen4 x) -0.75)))
 (constraint (=> (and (> x 0.0)) (>= (nguyen4 x) (nguyen4 (- x)))))
 
 (check-synth)
