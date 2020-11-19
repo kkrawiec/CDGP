@@ -27,7 +27,7 @@ object BenchmarksGPEM extends App {
   val b_identity = Benchmark("identity", Seq("x"), Seq())
 
   // --------------------------------------------------------------------------------------
-  // Benchmarks from GECCO 2019
+  // Benchmarks from GECCO 2019 (with resistance_par* modified for PHD)
 
   // Task: calculate the force of gravity between two bodies
   // Solution: (6.674e-11 * m1 * m2) / r^2
@@ -43,8 +43,9 @@ object BenchmarksGPEM extends App {
   val b_resistance_par2 = Benchmark("resistance_par2", Seq("r1", "r2"),
     Seq(
       PropVarSymmetry2("r1", "r2", rangesGtZero("r1", "r2")),
-      CustomConstraint("(=> (= r1 r2) (= {0} (/ r1 2.0)))", range=rangesGtZero("r1", "r2")),
-      CustomConstraint("(and (<= {0} r1) (<= {0} r2))", range=rangesGtZero("r1", "r2"))
+//      CustomConstraint("(=> (= r1 r2) (= {0} (/ r1 2.0)))", range=rangesGtZero("r1", "r2")),
+      CustomConstraint("(and (<= {0} r1) (<= {0} r2))", range=rangesGtZero("r1", "r2")),
+      PropOutputBound(Some(0.0), None, range=rangesGtZero("r1", "r2"), lbSign=">")
     ))
   // Task: calculate the total resistance of 3 parallel resistors
   // Solution: (r1 * r2 * r3) / (r1*r2 + r2*r3 + r2*r3)
@@ -53,8 +54,9 @@ object BenchmarksGPEM extends App {
       PropVarSymmetry2("r1", "r2", rangesGtZero("r1", "r2", "r3")),
       PropVarSymmetry2("r1", "r3", rangesGtZero("r1", "r2", "r3")),
       PropVarSymmetry2("r2", "r3", rangesGtZero("r1", "r2", "r3")),
-      CustomConstraint("(=> (= r1 r2 r3) (= {0} (/ r1 3.0)))", range=rangesGtZero("r1", "r2", "r3")),
-      CustomConstraint("(and (<= {0} r1) (<= {0} r2) (<= {0} r3))", range=rangesGtZero("r1", "r2", "r3"))
+//      CustomConstraint("(=> (= r1 r2 r3) (= {0} (/ r1 3.0)))", range=rangesGtZero("r1", "r2", "r3")),
+      CustomConstraint("(and (<= {0} r1) (<= {0} r2) (<= {0} r3))", range=rangesGtZero("r1", "r2", "r3")),
+      PropOutputBound(Some(0.0), None, range=rangesGtZero("r1", "r2", "r3"), lbSign=">")
     ))
 
   // --------------------------------------------------------------------------------------

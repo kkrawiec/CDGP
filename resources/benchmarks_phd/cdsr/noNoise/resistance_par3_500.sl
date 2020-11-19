@@ -509,7 +509,7 @@
 (constraint (=> (and (> r1 0.0) (> r2 0.0) (> r3 0.0)) (= (resistance_par3 r1 r2 r3) (resistance_par3 r2 r1 r3))))
 (constraint (=> (and (> r1 0.0) (> r2 0.0) (> r3 0.0)) (= (resistance_par3 r1 r2 r3) (resistance_par3 r3 r2 r1))))
 (constraint (=> (and (> r1 0.0) (> r2 0.0) (> r3 0.0)) (= (resistance_par3 r1 r2 r3) (resistance_par3 r1 r3 r2))))
-(constraint (=> (and (> r1 0.0) (> r2 0.0) (> r3 0.0)) (=> (= r1 r2 r3) (= (resistance_par3 r1 r2 r3) (/ r1 3.0)))))
 (constraint (=> (and (> r1 0.0) (> r2 0.0) (> r3 0.0)) (and (<= (resistance_par3 r1 r2 r3) r1) (<= (resistance_par3 r1 r2 r3) r2) (<= (resistance_par3 r1 r2 r3) r3))))
+(constraint (=> (and (> r1 0.0) (> r2 0.0) (> r3 0.0)) (> (resistance_par3 r1 r2 r3) 0.0) ))
 
 (check-synth)

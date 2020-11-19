@@ -506,7 +506,7 @@
 
 
 (constraint (=> (and (> r1 0.0) (> r2 0.0)) (= (resistance_par2 r1 r2) (resistance_par2 r2 r1))))
-(constraint (=> (and (> r1 0.0) (> r2 0.0)) (=> (= r1 r2) (= (resistance_par2 r1 r2) (/ r1 2.0)))))
 (constraint (=> (and (> r1 0.0) (> r2 0.0)) (and (<= (resistance_par2 r1 r2) r1) (<= (resistance_par2 r1 r2) r2))))
+(constraint (=> (and (> r1 0.0) (> r2 0.0)) (> (resistance_par2 r1 r2) 0.0)))
 
 (check-synth)
