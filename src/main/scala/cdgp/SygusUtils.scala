@@ -293,8 +293,10 @@ object SygusUtils {
     */
   def getPreconditions(problem: SyGuS16): Seq[ConstraintCmd] = {
     val postSymbols = getPostcondSymbols(problem)
-    problem.cmds.filter{case ConstraintCmd(term) => isPrecondition(term, postSymbols); case _ => false}.
-      asInstanceOf[Seq[ConstraintCmd]]
+    problem.cmds.collect {
+      case PreconditionCmd(term) => ConstraintCmd(term)
+      case ConstraintCmd(term) if isPrecondition(term, postSymbols) => ConstraintCmd(term)
+    }
   }
 
   /**
@@ -396,6 +398,7 @@ object SygusUtils {
   def renameVarsInCmd(cmd: Cmd, map: Map[String, String]): Cmd = {
     cmd match {
       case ConstraintCmd(term)  => ConstraintCmd(renameVarsInTerm(term, map))
+      case PreconditionCmd(term)  => PreconditionCmd(renameVarsInTerm(term, map))
       case VarDeclCmd(symb, se) => VarDeclCmd(map.getOrElse(symb, symb), se)
       case x => x
     }
@@ -408,6 +411,7 @@ object SygusUtils {
   def renameNamesInCmd(cmd: Cmd, map: Map[String, String]): Cmd = {
     cmd match {
       case ConstraintCmd(term)  => ConstraintCmd(renameNamesInTerm(term, map))
+      case PreconditionCmd(term)  => PreconditionCmd(renameNamesInTerm(term, map))
       case VarDeclCmd(symb, se) => VarDeclCmd(map.getOrElse(symb, symb), se)
       case x => x
     }

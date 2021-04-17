@@ -4,6 +4,7 @@ import cdgp._
 import fuel.util.Options
 import org.junit.Test
 import org.junit.Assert._
+import swim.tree.Op
 
 class TestTools {
   @Test
@@ -59,5 +60,17 @@ class TestTools {
   @Test
   def test_stringScientificNotation(): Unit = {
     assertEquals("1E-3,1E2", Tools.stringScientificNotation(Seq(0.001, 100)))
+  }
+
+  @Test
+  def test_getOpDividers(): Unit = {
+    val divs1 = Tools.getOpDividers(Op.fromStr("/(x 12)", useSymbols=false)).toSet
+    val divs2 = Tools.getOpDividers(Op.fromStr("/(x /(x 12))", useSymbols=false)).toSet
+    val divs3 = Tools.getOpDividers(Op.fromStr("+(/(x 15) /(x 12))", useSymbols=false)).toSet
+    val divs4 = Tools.getOpDividers(Op.fromStr("+(/(x 15) /(x 12))", useSymbols=true)).toSet
+    assertEquals(Set("12"), divs1.map(_.toString))
+    assertEquals(Set("12", "/(x 12)"), divs2.map(_.toString))
+    assertEquals(Set("15", "12"), divs3.map(_.toString))
+    assertEquals(Set("15", "12"), divs4.map(_.toString))
   }
 }

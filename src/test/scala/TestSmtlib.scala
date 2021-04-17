@@ -67,6 +67,67 @@ final class TestSmtlib {
     """.stripMargin
   val unitedProblem = LoadSygusBenchmark.parseText(unitedMax)
   val unitedData = SygusProblemData(unitedProblem)
+  val nraSth =
+    """(set-logic NRA)
+      |(synth-fun sth ((x Real)) Real)
+      |(declare-var x Real)
+      |(constraint (= (sth x) (sth x)))
+      |(check-synth)
+    """.stripMargin
+  val nraProblem = LoadSygusBenchmark.parseText(nraSth)
+  val nraData = SygusProblemData(nraProblem)
+  val nraGravity =
+    """(set-logic NRA)
+      |(synth-fun gravity ((m1 Real)(m2 Real)(r Real)) Real)
+      |(declare-var m1 Real)
+      |(declare-var m2 Real)
+      |(declare-var r Real)
+      |
+      |; Precondition
+      |(precondition (and (> m1 0.0) (> m2 0.0) (> r 0.0)))
+      |
+      |; Postcondition (with redundant implications)
+      |(constraint (=> (and (> m1 0.0) (> m2 0.0) (> r 0.0)) (= (gravity m1 m2 r) (gravity m2 m1 r))))
+      |(constraint (=> (and (> m1 0.0) (> m2 0.0) (> r 0.0)) (>= (gravity m1 m2 r) 0.0)))
+      |(constraint (forall ((m1 Real)(m2 Real)(r Real)(cdgp.P2.m1 Real)) (=> (and (> cdgp.P2.m1 0.0) (> m1 0.0) (> m2 0.0) (> r 0.0)) (=> (> cdgp.P2.m1 m1)  (> (gravity cdgp.P2.m1 m2 r) (gravity m1 m2 r))))))
+      |(constraint (forall ((m1 Real)(m2 Real)(r Real)(cdgp.P3.m2 Real)) (=> (and (> cdgp.P3.m2 0.0) (> m1 0.0) (> m2 0.0) (> r 0.0)) (=> (> cdgp.P3.m2 m2)  (> (gravity m1 cdgp.P3.m2 r) (gravity m1 m2 r))))))
+      |
+      |(check-synth)
+    """.stripMargin
+  val gravityProblem = LoadSygusBenchmark.parseText(nraGravity)
+  val gravityData = SygusProblemData(gravityProblem)
+  val nraGravityNoPrecond =
+    """(set-logic NRA)
+      |(synth-fun gravity ((m1 Real)(m2 Real)(r Real)) Real)
+      |(declare-var m1 Real)
+      |(declare-var m2 Real)
+      |(declare-var r Real)
+      |
+      |; Precondition
+      |
+      |; Postcondition (with redundant implications)
+      |(constraint (=> (and (> m1 0.0) (> m2 0.0) (> r 0.0)) (= (gravity m1 m2 r) (gravity m2 m1 r))))
+      |(constraint (=> (and (> m1 0.0) (> m2 0.0) (> r 0.0)) (>= (gravity m1 m2 r) 0.0)))
+      |(constraint (forall ((m1 Real)(m2 Real)(r Real)(cdgp.P2.m1 Real)) (=> (and (> cdgp.P2.m1 0.0) (> m1 0.0) (> m2 0.0) (> r 0.0)) (=> (> cdgp.P2.m1 m1)  (> (gravity cdgp.P2.m1 m2 r) (gravity m1 m2 r))))))
+      |(constraint (forall ((m1 Real)(m2 Real)(r Real)(cdgp.P3.m2 Real)) (=> (and (> cdgp.P3.m2 0.0) (> m1 0.0) (> m2 0.0) (> r 0.0)) (=> (> cdgp.P3.m2 m2)  (> (gravity m1 cdgp.P3.m2 r) (gravity m1 m2 r))))))
+      |
+      |(check-synth)
+    """.stripMargin
+  val gravityProblemNoPrecond = LoadSygusBenchmark.parseText(nraGravityNoPrecond)
+  val gravityDataNoPrecond = SygusProblemData(gravityProblemNoPrecond)
+  val nraNguyen1 =
+    """(set-logic NRA)
+      |(synth-fun nguyen1 ((x Real)) Real)
+      |(declare-var x Real)
+      |
+      |(constraint (=> (and (>= x 0.0)) (>= (nguyen1 x) 0.0)))
+      |(constraint (=> (and (<= x 0.0)) (<= (nguyen1 x) 0.0)))
+      |(constraint (=> (and (>= x 0.0)) (>= (nguyen1 x) (nguyen1 (- x)))))
+      |
+      |(check-synth)
+    """.stripMargin
+  val nguyen1Problem = LoadSygusBenchmark.parseText(nraNguyen1)
+  val nguyen1Data = SygusProblemData(nguyen1Problem)
 
 
 
@@ -393,6 +454,94 @@ final class TestSmtlib {
   }
 
 
+  ////////////////////////////////////////////////////////////////////////////////////
+  //             Tests for NRA
+  ////////////////////////////////////////////////////////////////////////////////////
+
+  @Test
+  def test_templateVerification_nraMax(): Unit = {
+    val templateVerification = new TemplateVerification(nraData)
+    val op = Op.fromStr("/(123.0 x)", useSymbols = true)
+    val query = templateVerification(op)
+    println(query)
+    val (dec, model) = solver.executeQuery(query)
+    assertEquals("sat", dec)
+    assertEquals(true, model.isDefined)
+    assertEquals("((x 0.0))", model.get)
+    println(s"Counterexample: $model")
+
+    val op2 = Op.fromStr("/(x 123.0)", useSymbols = true)
+    val query2 = templateVerification(op2)
+    println(query2)
+    val (dec2, model2) = solver.executeQuery(query2)
+    assertEquals("unsat", dec2)
+
+    val op3 = Op.fromStr("+(x 123.0)", useSymbols = true)
+    val query3 = templateVerification(op3)
+    println(query3)
+    val (dec3, model3) = solver.executeQuery(query3)
+    assertEquals("unsat", dec3)
+  }
+
+  @Test
+  def test_templateVerification_gravity(): Unit = {
+    val templateVerification = new TemplateVerification(gravityData)
+    val op = Op.fromStr("/(*(m1 m2) *(r r))", useSymbols = true)
+    val query = templateVerification(op)
+    println(query)
+    val (dec, model) = solver.executeQuery(query)
+    assertEquals("unsat", dec) // unsat because r=0 is prohibited by precondition
+
+    val op2 = Op.fromStr("/(*(m1 m2) -(r r))", useSymbols = true)
+    val query2 = templateVerification(op2)
+    println(query2)
+    val (dec2, model2) = solver.executeQuery(query2)
+    assertEquals("sat", dec2) // sat, because for this program any valid value of r leads to problems
+    println(s"Counterexample: $model2")
+  }
+
+  @Test
+  def test_templateVerification_gravityNoPrecond(): Unit = {
+    val templateVerification = new TemplateVerification(gravityDataNoPrecond)
+    val op = Op.fromStr("/(*(m1 m2) *(r r))", useSymbols = true)
+    val query = templateVerification(op)
+    println(query)
+    val (dec, model) = solver.executeQuery(query)
+    assertEquals("sat", dec)  // (should be unsat) returns sat with r=0, as a result of no constraint over value
+    println(s"Counterexample: $model")
+
+    val op2 = Op.fromStr("/(*(m1 m2) -(r r))", useSymbols = true)
+    val query2 = templateVerification(op2)
+    println(query2)
+    val (dec2, model2) = solver.executeQuery(query2)
+    assertEquals("sat", dec2)
+    println(s"Counterexample: $model2")
+  }
+
+
+  @Test
+  def test_templateVerification_nguyen1(): Unit = {
+    {
+      val templateVerification = new TemplateVerificationOld(nguyen1Data)
+      val op = Op.fromStr("+(/(x x) -1.0 *(x +(/(x x) x *(x x))))", useSymbols = true)
+      val query = templateVerification(op)
+      println(query)
+      val (dec, model) = solver.executeQuery(query)
+      assertEquals("sat", dec)
+      print(s"model: $model")
+      // Changing <= to < in the constraints changes the answer to unsat, since for implication premise to be false means that it is always true
+    }
+    {
+      val templateVerification = new TemplateVerification(nguyen1Data)
+      val op = Op.fromStr("+(/(x x) -1.0 *(x +(/(x x) x *(x x))))", useSymbols = true)
+      val query = templateVerification(op)
+      println(query)
+      val (dec, model) = solver.executeQuery(query)
+      // (should be sat bc for x=0 the function returns an error)
+      assertEquals("sat", dec)
+      print(s"model: $model")
+    }
+  }
 
 
 

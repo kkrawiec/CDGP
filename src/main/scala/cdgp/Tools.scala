@@ -5,6 +5,7 @@ import java.text.{DecimalFormat, DecimalFormatSymbols}
 import java.util.Locale
 
 import fuel.util.Options
+import swim.tree.Op
 
 import scala.util.Random
 
@@ -204,5 +205,19 @@ object Tools {
     assert(nTrain+nValid+nTest <= tests.size, "There are not enough tests to create the specified training, validation, and test sets.")
     val shuffled = if (shuffle) Random.shuffle(tests) else tests
     (shuffled.take(nTrain), shuffled.slice(nTrain, nTrain + nValid), shuffled.slice(nTrain + nValid, nTrain + nValid + nTest))
+  }
+
+  /**
+    * Returns a list of subprograms which are used in division or modulo and their value cannot be 0.
+    */
+  def getOpDividers(program: Op): Seq[Op] = {
+    val args = program.args.toList
+    val opName = if (program.op.isInstanceOf[Symbol]) program.op.asInstanceOf[Symbol].name else program.op.toString
+    if (!program.hasArguments)
+      Seq()
+    else if (opName == "/" || opName == "mod")
+      getOpDividers(args(0)) ++ Seq(args(1)) ++ getOpDividers(args(1))
+    else
+      args.flatMap{op => getOpDividers(op)}.filter(_.size > 0)
   }
 }

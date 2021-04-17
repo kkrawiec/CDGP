@@ -187,6 +187,45 @@ final class TestSygusUtils {
   }
 
   @Test
+  def test_getPreconditions2(): Unit = {
+    val script =
+      """
+      (set-logic NIA)
+      (synth-fun rsconf ((a Int) (b Int) (c Int) (d Int)) Int
+          ((Start Int (a b c d
+              (+ Start Start) (- Start Start) (* Start Start)))))
+      (declare-var a Int)
+      (declare-var b Int)
+      (declare-var c Int)
+      (declare-var d Int)
+      (define-fun ElementsSum () Int 32)
+      (precondition (>= a 0))
+      (precondition (>= b 0))
+      (precondition (>= c 0))
+      (precondition (>= d 0))
+      (precondition (= (+ a b c d) ElementsSum))
+
+      (define-fun condition ((a Int)(b Int)(c Int)(d Int)) Int
+          (- (* a ElementsSum) (* (+ a c) (+ a c)))
+      )
+      (constraint (=> (> (condition a b c d) 0)
+                      (> (rsconf a b c d) 0)))
+      (constraint (=> (< (condition a b c d) 0)
+                      (< (rsconf a b c d) 0)))
+      (constraint (=> (= (condition a b c d) 0)
+                      (= (rsconf a b c d) 0)))
+      (check-synth)
+      """
+    val problem = LoadSygusBenchmark.parseText(script)
+    val precond = SygusUtils.getPreconditions(problem)
+    assertEquals(Set("rsconf"), SygusUtils.getPostcondSymbols(problem))
+    assertEquals(5, precond.size)
+    assertEquals("(>= a 0)", SMTLIBFormatter.termToSmtlib(precond(0)))
+    val st = SygusSynthTask(problem).head
+    assertEquals(false, st.canBeRecursive)
+  }
+
+  @Test
   def test_collectFreeVars1(): Unit = {
     val code = """(set-logic LIA)
 (synth-fun funSynth ((a Int) (b Int) (c Int)) Int ((Start Int (a b c))))
