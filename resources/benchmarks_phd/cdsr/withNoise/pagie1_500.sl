@@ -503,7 +503,7 @@
 (constraint (= (pagie1 0.17343943573018403 -2.2125593858129835) 0.9409348129004372))
 (constraint (= (pagie1 -4.9022720086112255 5.307317656697004) 2.00377922495948))
 
-
+(precondition (and (distinct x 0.0) (distinct y 0.0)))
 
 (constraint (>= (pagie1 x y) 0.0))
 (constraint (<= (pagie1 x y) 2.0))

@@ -503,7 +503,7 @@
 (constraint (= (resistance_par2 6.72062 14.084) 4.549624654523851))
 (constraint (= (resistance_par2 11.33382 0.88174) 0.8180944997036567))
 
-
+(precondition (and (> r1 0.0) (> r2 0.0)))
 
 (constraint (=> (and (> r1 0.0) (> r2 0.0)) (= (resistance_par2 r1 r2) (resistance_par2 r2 r1))))
 (constraint (=> (and (> r1 0.0) (> r2 0.0)) (and (<= (resistance_par2 r1 r2) r1) (<= (resistance_par2 r1 r2) r2))))

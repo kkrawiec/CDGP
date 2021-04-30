@@ -504,10 +504,10 @@
 (constraint (= (keijzer5 4.31813 -1.6593 7.86775) -65.15179717010106))
 (constraint (= (keijzer5 -5.50949 -1.20228 -2.95457) -21.783024264055385))
 
+(precondition (and (distinct x 10.0) (distinct y 0.0)))
 
-
-(constraint (=> (and (or (> y 0.0) (< y 0.0)) (or (> x 10.0) (< x 10.0))) (=> (or (= x 0.0) (= z 0.0)) (= (keijzer5 x y z) 0.0) )))
-(constraint (=> (and (or (> y 0.0) (< y 0.0)) (or (> x 10.0) (< x 10.0))) (=> (and (= x y) (= y z) (> x 0.0)) (> (keijzer5 x y z) 10.0) )))
-(constraint (=> (and (or (> y 0.0) (< y 0.0)) (or (> x 10.0) (< x 10.0))) (=> (and (= x y) (= y z) (< x 0.0)) (< (keijzer5 x y z) 10.0) )))
+(constraint (=> (or (= x 0.0) (= z 0.0)) (= (keijzer5 x y z) 0.0) ))
+(constraint (=> (and (= x y) (= y z) (> x 0.0)) (> (keijzer5 x y z) 10.0) ))
+(constraint (=> (and (= x y) (= y z) (< x 0.0)) (< (keijzer5 x y z) 10.0) ))
 
 (check-synth)

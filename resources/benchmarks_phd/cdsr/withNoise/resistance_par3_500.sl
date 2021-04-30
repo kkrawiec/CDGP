@@ -504,7 +504,7 @@
 (constraint (= (resistance_par3 10.639473832921864 18.463477278492107 14.71767119178624) 4.589900612666608))
 (constraint (= (resistance_par3 6.526932693006088 5.94498765539343 13.44352835837737) 2.5503698953980303))
 
-
+(precondition (and (> r1 0.0) (> r2 0.0) (> r3 0.0)))
 
 (constraint (=> (and (> r1 0.0) (> r2 0.0) (> r3 0.0)) (= (resistance_par3 r1 r2 r3) (resistance_par3 r2 r1 r3))))
 (constraint (=> (and (> r1 0.0) (> r2 0.0) (> r3 0.0)) (= (resistance_par3 r1 r2 r3) (resistance_par3 r3 r2 r1))))

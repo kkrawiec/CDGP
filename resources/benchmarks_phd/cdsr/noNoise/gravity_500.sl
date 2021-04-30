@@ -504,7 +504,7 @@
 (constraint (= (gravity 13.28356 3.72448 8.59914) 0.000000000044653580835435915))
 (constraint (= (gravity 15.12697 7.76596 4.00129) 0.0000000004897035358268937))
 
-
+(precondition (and (> m1 0.0) (> m2 0.0) (> r 0.0)))
 
 (constraint (=> (and (> m1 0.0) (> m2 0.0) (> r 0.0)) (= (gravity m1 m2 r) (gravity m2 m1 r))))
 (constraint (=> (and (> m1 0.0) (> m2 0.0) (> r 0.0)) (>= (gravity m1 m2 r) 0.0)))
