@@ -507,7 +507,7 @@
 (precondition (and (distinct x 10.0) (distinct y 0.0)))
 
 (constraint (=> (or (= x 0.0) (= z 0.0)) (= (keijzer5 x y z) 0.0) ))
-(constraint (=> (and (= x y) (= y z) (> x 0.0)) (> (keijzer5 x y z) 10.0) ))
-(constraint (=> (and (= x y) (= y z) (< x 0.0)) (< (keijzer5 x y z) 10.0) ))
+(constraint (=> (and (= x y) (= y z) (> x 10.0)) (> (keijzer5 x y z) 0.0) ))
+(constraint (=> (and (= x y) (= y z) (< x 10.0)) (< (keijzer5 x y z) 0.0) ))
 
 (check-synth)
