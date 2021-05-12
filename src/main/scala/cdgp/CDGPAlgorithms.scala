@@ -75,6 +75,7 @@ trait CDGPAlgorithm[S <: Op, E <: Fitness] {
 }
 
 trait ValidationSetTerminationHandler[E] extends Function1[BestSoFar[Op, E], Boolean] {
+  def isUsed: Boolean
   var bsfValid: Option[(Op, Double)] = None  // contains the best solution found at some time in evolution and evaluation on the validation set
   val logTrainSet: mutable.ArrayBuffer[Double] = mutable.ArrayBuffer[Double]()
   val logValidSet: mutable.ArrayBuffer[Double] = mutable.ArrayBuffer[Double]()
@@ -96,6 +97,7 @@ class ValidationSetTermination[E](trainingSet: Seq[(Map[String, Any], Option[Any
                                  (implicit coll: Collector)
   extends ValidationSetTerminationHandler[E] {
   assert(validationSet.nonEmpty, "Trying to use validation set termination condition with an empty validation set")
+  val isUsed = true
   var iterNotImproved: Int = 0
   var loggingCnt: Int = 0
   override def apply(bsf: BestSoFar[Op, E]): Boolean = {
@@ -160,6 +162,7 @@ class ValidationSetTermination[E](trainingSet: Seq[(Map[String, Any], Option[Any
 
 
 case class NoValidationSetTermination[E]() extends ValidationSetTerminationHandler[E] {
+  val isUsed = false
   override def apply(bsf: BestSoFar[Op, E]): Boolean = false
 }
 

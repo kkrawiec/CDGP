@@ -57,28 +57,28 @@ object RegressionCDGP {
         val validTermination = createValidationSetTermination(state, eval)
         val alg = CDGPGenerationalTournament(eval, validTermination)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
-        ((finalPop, alg.bsf.bestSoFar), eval.asInstanceOf[EvalCDGPContinuous[Fitness]], validTermination)
+        ((finalPop, alg.bsf.bestSoFar), eval.asInstanceOf[EvalCDGPContinuous[Fitness]], validTermination.asInstanceOf[ValidationSetTerminationHandler[Fitness]])
 
       case ("tournament", "steadyState") =>
         val eval = getEvalForMSE(state, method)
         val validTermination = createValidationSetTermination(state, eval)
         val alg = CDGPSteadyStateTournament(eval, validTermination)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
-        ((finalPop, alg.bsf.bestSoFar), eval.asInstanceOf[EvalCDGPContinuous[Fitness]], validTermination)
+        ((finalPop, alg.bsf.bestSoFar), eval.asInstanceOf[EvalCDGPContinuous[Fitness]], validTermination.asInstanceOf[ValidationSetTerminationHandler[Fitness]])
 
       case ("lexicase", "generational") =>
         val eval = getEvalForSeqDouble(state, method)
         val validTermination = createValidationSetTermination(state, eval)
         val alg = CDGPGenerationalEpsLexicase(eval, validTermination)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
-        ((finalPop, alg.bsf.bestSoFar), eval.asInstanceOf[EvalCDGPContinuous[Fitness]], validTermination)
+        ((finalPop, alg.bsf.bestSoFar), eval.asInstanceOf[EvalCDGPContinuous[Fitness]], validTermination.asInstanceOf[ValidationSetTerminationHandler[Fitness]])
 
       case ("lexicase", "steadyState") =>
         val eval = getEvalForSeqDouble(state, method)
         val validTermination = createValidationSetTermination(state, eval)
         val alg = CDGPSteadyStateEpsLexicase(eval, validTermination)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
-        ((finalPop, alg.bsf.bestSoFar), eval.asInstanceOf[EvalCDGPContinuous[Fitness]], validTermination)
+        ((finalPop, alg.bsf.bestSoFar), eval.asInstanceOf[EvalCDGPContinuous[Fitness]], validTermination.asInstanceOf[ValidationSetTerminationHandler[Fitness]])
     }
   }
 
@@ -174,6 +174,7 @@ object RegressionCDGP {
     coll.set("result.best.correctTests", eval.isOptimalOnCompleteTests(e, cdgpState.testsManager.tests))
     coll.set("result.best.correctVerification", if (dec == "unsat") true else false)
 
+
     // Save information about which constraints were passed
     if (opt('logPassedConstraints, false)) {
       // Create a 0/1 vector indicating if the ith constraint was passed
@@ -181,10 +182,55 @@ object RegressionCDGP {
       val passed = cdgpState.sygusData.formalConstr.map{ constr =>
         val template = new TemplateVerification(cdgpState.sygusData, false, cdgpState.timeout, Some(Seq(constr)))
         val (dec, _) = cdgpState.verify(bestOp, template)
-        if (dec == "unsat") 0 else 1  // 0 means passed
+        if (dec == "unsat") 0 else 1  // 0 means a constraint was passed
       }
       coll.setResult("best.passedConstraints", passed)
     }
+
+
+    // Logging the same information as earlier but this time for the solution best on the validation set
+    if (validTermination.isUsed && validTermination.bsfValid.isDefined) {
+      val (vOp, vEval) = validTermination.bsfValid.get
+
+      // Verify correctness with respect to the specification
+      if (cdgpState.sygusData.formalConstr.nonEmpty) {
+        val (dec, model) = cdgpState.verify(vOp)
+        coll.setResult("validation.best.verificationDecision", dec)
+        coll.setResult("validation.best.verificationModel", model)
+      }
+
+      val eTrain = eval.evalOnTests(vOp, cdgpState.trainingSet)
+      val mseTrain = Tools.mse(eTrain)
+      val eTest = eval.evalOnTests(vOp, cdgpState.testSet)
+      val mseTest = Tools.mse(eTest)
+      val eValid = eval.evalOnTests(vOp, cdgpState.validationSet)
+      val mseValid = Tools.mse(eValid)
+      coll.setResult("validation.best.trainEval", eTrain)
+      coll.setResult("validation.best.trainMSE", Tools.double2str(mseTrain))
+      coll.setResult("validation.best.testEval", if (eTest.nonEmpty) eTest else "n/a")
+      coll.setResult("validation.best.testMSE", if (eTest.nonEmpty) Tools.double2str(mseTest) else "n/a")
+      coll.setResult("validation.best.validEval", if (eValid.nonEmpty) eValid else "n/a")
+      coll.setResult("validation.best.validMSE", if (eValid.nonEmpty) Tools.double2str(mseValid) else "n/a")
+
+      val dec = coll.getResult("validation.best.verificationDecision").getOrElse("n/a")
+      val e = eval.evalOnTestsAndConstraints(vOp, cdgpState.testsManager.tests)
+      coll.set("result.validation.best.correctTests", eval.isOptimalOnCompleteTests(e, cdgpState.testsManager.tests))
+      coll.set("result.validation.best.correctVerification", if (dec == "unsat") true else false)
+
+      // Save information about which constraints were passed
+      if (opt('logPassedConstraints, false)) {
+        // Create a 0/1 vector indicating if the ith constraint was passed
+        // 1 means that the constraint was passed
+        val passed = cdgpState.sygusData.formalConstr.map{ constr =>
+          val template = new TemplateVerification(cdgpState.sygusData, false, cdgpState.timeout, Some(Seq(constr)))
+          val (dec, _) = cdgpState.verify(vOp, template)
+          if (dec == "unsat") 0 else 1  // 0 means a constraint was passed
+        }
+        coll.setResult("validation.best.passedConstraints", passed)
+      }
+
+    }
+
 
     // Print and save results
     coll.saveSnapshot("cdgp")
