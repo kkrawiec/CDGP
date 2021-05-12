@@ -41,44 +41,44 @@ object RegressionCDGP {
   }
 
   def createValidationSetTermination[E <: Fitness](state: StateCDGP, eval: EvalCDGPContinuous[E])
-                                                  (implicit opt: Options, coll: Collector): (BestSoFar[Op, E]) => Boolean = {
+                                                  (implicit opt: Options, coll: Collector): ValidationSetTerminationHandler[E] = {
     if (opt.paramInt('sizeValidationSet) == 0)
-      (_: BestSoFar[Op, E]) => false
+      NoValidationSetTermination[E]()
     else
-      new ValidationSetTermination[E](state.trainingSet, state.validationSet, eval.evaluatorComplete, opt('notImprovedWindow, 15), opt('reportFreq, 10))
+      new ValidationSetTermination[E](state.trainingSet, state.validationSet, eval.evaluatorComplete, opt('notImprovedWindow, 50), opt('reportFreq, 10))
   }
 
   def runConfigRegressionCDGP(state: StateCDGP, method: String, selection: String, evoMode: String)
                              (implicit coll: Collector, opt: Options, rng: TRandom):
-  ((Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]), EvalCDGPContinuous[Fitness]) = {
+  ((Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]), EvalCDGPContinuous[Fitness], ValidationSetTerminationHandler[Fitness]) = {
     (selection, evoMode) match {
       case ("tournament", "generational") =>
         val eval = getEvalForMSE(state, method)
         val validTermination = createValidationSetTermination(state, eval)
         val alg = CDGPGenerationalTournament(eval, validTermination)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
-        ((finalPop, alg.bsf.bestSoFar), eval.asInstanceOf[EvalCDGPContinuous[Fitness]])
+        ((finalPop, alg.bsf.bestSoFar), eval.asInstanceOf[EvalCDGPContinuous[Fitness]], validTermination)
 
       case ("tournament", "steadyState") =>
         val eval = getEvalForMSE(state, method)
         val validTermination = createValidationSetTermination(state, eval)
         val alg = CDGPSteadyStateTournament(eval, validTermination)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
-        ((finalPop, alg.bsf.bestSoFar), eval.asInstanceOf[EvalCDGPContinuous[Fitness]])
+        ((finalPop, alg.bsf.bestSoFar), eval.asInstanceOf[EvalCDGPContinuous[Fitness]], validTermination)
 
       case ("lexicase", "generational") =>
         val eval = getEvalForSeqDouble(state, method)
         val validTermination = createValidationSetTermination(state, eval)
         val alg = CDGPGenerationalEpsLexicase(eval, validTermination)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
-        ((finalPop, alg.bsf.bestSoFar), eval.asInstanceOf[EvalCDGPContinuous[Fitness]])
+        ((finalPop, alg.bsf.bestSoFar), eval.asInstanceOf[EvalCDGPContinuous[Fitness]], validTermination)
 
       case ("lexicase", "steadyState") =>
         val eval = getEvalForSeqDouble(state, method)
         val validTermination = createValidationSetTermination(state, eval)
         val alg = CDGPSteadyStateEpsLexicase(eval, validTermination)
         val finalPop = Main.watchTime(alg, RunExperiment(alg))
-        ((finalPop, alg.bsf.bestSoFar), eval.asInstanceOf[EvalCDGPContinuous[Fitness]])
+        ((finalPop, alg.bsf.bestSoFar), eval.asInstanceOf[EvalCDGPContinuous[Fitness]], validTermination)
     }
   }
 
@@ -113,8 +113,8 @@ object RegressionCDGP {
       val cdgpState = StateCDGP(benchmark)
 
       // Run algorithm
-      val (res, eval) = runConfigRegressionCDGP(cdgpState, method, selection, evoMode)
-      analyzeAndPrintResults(cdgpState, eval, res)
+      val (res, eval, validTermination) = runConfigRegressionCDGP(cdgpState, method, selection, evoMode)
+      analyzeAndPrintResults(cdgpState, eval, res, validTermination)
     }
     catch {
       case e: NoSolutionException =>
@@ -143,7 +143,8 @@ object RegressionCDGP {
 
   def analyzeAndPrintResults(cdgpState: StateCDGP,
                              eval: EvalCDGPContinuous[Fitness],
-                             res: (Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]))
+                             res: (Option[StatePop[(Op, Fitness)]], Option[(Op, Fitness)]),
+                             validTermination: ValidationSetTerminationHandler[Fitness])
                             (implicit opt: Options, coll: Collector): Unit = {
     val bestOfRun = res._2
     val (bestOp, _) = bestOfRun.get

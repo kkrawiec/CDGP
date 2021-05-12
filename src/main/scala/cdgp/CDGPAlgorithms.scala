@@ -74,12 +74,19 @@ trait CDGPAlgorithm[S <: Op, E <: Fitness] {
   }
 }
 
+trait ValidationSetTerminationHandler[E] extends Function1[BestSoFar[Op, E], Boolean] {
+  var bsfValid: Option[(Op, Double)] = None  // contains the best solution found at some time in evolution and evaluation on the validation set
+  val logTrainSet: mutable.ArrayBuffer[Double] = mutable.ArrayBuffer[Double]()
+  val logValidSet: mutable.ArrayBuffer[Double] = mutable.ArrayBuffer[Double]()
+}
+
 
 /**
  * Implements a termination condition based on no progress on the validation set.
  * If the number of calls exceeds the maxWithoutImprovement parameter, a signal to
- * terminate evolution is send. However, if the solution was not changed in the meantime,
- * termination signal will be issued only in case new different solution will be worse.
+ * terminate evolution is sent. However, if the best solution on the training set
+ * was not changed in the meantime, termination signal will not be issued - a new
+ * new solution better on the training set and worse on the validation set is needed.
  */
 class ValidationSetTermination[E](trainingSet: Seq[(Map[String, Any], Option[Any])],
                                   validationSet: Seq[(Map[String, Any], Option[Any])],
@@ -87,11 +94,8 @@ class ValidationSetTermination[E](trainingSet: Seq[(Map[String, Any], Option[Any
                                   maxWithoutImprovement: Int,
                                   loggingFreq: Int = 10)
                                  (implicit coll: Collector)
-  extends Function1[BestSoFar[Op, E], Boolean] {
+  extends ValidationSetTerminationHandler[E] {
   assert(validationSet.nonEmpty, "Trying to use validation set termination condition with an empty validation set")
-  val logTrainSet: mutable.ArrayBuffer[Double] = mutable.ArrayBuffer[Double]()
-  val logValidSet: mutable.ArrayBuffer[Double] = mutable.ArrayBuffer[Double]()
-  var bsfValid: Option[(Op, Double)] = None  // contains the best solution found at some time in evolution and evaluation on the validation set
   var iterNotImproved: Int = 0
   var loggingCnt: Int = 0
   override def apply(bsf: BestSoFar[Op, E]): Boolean = {
@@ -119,16 +123,19 @@ class ValidationSetTermination[E](trainingSet: Seq[(Map[String, Any], Option[Any
       else {
         // println(s"Error on validation set: ${errorV}\t(iters without improvement: ${iterNotImproved})")
         val (bvOp, bvErrorV) = bsfValid.get
-        if (errorV < bvErrorV) {  // if solution is better on the validation set
+        if (errorV < bvErrorV) {  // if solution is better on the validation set than previous best
           bsfValid = Some((bOp, errorV))
           iterNotImproved = 0
-          coll.set("cdgp.wasValidationTermination", false)
+          coll.set("result.validation.best", bvOp)
+          coll.set("result.validation.best.smtlib", SMTLIBFormatter.opToString(bvOp))
+          coll.set("result.validation.best.mse", errorV)
+          coll.set("result.validation.terminationSignal", false)
           false
         }
         else {
           iterNotImproved += 1
           if (!bOp.equals(bvOp) && iterNotImproved > maxWithoutImprovement) {
-            coll.set("cdgp.wasValidationTermination", true)
+            coll.set("result.validation.terminationSignal", true)
             true
           }
           else false
@@ -152,6 +159,10 @@ class ValidationSetTermination[E](trainingSet: Seq[(Map[String, Any], Option[Any
 }
 
 
+case class NoValidationSetTermination[E]() extends ValidationSetTerminationHandler[E] {
+  override def apply(bsf: BestSoFar[Op, E]): Boolean = false
+}
+
 
 /**
  * This is a standard generational GP in which evolved are program trees.
@@ -172,7 +183,7 @@ class ValidationSetTermination[E](trainingSet: Seq[(Map[String, Any], Option[Any
 abstract class CDGPGenerationalCore[E <: Fitness](moves: GPMoves,
                                                   cdgpEval: CDGPFuelEvaluation[Op, E],
                                                   correct: (Op, E) => Boolean,
-                                                  validSetTermination: BestSoFar[Op, E] => Boolean = (s: BestSoFar[Op,E]) => false)
+                                                  val validSetTermination: ValidationSetTerminationHandler[E] = NoValidationSetTermination[E]())
                                    (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
   extends EACore[Op, E](moves, SequentialEval(cdgpEval.eval), correct) with CDGPAlgorithm[Op, E] {
   override def cdgpState = cdgpEval.state
@@ -199,7 +210,7 @@ class CDGPGenerationalStaticBreeder[E <: Fitness](moves: GPMoves,
                                                   cdgpEval: CDGPFuelEvaluation[Op, E],
                                                   correct: (Op, E) => Boolean,
                                                   selection: Selection[Op, E],
-                                                  validTermination: BestSoFar[Op, E] => Boolean = (s: BestSoFar[Op,E]) => false)
+                                                  validTermination: ValidationSetTerminationHandler[E] = NoValidationSetTermination[E]())
                                                  (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
   extends CDGPGenerationalCore[E](moves, cdgpEval, correct, validTermination) {
   val breeder = SimpleBreeder[Op, E](selection, moves: _*)
@@ -210,7 +221,7 @@ class CDGPGenerationalStaticBreeder[E <: Fitness](moves: GPMoves,
 class CDGPGenerationalEpsLexicase[E <: FSeqDouble](moves: GPMoves,
                                                    cdgpEval: CDGPFuelEvaluation[Op, E],
                                                    correct: (Op, E) => Boolean,
-                                                   validTermination: BestSoFar[Op, E] => Boolean = (s: BestSoFar[Op,E]) => false)
+                                                   validTermination: ValidationSetTerminationHandler[E] = NoValidationSetTermination[E]())
                                                   (implicit opt: Options, coll: Collector, rng: TRandom, ordering: Ordering[E])
   extends CDGPGenerationalCore(moves, cdgpEval, correct, validTermination) {
   def createBreeder(s: StatePop[(Op, E)]): (StatePop[(Op, E)] => StatePop[Op]) = {
@@ -223,7 +234,7 @@ class CDGPGenerationalEpsLexicase[E <: FSeqDouble](moves: GPMoves,
 
 object CDGPGenerationalStaticBreeder {
   def apply[E <: Fitness](cdgpEval: CDGPFuelEvaluation[Op, E], sel: Selection[Op, E],
-                          validTermination: BestSoFar[Op,E] => Boolean = (s: BestSoFar[Op,E]) => false)
+                          validTermination: ValidationSetTerminationHandler[E] = NoValidationSetTermination[E]())
                          (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalStaticBreeder[E] = {
     implicit val ordering = cdgpEval.eval.ordering
     val grammar = cdgpEval.eval.state.sygusData.getSwimGrammar(rng)
@@ -235,7 +246,8 @@ object CDGPGenerationalStaticBreeder {
 
 
 object CDGPGenerationalTournament {
-  def apply[E <: Fitness](eval: EvalFunction[Op, E], validTermination: BestSoFar[Op,E] => Boolean = (s: BestSoFar[Op,E]) => false)
+  def apply[E <: Fitness](eval: EvalFunction[Op, E],
+                          validTermination: ValidationSetTerminationHandler[E] = NoValidationSetTermination[E]())
                          (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalStaticBreeder[E] = {
     val cdgpEval = new CDGPFuelEvaluation[Op, E](eval)
     val sel = new TournamentSelection[Op, E](eval.ordering, opt('tournamentSize, 7))
@@ -245,7 +257,8 @@ object CDGPGenerationalTournament {
 
 
 object CDGPGenerationalLexicase {
-  def apply[E <: FSeqInt](eval: EvalFunction[Op, E], validTermination: BestSoFar[Op,E] => Boolean = (s: BestSoFar[Op,E]) => false)
+  def apply[E <: FSeqInt](eval: EvalFunction[Op, E],
+                          validTermination: ValidationSetTerminationHandler[E] = NoValidationSetTermination[E]())
                          (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalStaticBreeder[E] = {
     val cdgpEval = new CDGPFuelEvaluation[Op, E](eval)
     val sel = new LexicaseSelection01[Op, E]
@@ -255,7 +268,8 @@ object CDGPGenerationalLexicase {
 
 
 object CDGPGenerationalEpsLexicase {
-  def apply(eval: EvalFunction[Op, FSeqDouble], validTermination: BestSoFar[Op,FSeqDouble] => Boolean = (s: BestSoFar[Op,FSeqDouble]) => false)
+  def apply(eval: EvalFunction[Op, FSeqDouble],
+            validTermination: ValidationSetTerminationHandler[FSeqDouble] = NoValidationSetTermination[FSeqDouble]())
            (implicit opt: Options, coll: Collector, rng: TRandom): CDGPGenerationalEpsLexicase[FSeqDouble] = {
     implicit val ordering = eval.ordering
     val grammar = eval.state.sygusData.getSwimGrammar(rng)
