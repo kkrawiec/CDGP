@@ -64,8 +64,8 @@ object BenchmarksGPEM extends App {
   val b_keijzer5 = Benchmark("keijzer5", Seq("x", "y", "z"),
     Seq(
       CustomConstraint("(=> (or (= x 0.0) (= z 0.0)) (= (keijzer5 x y z) 0.0) )", range=Seq(Range.diffThan("y", 0.0), Range.diffThan("x", 10.0))),
-      CustomConstraint("(=> (and (= x y) (= y z) (> x 0.0)) (> (keijzer5 x y z) 10.0) )", range=Seq(Range.diffThan("y", 0.0), Range.diffThan("x", 10.0))),
-      CustomConstraint("(=> (and (= x y) (= y z) (< x 0.0)) (< (keijzer5 x y z) 10.0) )", range=Seq(Range.diffThan("y", 0.0), Range.diffThan("x", 10.0)))
+      CustomConstraint("(=> (and (= x y) (= y z) (> x 10.0)) (> (keijzer5 x y z) 0.0) )", range=Seq(Range.diffThan("y", 0.0), Range.diffThan("x", 10.0))),
+      CustomConstraint("(=> (and (= x y) (= y z) (< x 10.0)) (< (keijzer5 x y z) 0.0) )", range=Seq(Range.diffThan("y", 0.0), Range.diffThan("x", 10.0)))
     ))
   val b_keijzer12 = Benchmark("keijzer12", Seq("x", "y"),
     Seq(
