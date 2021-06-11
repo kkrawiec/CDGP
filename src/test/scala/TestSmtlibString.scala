@@ -117,7 +117,7 @@ final class TestSmtlibString {
       println(s"Result: ($dec, $model)\n")
       assertEquals(expected, dec)
     }
-    verify("resources/SLIA/cdgp_ecj/dr-name.sl", """(str.++ "Dr." (str.++ " " (str.substr name 0 (str.indexof name " " 0))))""")
+//    verify("resources/SLIA/cdgp_ecj/dr-name.sl", """(str.++ "Dr." (str.++ " " (str.substr name 0 (str.indexof name " " 0))))""")
     verify("resources/SLIA/cdgp_ecj/firstname.sl", """(str.substr name 0 (str.indexof name " " 0))""")
     verify("resources/SLIA/cdgp_ecj/initials.sl", """(str.++ (str.++ (str.at name 0) ".")   (str.++ (str.at (str.substr name (+ 1 (str.indexof name " " 0)) (str.len  name)) 0) ".") )""")
     verify("resources/SLIA/cdgp_ecj/lastname.sl", """(str.substr name (+ 1 (str.indexof name " " 0)) (str.len  name))""")
@@ -126,9 +126,9 @@ final class TestSmtlibString {
     verify("resources/SLIA/cdgp_ecj/name-combine-3.sl", """(str.++ (str.++ (str.at firstname 0) ". ") lastname)""")
     verify("resources/SLIA/cdgp_ecj/name-combine-4.sl", """(str.++ (str.++ lastname ", ") (str.++ (str.at firstname 0) "."))""")
     verify("resources/SLIA/cdgp_ecj/phone.sl", """(str.substr name 0 (str.indexof name (str.at name 3) 0))""")
-    verify("resources/SLIA/cdgp_ecj/phone-1.sl", """(str.substr name (+ 1 (str.indexof name (str.at name 3) 0)) 3)""")
-    verify("resources/SLIA/cdgp_ecj/phone-2.sl", """(str.substr name (+ 1 (str.indexof name (str.at name 3) 4)) 3)""")
-    verify("resources/SLIA/cdgp_ecj/phone-5.sl", """(str.substr name 1 (- (str.indexof name " " 0) 1))""")
+//    verify("resources/SLIA/cdgp_ecj/phone-1.sl", """(str.substr name (+ 1 (str.indexof name (str.at name 3) 0)) 3)""")
+//    verify("resources/SLIA/cdgp_ecj/phone-2.sl", """(str.substr name (+ 1 (str.indexof name (str.at name 3) 4)) 3)""")
+//    verify("resources/SLIA/cdgp_ecj/phone-5.sl", """(str.substr name 1 (- (str.indexof name " " 0) 1))""")
   }
 
 }
