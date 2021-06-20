@@ -48,7 +48,7 @@ object SimplifyQuery {
   * wrt the specification given by problem.
   *
   * An example of the query:
-  * <pre>{@code
+  * <pre>
   *   (set-logic LIA)
   *   (define-fun max2 ((x Int)(y Int)) Int (ite (>= x y) x 0))
   *   (declare-fun x () Int)
@@ -58,7 +58,7 @@ object SimplifyQuery {
   *   (or (= x (max2 x y)) (= y (max2 x y))))))
   *   (check-sat)
   *   (get-value (x y))
-  * }</pre>
+  * </pre>
   * Sat means that there is a counterexample, unsat means perfect program was found.
   *
   * If constraints are provided in the last arguments, then they are used instead of
@@ -93,7 +93,7 @@ class TemplateVerificationOld(sygusData: SygusProblemData,
   val satCmds = s"(get-value (${sygusData.varDecls.map(_.sym).mkString(" ")}))\n"
 
   override def apply(program: Op): CheckSatQuery = {
-    apply(SMTLIBFormatter.opToString(program))
+    apply(SMTLIBFormatter.opToSmtlib(program))
   }
 
   def apply(program: String): CheckSatQuery = {
@@ -110,7 +110,7 @@ class TemplateVerificationOld(sygusData: SygusProblemData,
   * wrt the specification given by problem.
   *
   * An example of the query:
-  * <pre>{@code
+  * <pre>
   *   (set-logic LIA)
   *   (define-fun max2 ((x Int)(y Int)) Int (ite (>= x y) x 0))
   *   (declare-fun x () Int)
@@ -120,7 +120,7 @@ class TemplateVerificationOld(sygusData: SygusProblemData,
   *   (or (= x (max2 x y)) (= y (max2 x y))))))
   *   (check-sat)
   *   (get-value (x y))
-  * }</pre>
+  * </pre>
   * Sat means that there is a counterexample, unsat means perfect program was found.
   *
   * If constraints are provided in the last arguments, then they are used instead of
@@ -159,7 +159,7 @@ class TemplateVerification(sygusData: SygusProblemData,
 
   override def apply(program: Op): CheckSatQuery = {
     val dividers = Tools.getOpDividers(program)
-    apply(SMTLIBFormatter.opToString(program), dividers)
+    apply(SMTLIBFormatter.opToSmtlib(program), dividers)
   }
 
   def apply(program: String): CheckSatQuery = {
@@ -190,7 +190,7 @@ class TemplateVerification(sygusData: SygusProblemData,
   * only formal constraints.
   *
   * An example query:
-  * <pre>{@code
+  * <pre>
   *   (set-logic LIA)
   *   (define-fun max2 ((x Int)(y Int)) Int 5)
   *   (define-fun x () Int 5)
@@ -199,7 +199,7 @@ class TemplateVerification(sygusData: SygusProblemData,
   *   (>= (max2 x y) y)
   *   (or (= x (max2 x y)) (= y (max2 x y)))))
   *   (check-sat)
-  * }</pre>
+  * </pre>
   * The result is either sat or unsat, model usually will be empty.
   * Sat means that the answer is correct.
   */
@@ -246,7 +246,7 @@ class TemplateIsOutputCorrectForInput(sygusData: SygusProblemData,
   * program's behavior in the point is defined by test cases.
   *
   * An example of the query:
-  * <pre>{@code
+  * <pre>
   *   (set-logic LIA)
   *   (define-fun max2 ((x Int)(y Int)) Int (ite (>= x y) x 0))
   *   (define-fun x () Int 5)
@@ -255,7 +255,7 @@ class TemplateIsOutputCorrectForInput(sygusData: SygusProblemData,
   *   (>= (max2 x y) y)
   *   (or (= x (max2 x y)) (= y (max2 x y)))))
   *   (check-sat)
-  * }</pre>
+  * </pre>
   * The result is either sat or unsat, model usually will be empty.
   * Sat means that the answer is correct.
   */
@@ -278,7 +278,7 @@ class TemplateIsProgramCorrectForInput(sygusData: SygusProblemData,
   val template: String = createTemplate
 
   override def apply(program: Op, input: Map[String, Any]): CheckSatQuery = {
-    apply(SMTLIBFormatter.opToString(program), input)
+    apply(SMTLIBFormatter.opToSmtlib(program), input)
   }
 
   def apply(program: String, input: Map[String, Any]): CheckSatQuery = {
@@ -304,7 +304,7 @@ class TemplateIsProgramCorrectForInput(sygusData: SygusProblemData,
   * to unsat (for the great majority of cases).
   *
   * An example of the query:
-  * <pre>{@code
+  * <pre>
   *   (set-logic LIA)
   *   (declare-fun CorrectOutput () Int)
   *   (define-fun max2 ((x Int)(y Int)) Int CorrectOutput)
@@ -315,7 +315,7 @@ class TemplateIsProgramCorrectForInput(sygusData: SygusProblemData,
   *   (or (= x (max2 x y)) (= y (max2 x y)))))
   *   (check-sat)
   *   (get-value (CorrectOutput))
-  * }</pre>
+  * </pre>
   * Sat means that correct output was found, unsat that there is no output
   * consistent with the specification (this probably means that problem was
   * wrongly specified).
@@ -372,13 +372,13 @@ object TemplateFindOutput {
   * Query to simplify the synthesized function.
   *
   * An example of the query:
-  * <pre>{@code
+  * <pre>
   *   (set-logic LIA)
   *   (declare-fun x () Int)
   *   (declare-fun y () Int)
   *   (simplify (+ x (- 0 x))
   *   )
-  * }</pre>
+  * </pre>
   */
 class TemplateSimplify(sygusData: SygusProblemData,
                        timeout: Int = 0) extends Function1[Op, SimplifyQuery] {
@@ -420,7 +420,7 @@ object SMTLIBFormatter {
     case BitVecSortExpr(n: Int) => s"BV$n" // TODO:?
   }
 
-  def apply(op: Op): String = opToString(op)
+  def apply(op: Op): String = opToSmtlib(op)
 
   def normalizeNumber(x: String): String = {
     if (x.head == '-') s"(- ${x.tail})"  // special treatment for negative numbers
@@ -445,7 +445,7 @@ object SMTLIBFormatter {
     }
   }
 
-  def opToString(op: Op): String = {
+  def opToSmtlib(op: Op): String = {
     val opStr =
       op.op match {
         case x: Symbol => x.toString.tail
@@ -455,11 +455,11 @@ object SMTLIBFormatter {
         case x => x.toString
       }
     if (op.args.isEmpty) normalizeNumber(opStr)
-    else s"($opStr ${op.args.map(opToString(_)).mkString(" ")})"
+    else s"($opStr ${op.args.map(opToSmtlib(_)).mkString(" ")})"
   }
 
   def synthSolutionToString(sst: SygusSynthTask, solution: Op): String = {
-    val bestBody = opToString(solution)
+    val bestBody = opToSmtlib(solution)
     synthSolutionToString(sst, bestBody)
   }
 

@@ -145,7 +145,7 @@ class StateSMTSolver(sygusData: SygusProblemData,
   def verifyAndParseModel(s: Op): (String, Option[Map[String, Any]]) = {
     val (dec, modelText) = verify(s, templateVerification)
     val model = if (modelText.isEmpty) None else Some(GetValueParser(modelText.get).toMap)
-    return (dec, model)
+    (dec, model)
   }
 
   /**

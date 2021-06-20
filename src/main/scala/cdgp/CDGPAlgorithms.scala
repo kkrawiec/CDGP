@@ -52,7 +52,7 @@ trait CDGPAlgorithm[S <: Op, E <: Fitness] {
     if (bsf.bestSoFar.isDefined) {
       val (bestOfRun, e) = bsf.bestSoFar.get
       e.saveInColl(coll)
-      val solutionOrigSmtlib = SMTLIBFormatter.opToString(bestOfRun)
+      val solutionOrigSmtlib = SMTLIBFormatter.opToSmtlib(bestOfRun)
       val solutionSimpSmtlib = cdgpState.simplifySolution(solutionOrigSmtlib).getOrElse(solutionOrigSmtlib).
         replace("?)", ")").replace("? ", " ") // clean trailing '?' in double outputs from SMT solver
       val solutionSimpOp = SMTLIBFormatter.smtlibToOp(solutionSimpSmtlib)
@@ -129,7 +129,7 @@ class ValidationSetTermination[E](trainingSet: Seq[(Map[String, Any], Option[Any
           bsfValid = Some((bOp, errorV))
           iterNotImproved = 0
           coll.set("result.validation.best", bvOp)
-          coll.set("result.validation.best.smtlib", SMTLIBFormatter.opToString(bvOp))
+          coll.set("result.validation.best.smtlib", SMTLIBFormatter.opToSmtlib(bvOp))
           coll.set("result.validation.best.mse", errorV)
           coll.set("result.validation.terminationSignal", false)
           false

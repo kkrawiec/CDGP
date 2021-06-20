@@ -140,6 +140,23 @@ object RegressionCDGP {
     }
   }
 
+  def chooseBestOnValidSet(cdgpState: StateCDGP,
+                           eval: EvalCDGPContinuous[Fitness],
+                           bestOnTrain: (Op, Fitness),
+                           originalBestOnValid: Option[(Op, Double)]): Op = {
+    if (originalBestOnValid.isEmpty)
+      bestOnTrain._1
+    else {
+      val (opTrain, _) = bestOnTrain
+      val (opValid, _) = originalBestOnValid.get
+      val evalTrainMSE = Tools.mse(eval.evalOnTests(opTrain, cdgpState.validationSet))
+      val evalValidMSE = Tools.mse(eval.evalOnTests(opValid, cdgpState.validationSet))
+      if (evalTrainMSE < evalValidMSE) // better MSE on train set happens as far as I know only when a perfect solution was found, search was terminated, and best on validation set was not updated
+        opTrain
+      else
+        opValid
+    }
+  }
 
   def analyzeAndPrintResults(cdgpState: StateCDGP,
                              eval: EvalCDGPContinuous[Fitness],
@@ -189,8 +206,8 @@ object RegressionCDGP {
 
 
     // Logging the same information as earlier but this time for the solution best on the validation set
-    if (validTermination.isUsed && validTermination.bsfValid.isDefined) {
-      val (vOp, vEval) = validTermination.bsfValid.get
+    if (validTermination.isUsed) {  // "&& validTermination.bsfValid.isDefined" - the case of bsfValid being None is handled in the line below
+      val vOp = chooseBestOnValidSet(cdgpState, eval, bestOfRun.get, validTermination.bsfValid)
 
       // Verify correctness with respect to the specification
       if (cdgpState.sygusData.formalConstr.nonEmpty) {
@@ -205,12 +222,32 @@ object RegressionCDGP {
       val mseTest = Tools.mse(eTest)
       val eValid = eval.evalOnTests(vOp, cdgpState.validationSet)
       val mseValid = Tools.mse(eValid)
+      coll.setResult("validation.best.mse", Tools.double2str(mseTrain))
       coll.setResult("validation.best.trainEval", eTrain)
       coll.setResult("validation.best.trainMSE", Tools.double2str(mseTrain))
       coll.setResult("validation.best.testEval", if (eTest.nonEmpty) eTest else "n/a")
       coll.setResult("validation.best.testMSE", if (eTest.nonEmpty) Tools.double2str(mseTest) else "n/a")
       coll.setResult("validation.best.validEval", if (eValid.nonEmpty) eValid else "n/a")
       coll.setResult("validation.best.validMSE", if (eValid.nonEmpty) Tools.double2str(mseValid) else "n/a")
+
+      val vSolutionOrigOp = vOp
+      val vSolutionOrigSmtlib = SMTLIBFormatter.opToSmtlib(vOp)
+      val vSolutionSimpSmtlib = cdgpState.simplifySolution(vSolutionOrigSmtlib).getOrElse(vSolutionOrigSmtlib)
+      val vSolutionSimpOp = SMTLIBFormatter.smtlibToOp(vSolutionSimpSmtlib)
+
+
+      // Simplified best on valid
+      coll.set("result.validation.best", vSolutionSimpOp)
+      coll.set("result.validation.best.smtlib", vSolutionSimpSmtlib)
+      coll.set("result.validation.best.size", vSolutionSimpOp.size)
+      coll.set("result.validation.best.height", vSolutionSimpOp.height)
+
+      // Original best on valid
+      coll.set("result.validation.bestOrig", vSolutionOrigOp)
+      coll.set("result.validation.bestOrig.smtlib", vSolutionOrigSmtlib)
+      coll.set("result.validation.bestOrig.size", vSolutionOrigOp.size)
+      coll.set("result.validation.bestOrig.height", vSolutionOrigOp.height)
+
 
       val dec = coll.getResult("validation.best.verificationDecision").getOrElse("n/a")
       val e = eval.evalOnTestsAndConstraints(vOp, cdgpState.testsManager.tests)

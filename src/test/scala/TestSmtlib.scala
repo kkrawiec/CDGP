@@ -552,12 +552,12 @@ final class TestSmtlib {
   @Test
   def test_opToString(): Unit = {
     val op = Op.fromStr("ite(>=(x y) x 0)", useSymbols=true)
-    assertEquals("(ite (>= x y) x 0)", SMTLIBFormatter.opToString(op))
+    assertEquals("(ite (>= x y) x 0)", SMTLIBFormatter.opToSmtlib(op))
     assertEquals("(ite (>= x y) x 0)", SMTLIBFormatter(op))
     val op2 = Op.fromStr("ite(>=(x y) x \"0\")", useSymbols=true)
-    assertEquals("(ite (>= x y) x \"0\")", SMTLIBFormatter.opToString(op2))
+    assertEquals("(ite (>= x y) x \"0\")", SMTLIBFormatter.opToSmtlib(op2))
     val op3 = Op('default, 3.0e-10)
-    assertEquals("0.0000000003", SMTLIBFormatter.opToString(op3))
+    assertEquals("0.0000000003", SMTLIBFormatter.opToSmtlib(op3))
   }
 
   @Test
