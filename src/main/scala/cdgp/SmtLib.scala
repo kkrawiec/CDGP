@@ -162,11 +162,6 @@ class TemplateVerification(sygusData: SygusProblemData,
     apply(SMTLIBFormatter.opToSmtlib(program), dividers)
   }
 
-  def apply(program: String): CheckSatQuery = {
-    /** Ignores dividers. **/
-    apply(program, Seq())
-  }
-
   def apply(program: String, dividers: Seq[Op]): CheckSatQuery = {
     // val preconditions = SMTLIBFormatter.getSmtlibForConstraints(sygusData.precond) // ignore preconds for now
     val zero = if (sygusData.logic.contains("R")) "0.0" else "0"

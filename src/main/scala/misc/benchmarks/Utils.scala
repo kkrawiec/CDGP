@@ -13,7 +13,7 @@ object Utils {
 
   def generateTestU(numVars: Int, fun: Seq[Double] => Double,
                     minDouble: Double, maxDouble: Double): (Seq[Double], Double) = {
-    def rngDouble() = minDouble + rng.nextDouble() * (maxDouble+1-minDouble)
+    def rngDouble() = minDouble + rng.nextDouble() * (maxDouble+1-minDouble)  // why +1 though...
     val in = 0.until(numVars).map{ i => BigDecimal(rngDouble()).setScale(5, BigDecimal.RoundingMode.HALF_UP).toDouble }
     val out = fun(in)
     (in, out)
@@ -67,7 +67,7 @@ object NoiseAdder {
     */
   def noiseNormalPercent(tests: Seq[(Seq[Double], Double)], percentY: Double, percentX: Double = 0.0)
                         (implicit rng: TRandom): Seq[(Seq[Double], Double)] = {
-    def newValue(v: Double, p: Double): Double = v + rng.nextGaussian() * p * v
+    def newValue(v: Double, p: Double): Double = v * (1.0 + rng.nextGaussian() * p)  // effectively a Gaussian distribution with mean 0 and std p
     tests.map{ case (inputs, output) =>
         val newInputs = if (percentX == 0.0) inputs else inputs.map(newValue(_, percentX))
         val newOutput = newValue(output, percentY)

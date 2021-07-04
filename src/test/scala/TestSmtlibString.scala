@@ -31,7 +31,7 @@ final class TestSmtlibString {
     println(s"Counterexample: $model")
 
     val op2 = """(str.substr name 0 (str.indexof name " " 0))"""
-    val query2 = templateVerification(op2)
+    val query2 = templateVerification(op2, Seq())
     val (dec2, model2) = solver.executeQuery(query2)
     assertEquals("unsat", dec2)
   }
@@ -109,7 +109,7 @@ final class TestSmtlibString {
       println(s"Problem: $path")
       val problem = LoadSygusBenchmark(path)
       val templateVerification = new TemplateVerification(SygusProblemData(problem))
-      val query = templateVerification(correct)
+      val query = templateVerification(correct, Seq())
       // println(s"Query:\n$query")
       val start = System.currentTimeMillis()
       val (dec, model) = solver.executeQuery(query)
