@@ -182,7 +182,7 @@ abstract class EvalCDGP[E, EVecEl](state: StateCDGP,
   extends EvalFunction[Op, E](state) {
 
   val maxNewTestsPerIter: Int = opt('maxNewTestsPerIter, Int.MaxValue, (x: Int) => x >= 0)
-  val testsRatio: Double = opt('testsRatio, 1.0, (x: Double) => x >= 0.0 && x <= 1.0)
+  val testsRatio: Double = opt('testsRatio, 1.0, (x: Double) => x >= 0.0)
   val testsMaxDiff: Option[Int] = opt.getOptionInt("testsMaxDiff")
   val partialConstraintsInFitness: Boolean = evaluatorSpecial.partialConstraintsInFitness
   val globalConstraintInFitness: Boolean = evaluatorSpecial.globalConstraintInFitness
@@ -297,7 +297,8 @@ abstract class EvalCDGPDiscrete[E](state: StateCDGP,
     if (testsMaxDiff.isDefined)
       evalForRatio.size - numPassed <= testsMaxDiff.get
     else
-      evalForRatio.isEmpty || (numPassed.toDouble / evalForRatio.size) >= testsRatio
+      if (testsRatio > 1.0) false
+      else evalForRatio.isEmpty || (numPassed.toDouble / evalForRatio.size) >= testsRatio
   }
 
 
@@ -578,7 +579,7 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP,
 
 
   /**
-    * Checks, if verification should be conducted. The ration of passed incomplete tests
+    * Checks, if verification should be conducted. The ratio of passed incomplete tests
     * is computed and then compared to testsRatio parameter. If it is higher, then a
     * verification is conducted.
     * @param evalTests Evaluations on all tests (complete, incomplete, special).
@@ -587,8 +588,10 @@ abstract class EvalCDGPContinuous[E](state: StateCDGP,
     val (passed, total) = getNumPassedAndTotal(evalTests, tests)
     if (testsMaxDiff.isDefined)
       total - passed <= testsMaxDiff.get
-    else
-      total == 0 || (passed.toDouble / total) >= testsRatio
+    else {
+      if (testsRatio > 1.0) false
+      else total == 0 || (passed.toDouble / total) >= testsRatio
+    }
   }
 
   /** Returns a number of passed tests and the total number of tests. **/
