@@ -136,7 +136,7 @@ class TemplateVerification(sygusData: SygusProblemData,
       if (constraints.isDefined)
         SMTLIBFormatter.getCodeForMergedConstraints(constraints.get)
       else if (includeTestConstr)
-        // Rather not useful, because counterexamples cannot be find for test cases (no free vars in function call)
+        // Rather not useful, because counterexamples cannot be found for test cases (no free vars in function call)
         // There are, however, some cases in which test can constrain the space of correct programs.
         SMTLIBFormatter.getCodeForMergedConstraints(sygusData.allConstr)
       else
